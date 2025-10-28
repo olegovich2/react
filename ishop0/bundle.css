@@ -1,4 +1,4 @@
-﻿.Warning
+.Shop
 {
   border: double blue 2px;
   background-color: lightgrey;
@@ -6,8 +6,14 @@
   padding: 50px;
 }
 
-.Warning_Text
+.Shop_Text
 {
   color: red;
   font-size: 20px;
 }
+
+.storeAddress{
+  color: black;
+  font-size: 20px;
+}
+/*# sourceMappingURL=bundle.css.map*/

@@ -1,7 +1,7 @@
 {
-  "name": "simpledemo",
+  "name": "ishop0",
   "version": "1.0.0",
-  "description": "простое демо",
+  "description": "Написать React-компонент Магазин (Shop), отображающий информацию об интернет-магазине. Компонент должен получать название и адрес магазина через props.",
   "main": "App.js",
   "scripts": {
     "build": ".\\node_modules\\.bin\\webpack",
