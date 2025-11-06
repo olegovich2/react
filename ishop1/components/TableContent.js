@@ -11,7 +11,7 @@ class TableContent extends React.Component {
           <td>{this.props.price}</td>
           <td>{this.props.residual}</td>
           <td>
-            <ProductLink url={this.props.url} />
+            <ProductLink url={this.props.url} title={this.props.name} />
           </td>
         </tr>
       );
