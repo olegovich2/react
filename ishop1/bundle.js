@@ -436,9 +436,9 @@ var _reactDom = __webpack_require__(10);
 
 var _reactDom2 = _interopRequireDefault(_reactDom);
 
-var _VotesBlock = __webpack_require__(18);
+var _TableBlock = __webpack_require__(18);
 
-var _VotesBlock2 = _interopRequireDefault(_VotesBlock);
+var _TableBlock2 = _interopRequireDefault(_TableBlock);
 
 var _answers = __webpack_require__(30);
 
@@ -446,12 +446,9 @@ var _answers2 = _interopRequireDefault(_answers);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var questionText = 'Как вы относитесь к программированию?';
+var captionTable = "Содержимое онлайн-магазина";
 
-_reactDom2.default.render(_react2.default.createElement(_VotesBlock2.default, {
-  question: questionText,
-  answers: _answers2.default
-}), document.getElementById('container'));
+_reactDom2.default.render(_react2.default.createElement(_TableBlock2.default, { caption: captionTable, answers: _answers2.default }), document.getElementById("container"));
 
 /***/ }),
 /* 8 */
@@ -30530,13 +30527,13 @@ var _react2 = _interopRequireDefault(_react);
 
 __webpack_require__(19);
 
-var _VotesQuestion = __webpack_require__(20);
+var _ShopCaption = __webpack_require__(20);
 
-var _VotesQuestion2 = _interopRequireDefault(_VotesQuestion);
+var _ShopCaption2 = _interopRequireDefault(_ShopCaption);
 
-var _VotesAnswer = __webpack_require__(28);
+var _TableContent = __webpack_require__(27);
 
-var _VotesAnswer2 = _interopRequireDefault(_VotesAnswer);
+var _TableContent2 = _interopRequireDefault(_TableContent);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -30546,40 +30543,41 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var VotesBlock = function (_React$Component) {
-  _inherits(VotesBlock, _React$Component);
+var TableBlock = function (_React$Component) {
+  _inherits(TableBlock, _React$Component);
 
-  function VotesBlock() {
-    _classCallCheck(this, VotesBlock);
+  function TableBlock() {
+    _classCallCheck(this, TableBlock);
 
-    return _possibleConstructorReturn(this, (VotesBlock.__proto__ || Object.getPrototypeOf(VotesBlock)).apply(this, arguments));
+    return _possibleConstructorReturn(this, (TableBlock.__proto__ || Object.getPrototypeOf(TableBlock)).apply(this, arguments));
   }
 
-  _createClass(VotesBlock, [{
-    key: 'render',
+  _createClass(TableBlock, [{
+    key: "render",
     value: function render() {
-
       var answersCode = this.props.answers.map(function (v) {
-        return _react2.default.createElement(_VotesAnswer2.default, { key: v.code, text: v.text, count: v.count, code: v.code });
+        return _react2.default.createElement(_TableContent2.default, {
+          isLink: v.isLink,
+          name: v.name,
+          price: v.price,
+          residual: v.residual,
+          url: v.url
+        });
       });
 
       return _react2.default.createElement(
-        'div',
-        { className: 'VotesBlock' },
-        _react2.default.createElement(_VotesQuestion2.default, { question: this.props.question }),
-        _react2.default.createElement(
-          'div',
-          { className: 'Answers' },
-          answersCode
-        )
+        "table",
+        null,
+        _react2.default.createElement(_ShopCaption2.default, { caption: this.props.caption }),
+        answersCode
       );
     }
   }]);
 
-  return VotesBlock;
+  return TableBlock;
 }(_react2.default.Component);
 
-exports.default = VotesBlock;
+exports.default = TableBlock;
 
 /***/ }),
 /* 19 */
@@ -30608,8 +30606,6 @@ var _propTypes = __webpack_require__(21);
 
 var _propTypes2 = _interopRequireDefault(_propTypes);
 
-__webpack_require__(27);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -30618,33 +30614,33 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var VotesQuestion = function (_React$Component) {
-  _inherits(VotesQuestion, _React$Component);
+var ShopCaption = function (_React$Component) {
+  _inherits(ShopCaption, _React$Component);
 
-  function VotesQuestion() {
-    _classCallCheck(this, VotesQuestion);
+  function ShopCaption() {
+    _classCallCheck(this, ShopCaption);
 
-    return _possibleConstructorReturn(this, (VotesQuestion.__proto__ || Object.getPrototypeOf(VotesQuestion)).apply(this, arguments));
+    return _possibleConstructorReturn(this, (ShopCaption.__proto__ || Object.getPrototypeOf(ShopCaption)).apply(this, arguments));
   }
 
-  _createClass(VotesQuestion, [{
-    key: 'render',
+  _createClass(ShopCaption, [{
+    key: "render",
     value: function render() {
       return _react2.default.createElement(
-        'div',
-        { className: 'VotesQuestion' },
-        this.props.question
+        "caption",
+        null,
+        this.props.caption
       );
     }
   }]);
 
-  return VotesQuestion;
+  return ShopCaption;
 }(_react2.default.Component);
 
-VotesQuestion.propTypes = {
-  question: _propTypes2.default.string.isRequired
+ShopCaption.propTypes = {
+  caption: _propTypes2.default.string.isRequired
 };
-exports.default = VotesQuestion;
+exports.default = ShopCaption;
 
 /***/ }),
 /* 21 */
@@ -31686,9 +31682,107 @@ module.exports = function() {
 
 /***/ }),
 /* 27 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-// removed by extract-text-webpack-plugin
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _react = __webpack_require__(1);
+
+var _react2 = _interopRequireDefault(_react);
+
+var _ProductLink = __webpack_require__(28);
+
+var _ProductLink2 = _interopRequireDefault(_ProductLink);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var TableContent = function (_React$Component) {
+  _inherits(TableContent, _React$Component);
+
+  function TableContent() {
+    _classCallCheck(this, TableContent);
+
+    return _possibleConstructorReturn(this, (TableContent.__proto__ || Object.getPrototypeOf(TableContent)).apply(this, arguments));
+  }
+
+  _createClass(TableContent, [{
+    key: "render",
+    value: function render() {
+      if (this.props.isLink) {
+        return _react2.default.createElement(
+          "tr",
+          null,
+          _react2.default.createElement(
+            "td",
+            null,
+            this.props.name
+          ),
+          _react2.default.createElement(
+            "td",
+            null,
+            this.props.price
+          ),
+          _react2.default.createElement(
+            "td",
+            null,
+            this.props.residual
+          ),
+          _react2.default.createElement(
+            "td",
+            null,
+            _react2.default.createElement(_ProductLink2.default, { url: this.props.url })
+          )
+        );
+      } else {
+        return _react2.default.createElement(
+          "thead",
+          null,
+          _react2.default.createElement(
+            "tr",
+            null,
+            _react2.default.createElement(
+              "td",
+              null,
+              this.props.name
+            ),
+            _react2.default.createElement(
+              "td",
+              null,
+              this.props.price
+            ),
+            _react2.default.createElement(
+              "td",
+              null,
+              this.props.residual
+            ),
+            _react2.default.createElement(
+              "td",
+              null,
+              this.props.url
+            )
+          )
+        );
+      }
+    }
+  }]);
+
+  return TableContent;
+}(_react2.default.Component);
+
+exports.default = TableContent;
 
 /***/ }),
 /* 28 */
@@ -31717,40 +31811,26 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var VotesAnswer = function (_React$Component) {
-  _inherits(VotesAnswer, _React$Component);
+var ProductLink = function (_React$Component) {
+  _inherits(ProductLink, _React$Component);
 
-  function VotesAnswer() {
-    _classCallCheck(this, VotesAnswer);
+  function ProductLink() {
+    _classCallCheck(this, ProductLink);
 
-    return _possibleConstructorReturn(this, (VotesAnswer.__proto__ || Object.getPrototypeOf(VotesAnswer)).apply(this, arguments));
+    return _possibleConstructorReturn(this, (ProductLink.__proto__ || Object.getPrototypeOf(ProductLink)).apply(this, arguments));
   }
 
-  _createClass(VotesAnswer, [{
-    key: 'render',
+  _createClass(ProductLink, [{
+    key: "render",
     value: function render() {
-
-      return _react2.default.createElement(
-        'div',
-        { className: 'VotesBlockAnswer' },
-        _react2.default.createElement(
-          'span',
-          { className: 'Count' },
-          this.props.count
-        ),
-        _react2.default.createElement(
-          'span',
-          { className: 'Text' },
-          this.props.text
-        )
-      );
+      return _react2.default.createElement("img", { "class": "image", src: this.props.url });
     }
   }]);
 
-  return VotesAnswer;
+  return ProductLink;
 }(_react2.default.Component);
 
-exports.default = VotesAnswer;
+exports.default = ProductLink;
 
 /***/ }),
 /* 29 */
@@ -31762,7 +31842,7 @@ exports.default = VotesAnswer;
 /* 30 */
 /***/ (function(module, exports) {
 
-module.exports = [{"text":"хорошо","code":1,"count":200},{"text":"не получается","code":2,"count":100},{"text":"избегаю","code":3,"count":300},{"text":"другой ответ","code":4,"count":50,"freeanswer":true}]
+module.exports = [{"isLink":false,"name":"Название товара","price":"Цена товара","residual":"Остаток на складе","url":"Изображение продукта"},{"isLink":true,"name":"Яблоко","price":"3р.","residual":"10кг","url":"https://pngicon.ru/file/uploads/apple.png"},{"isLink":true,"name":"Груша","price":"3,5р.","residual":"16кг","url":"https://cdn.ime.by/UserFiles/images/catalog/Goods/6491/00086491/norm/00086491.n_1.png?s=500x500"},{"isLink":true,"name":"Виноград","price":"6р.","residual":"20кг","url":"https://foodcity.ru/storage/products/October2018/dSTg1Wk44PJACMVYH1Z5.jpg"},{"isLink":true,"name":"Персик","price":"10р.","residual":"3кг","url":"data:image/jpeg;base64,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"}]
 
 /***/ })
 /******/ ]);
