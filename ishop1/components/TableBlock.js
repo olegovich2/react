@@ -3,12 +3,13 @@
 import "./TableBlock.css";
 
 import ShopCaption from "./ShopCaption";
-import TableContent from "./TableContent";
+import TheadContent from "./TheadContent";
+import TbodyContent from "./TbodyContent";
 
 class TableBlock extends React.Component {
   render() {
     const answersCode = this.props.answers.map((v) => (
-      <TableContent
+      <TheadContent
         isLink={v.isLink}
         key={v.code}
         name={v.name}
@@ -17,11 +18,21 @@ class TableBlock extends React.Component {
         url={v.url}
       />
     ));
-
+    const answersCodeForTbody = this.props.answers.map((v) => (
+      <TbodyContent
+        isLink={v.isLink}
+        key={v.code}
+        name={v.name}
+        price={v.price}
+        residual={v.residual}
+        url={v.url}
+      />
+    ));
     return (
       <table>
         <ShopCaption caption={this.props.caption} />
-        {answersCode}
+        <thead>{answersCode}</thead>
+        <tbody>{answersCodeForTbody}</tbody>
       </table>
     );
   }

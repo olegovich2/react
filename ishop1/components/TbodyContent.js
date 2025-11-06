@@ -2,10 +2,8 @@ import React from "react";
 
 import ProductLink from "./ProductLink";
 
-class TBody extends React.Component {
+class TbodyContent extends React.Component {
   render() {
-    console.log("tbody", this.props.isLink);
-
     if (this.props.isLink) {
       return (
         <tr>
@@ -17,8 +15,8 @@ class TBody extends React.Component {
           </td>
         </tr>
       );
-    }
+    } else return null;
   }
 }
 
-export default TBody;
+export default TbodyContent;
