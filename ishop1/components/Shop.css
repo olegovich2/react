@@ -1,4 +1,4 @@
-﻿table, table caption, table td {
+﻿table, table caption, table td, table th {
   border: 1px solid black;
   border-collapse: collapse;
 }
