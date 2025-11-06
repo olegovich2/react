@@ -1,15 +1,15 @@
 ﻿import React from "react";
 
-import "./TableBlock.css";
+import "./Shop.css";
 
 import ShopCaption from "./ShopCaption";
-import TheadContent from "./TheadContent";
-import TbodyContent from "./TbodyContent";
+import TitleColumns from "./TitleColumns";
+import Product from "./Product";
 
-class TableBlock extends React.Component {
+class Shop extends React.Component {
   render() {
     const answersCode = this.props.answers.map((v) => (
-      <TheadContent
+      <TitleColumns
         isLink={v.isLink}
         key={v.code}
         name={v.name}
@@ -19,7 +19,7 @@ class TableBlock extends React.Component {
       />
     ));
     const answersCodeForTbody = this.props.answers.map((v) => (
-      <TbodyContent
+      <Product
         isLink={v.isLink}
         key={v.code}
         name={v.name}
@@ -38,4 +38,4 @@ class TableBlock extends React.Component {
   }
 }
 
-export default TableBlock;
+export default Shop;

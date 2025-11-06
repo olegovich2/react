@@ -1,13 +1,13 @@
 ﻿import React from "react";
 import ReactDOM from "react-dom";
 
-import TableBlock from "./components/TableBlock";
+import Shop from "./components/Shop";
 
 const captionTable = "Содержимое онлайн-магазина";
 
 import answersArr from "./answers.json";
 
 ReactDOM.render(
-  <TableBlock caption={captionTable} answers={answersArr} />,
+  <Shop caption={captionTable} answers={answersArr} />,
   document.getElementById("container")
 );

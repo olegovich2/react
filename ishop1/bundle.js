@@ -436,9 +436,9 @@ var _reactDom = __webpack_require__(10);
 
 var _reactDom2 = _interopRequireDefault(_reactDom);
 
-var _TableBlock = __webpack_require__(18);
+var _Shop = __webpack_require__(18);
 
-var _TableBlock2 = _interopRequireDefault(_TableBlock);
+var _Shop2 = _interopRequireDefault(_Shop);
 
 var _answers = __webpack_require__(31);
 
@@ -448,7 +448,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var captionTable = "Содержимое онлайн-магазина";
 
-_reactDom2.default.render(_react2.default.createElement(_TableBlock2.default, { caption: captionTable, answers: _answers2.default }), document.getElementById("container"));
+_reactDom2.default.render(_react2.default.createElement(_Shop2.default, { caption: captionTable, answers: _answers2.default }), document.getElementById("container"));
 
 /***/ }),
 /* 8 */
@@ -30531,13 +30531,13 @@ var _ShopCaption = __webpack_require__(20);
 
 var _ShopCaption2 = _interopRequireDefault(_ShopCaption);
 
-var _TableContent = __webpack_require__(27);
+var _TitleColumns = __webpack_require__(27);
 
-var _TableContent2 = _interopRequireDefault(_TableContent);
+var _TitleColumns2 = _interopRequireDefault(_TitleColumns);
 
-var _Tbody = __webpack_require__(28);
+var _Product = __webpack_require__(28);
 
-var _Tbody2 = _interopRequireDefault(_Tbody);
+var _Product2 = _interopRequireDefault(_Product);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -30547,20 +30547,20 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var TableBlock = function (_React$Component) {
-  _inherits(TableBlock, _React$Component);
+var Shop = function (_React$Component) {
+  _inherits(Shop, _React$Component);
 
-  function TableBlock() {
-    _classCallCheck(this, TableBlock);
+  function Shop() {
+    _classCallCheck(this, Shop);
 
-    return _possibleConstructorReturn(this, (TableBlock.__proto__ || Object.getPrototypeOf(TableBlock)).apply(this, arguments));
+    return _possibleConstructorReturn(this, (Shop.__proto__ || Object.getPrototypeOf(Shop)).apply(this, arguments));
   }
 
-  _createClass(TableBlock, [{
+  _createClass(Shop, [{
     key: "render",
     value: function render() {
-      var answersCodeForThead = this.props.answers.map(function (v) {
-        return _react2.default.createElement(_TableContent2.default, {
+      var answersCode = this.props.answers.map(function (v) {
+        return _react2.default.createElement(_TitleColumns2.default, {
           isLink: v.isLink,
           key: v.code,
           name: v.name,
@@ -30569,10 +30569,8 @@ var TableBlock = function (_React$Component) {
           url: v.url
         });
       });
-      console.log(answersCodeForThead);
-
       var answersCodeForTbody = this.props.answers.map(function (v) {
-        return _react2.default.createElement(_Tbody2.default, {
+        return _react2.default.createElement(_Product2.default, {
           isLink: v.isLink,
           key: v.code,
           name: v.name,
@@ -30581,21 +30579,28 @@ var TableBlock = function (_React$Component) {
           url: v.url
         });
       });
-      console.log(answersCodeForTbody);
       return _react2.default.createElement(
         "table",
         null,
         _react2.default.createElement(_ShopCaption2.default, { caption: this.props.caption }),
-        answersCodeForThead,
-        answersCodeForTbody
+        _react2.default.createElement(
+          "thead",
+          null,
+          answersCode
+        ),
+        _react2.default.createElement(
+          "tbody",
+          null,
+          answersCodeForTbody
+        )
       );
     }
   }]);
 
-  return TableBlock;
+  return Shop;
 }(_react2.default.Component);
 
-exports.default = TableBlock;
+exports.default = Shop;
 
 /***/ }),
 /* 19 */
@@ -31723,21 +31728,19 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var TableContent = function (_React$Component) {
-  _inherits(TableContent, _React$Component);
+var TitleColumns = function (_React$Component) {
+  _inherits(TitleColumns, _React$Component);
 
-  function TableContent() {
-    _classCallCheck(this, TableContent);
+  function TitleColumns() {
+    _classCallCheck(this, TitleColumns);
 
-    return _possibleConstructorReturn(this, (TableContent.__proto__ || Object.getPrototypeOf(TableContent)).apply(this, arguments));
+    return _possibleConstructorReturn(this, (TitleColumns.__proto__ || Object.getPrototypeOf(TitleColumns)).apply(this, arguments));
   }
 
-  _createClass(TableContent, [{
+  _createClass(TitleColumns, [{
     key: "render",
     value: function render() {
-      console.log(this.props.isLink);
-
-      if (this.props.isLink === false) {
+      if (!this.props.isLink) {
         return _react2.default.createElement(
           "tr",
           null,
@@ -31762,14 +31765,14 @@ var TableContent = function (_React$Component) {
             this.props.url
           )
         );
-      }
+      } else return null;
     }
   }]);
 
-  return TableContent;
+  return TitleColumns;
 }(_react2.default.Component);
 
-exports.default = TableContent;
+exports.default = TitleColumns;
 
 /***/ }),
 /* 28 */
@@ -31800,20 +31803,18 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var TBody = function (_React$Component) {
-  _inherits(TBody, _React$Component);
+var Product = function (_React$Component) {
+  _inherits(Product, _React$Component);
 
-  function TBody() {
-    _classCallCheck(this, TBody);
+  function Product() {
+    _classCallCheck(this, Product);
 
-    return _possibleConstructorReturn(this, (TBody.__proto__ || Object.getPrototypeOf(TBody)).apply(this, arguments));
+    return _possibleConstructorReturn(this, (Product.__proto__ || Object.getPrototypeOf(Product)).apply(this, arguments));
   }
 
-  _createClass(TBody, [{
+  _createClass(Product, [{
     key: "render",
     value: function render() {
-      console.log("tbody", this.props.isLink);
-
       if (this.props.isLink) {
         return _react2.default.createElement(
           "tr",
@@ -31839,14 +31840,14 @@ var TBody = function (_React$Component) {
             _react2.default.createElement(_ProductLink2.default, { url: this.props.url, title: this.props.name })
           )
         );
-      }
+      } else return null;
     }
   }]);
 
-  return TBody;
+  return Product;
 }(_react2.default.Component);
 
-exports.default = TBody;
+exports.default = Product;
 
 /***/ }),
 /* 29 */

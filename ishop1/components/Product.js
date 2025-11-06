@@ -2,7 +2,7 @@ import React from "react";
 
 import ProductLink from "./ProductLink";
 
-class TbodyContent extends React.Component {
+class Product extends React.Component {
   render() {
     if (this.props.isLink) {
       return (
@@ -19,4 +19,4 @@ class TbodyContent extends React.Component {
   }
 }
 
-export default TbodyContent;
+export default Product;

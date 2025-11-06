@@ -1,6 +1,6 @@
 ﻿import React from "react";
 
-class TheadContent extends React.Component {
+class TitleColumns extends React.Component {
   render() {
     if (!this.props.isLink) {
       return (
@@ -15,4 +15,4 @@ class TheadContent extends React.Component {
   }
 }
 
-export default TheadContent;
+export default TitleColumns;
