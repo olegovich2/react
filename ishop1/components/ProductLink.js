@@ -6,7 +6,7 @@ class ProductLink extends React.Component {
   render() {
     return (
       <img
-        class="image"
+        className="image"
         src={this.props.url}
         title={this.props.title}
         alt={this.props.title}
