@@ -10,6 +10,7 @@ class TableBlock extends React.Component {
     const answersCode = this.props.answers.map((v) => (
       <TableContent
         isLink={v.isLink}
+        key={v.code}
         name={v.name}
         price={v.price}
         residual={v.residual}
