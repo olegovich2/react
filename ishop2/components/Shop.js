@@ -18,10 +18,15 @@ class Shop extends React.Component {
   };
 
   cbDeleteProduct = (code) => {
-    const newListProducts = this.state.listProducts.filter((item) => {
-      return item.code !== code;
-    });
-    return this.setState({ listProducts: newListProducts });
+    const agree = confirm("Вы действительно хотите удалить товар?");
+    if (agree) {
+      const newListProducts = this.state.listProducts.filter((item) => {
+        return item.code !== code;
+      });
+      return this.setState({ listProducts: newListProducts });
+    } else {
+      return;
+    }
   };
 
   render() {
