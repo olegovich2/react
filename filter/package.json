@@ -1,0 +1,28 @@
+{
+  "name": "filter",
+  "version": "1.0.0",
+  "description": "Компоненту в props передаётся массив строк. Он отображает их в виде вертикального прокручивающегося списка. Выше списка отображается поле текстового ввода, птичка (checkbox) и кнопка сброса. При вводе текста в поле в списке остаются только те строки, которые содержат введённый текст. При установке птички строки отображаются в алфавитном порядке, при снятии — в том же порядке, в каком они расположены в массиве. При нажатии кнопки 'сброс' состояние птички и текстового поля сбрасывается, список приходит в первоначальное состояние. В качестве списка слов можно использовать следующие: ['california', 'everything', 'aboveboard', 'washington', 'basketball', 'weathering', 'characters', 'literature', 'contraband', 'appreciate']",
+  "main": "App.js",
+  "scripts": {
+    "build": ".\\node_modules\\.bin\\webpack",
+    "livebuild": ".\\node_modules\\.bin\\webpack-dev-server --progress --colors"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.2",
+    "babel-preset-env": "^1.6.1",
+    "babel-preset-react": "^6.24.1",
+    "babel-preset-stage-0": "^6.24.1",
+    "css-loader": "^0.28.7",
+    "extract-text-webpack-plugin": "^3.0.2",
+    "webpack": "^3.8.1",
+    "webpack-dev-server": "^2.9.4"
+  },
+  "dependencies": {
+    "prop-types": "^15.8.1",
+    "react": "^17.0.0",
+    "react-dom": "^17.0.0"
+  }
+}
