@@ -24,8 +24,6 @@ class Shop extends React.Component {
         return item.code !== code;
       });
       return this.setState({ listProducts: newListProducts });
-    } else {
-      return;
     }
   };
 
