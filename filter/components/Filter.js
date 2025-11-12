@@ -23,57 +23,65 @@ class Filter extends React.Component {
     };
 
     const sortAndFilter = (eo) => {
+      let isChecked = this.state.isChecked;
+      let isFilter = this.state.isFilter;
+      let letter = this.state.letter;
       switch (eo.target.name) {
         case "checkbox":
-          this.state.isChecked = eo.target.checked;
+          isChecked = eo.target.checked;
           break;
         case "inputForFilter":
           if (eo.target.value.length === 0) {
-            this.state.letter = eo.target.value;
-            this.state.isFilter = false;
+            letter = eo.target.value;
+            isFilter = false;
           } else if (eo.target.value.length > 0) {
-            this.state.letter = eo.target.value;
-            this.state.isFilter = true;
+            letter = eo.target.value;
+            isFilter = true;
           }
           break;
       }
-
-      const stateCode =
-        (this.state.isChecked ? 1 : 0) + (this.state.isFilter ? 2 : 0);
+      const stateCode = (isChecked ? 1 : 0) + (isFilter ? 2 : 0);
 
       switch (stateCode) {
         case 1: // isChecked: true, isFilter: false
           const sortList = [...this.state.originList].sort();
-          this.setState({ sortList: sortList });
+          this.setState({
+            sortList: sortList,
+            isChecked: isChecked,
+            isFilter: isFilter,
+            letter: letter,
+          });
           break;
         case 2: // isChecked: false, isFilter: true
           const filterList = [...this.state.originList].filter((element) =>
-            element.includes(this.state.letter)
+            element.includes(letter)
           );
-          this.setState({ filterList: filterList });
+          this.setState({
+            filterList: filterList,
+            isChecked: isChecked,
+            isFilter: isFilter,
+            letter: letter,
+          });
           break;
         case 3: // isChecked: true, isFilter: true
-          if (this.state.sortList.length === 0) {
-            const originCopy = [...this.props.listWords];
-            const mixList = [...this.state.filterList].sort();
-            this.setState({
-              mixList: mixList,
-              filterList: originCopy.filter((element) =>
-                element.includes(this.state.letter)
-              ),
-            });
-          } else {
-            const originCopy = [...this.props.listWords];
-            const mixList = [...this.state.sortList].filter((element) =>
-              element.includes(this.state.letter)
-            );
-            this.setState({ mixList: mixList, sortList: originCopy.sort() });
-          }
+          const originCopy = [...this.props.listWords];
+          const mixList = originCopy
+            .sort()
+            .filter((element) => element.includes(letter));
+          this.setState({
+            mixList: mixList,
+            isChecked: isChecked,
+            isFilter: isFilter,
+            letter: letter,
+          });
           break;
         case 0: // isChecked: false, isFilter: false
         default:
           this.setState({
             originList: this.props.listWords,
+            isChecked: isChecked,
+            isFilter: isFilter,
+            letter: letter,
           });
           break;
       }
