@@ -14,3 +14,24 @@
 .deleteButton:hover {
   background-color: #45a049;
 }
+
+.editButton {
+   background-color: #4fa793; 
+  border: none;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.editButton:hover {
+  background-color: #58a18d;
+}
+
+.editButton:disabled, .deleteButton:disabled {
+  background-color: #8d8d8d;
+}

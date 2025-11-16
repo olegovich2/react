@@ -440,7 +440,7 @@ var _Shop = __webpack_require__(18);
 
 var _Shop2 = _interopRequireDefault(_Shop);
 
-var _answers = __webpack_require__(31);
+var _answers = __webpack_require__(32);
 
 var _answers2 = _interopRequireDefault(_answers);
 
@@ -30519,6 +30519,8 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _react = __webpack_require__(1);
@@ -30535,7 +30537,13 @@ var _Product = __webpack_require__(27);
 
 var _Product2 = _interopRequireDefault(_Product);
 
+var _ProductCard = __webpack_require__(31);
+
+var _ProductCard2 = _interopRequireDefault(_ProductCard);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -30559,17 +30567,113 @@ var Shop = function (_React$Component) {
 
     return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = Shop.__proto__ || Object.getPrototypeOf(Shop)).call.apply(_ref, [this].concat(args))), _this), _this.state = {
       selectedProductCode: null,
-      listProducts: _this.props.listProducts
+      listProducts: _this.props.listProducts,
+      disabled: false,
+      editMode: false, // 'edit', 'add', null
+      editedProduct: null,
+      isFormChanged: false
     }, _this.selectProduct = function (code) {
-      if (_this.state.selectedProductCode === code) return _this.setState({ selectedProductCode: null });else return _this.setState({ selectedProductCode: code });
+      if (_this.state.isFormChanged && _this.state.editMode) {
+        return; // Игнорируем клик если есть несохраненные изменения
+      }
+
+      if (_this.state.selectedProductCode === code) {
+        _this.setState({
+          selectedProductCode: null,
+          editMode: null,
+          editedProduct: null
+        });
+      } else {
+        var product = _this.state.listProducts.find(function (p) {
+          return p.code === code;
+        });
+        _this.setState({
+          selectedProductCode: code,
+          editMode: null,
+          editedProduct: product
+        });
+      }
+    }, _this.cbEditButton = function (code) {
+      if (_this.state.isFormChanged && _this.state.editMode) {
+        return; // Игнорируем если есть несохраненные изменения
+      }
+
+      var product = _this.state.listProducts.find(function (p) {
+        return p.code === code;
+      });
+      _this.setState({
+        selectedProductCode: code,
+        editMode: "edit",
+        editedProduct: _extends({}, product),
+        disabled: true,
+        isFormChanged: false
+      });
     }, _this.cbDeleteProduct = function (code) {
       var agree = confirm("Вы действительно хотите удалить товар?");
-      if (agree) {
+      if (agree === true) {
         var newListProducts = _this.state.listProducts.filter(function (item) {
           return item.code !== code;
         });
-        return _this.setState({ listProducts: newListProducts });
+        _this.setState({
+          disabled: false,
+          listProducts: newListProducts,
+          selectedProductCode: null,
+          editMode: null,
+          editedProduct: null
+        });
       }
+    }, _this.cbAddNewProduct = function () {
+      _this.setState({
+        selectedProductCode: null,
+        editMode: "add",
+        editedProduct: {
+          code: Date.now(), // временный код
+          name: "",
+          price: "",
+          residual: "",
+          url: ""
+        },
+        disabled: true,
+        isFormChanged: false
+      });
+    }, _this.cbSaveProduct = function (updatedProduct) {
+      var editMode = _this.state.editMode;
+
+
+      if (editMode === "edit") {
+        // Обновляем существующий товар
+        var newListProducts = _this.state.listProducts.map(function (product) {
+          return product.code === updatedProduct.code ? updatedProduct : product;
+        });
+        _this.setState({
+          listProducts: newListProducts,
+          editMode: null,
+          disabled: false,
+          editedProduct: null,
+          isFormChanged: false
+        });
+      } else if (editMode === "add") {
+        // Добавляем новый товар
+        var newProduct = _extends({}, updatedProduct, {
+          code: Date.now() // генерируем постоянный код
+        });
+        _this.setState({
+          listProducts: [].concat(_toConsumableArray(_this.state.listProducts), [newProduct]),
+          editMode: null,
+          disabled: false,
+          editedProduct: null,
+          isFormChanged: false
+        });
+      }
+    }, _this.cbCancelEdit = function () {
+      _this.setState({
+        editMode: null,
+        disabled: false,
+        editedProduct: null,
+        isFormChanged: false
+      });
+    }, _this.cbFormChange = function (isChanged) {
+      _this.setState({ isFormChanged: isChanged });
     }, _temp), _possibleConstructorReturn(_this, _ret);
   }
 
@@ -30578,62 +30682,88 @@ var Shop = function (_React$Component) {
     value: function render() {
       var _this2 = this;
 
-      var answersCodeForProduct = this.state.listProducts.map(function (v) {
+      var productsCode = this.state.listProducts.map(function (v) {
         return _react2.default.createElement(_Product2.default, {
           data: v,
-          isSelected: v.code === _this2.state.selectedProductCode,
+          isSelected: v.code === _this2.state.selectedProductCode && !_this2.state.editMode,
           cbSelectProduct: _this2.selectProduct,
           cbDeleteProduct: _this2.cbDeleteProduct,
+          cbEditButton: _this2.cbEditButton,
           key: v.code,
           name: v.name,
           price: v.price,
           residual: v.residual,
-          url: v.url
+          url: v.url,
+          dataId: v.code,
+          disabled: _this2.state.disabled,
+          editMode: _this2.state.editMode
         });
       });
 
       return _react2.default.createElement(
-        "table",
-        null,
-        _react2.default.createElement(_ShopCaption2.default, { caption: this.props.caption }),
+        "div",
+        { className: "shop-container" },
         _react2.default.createElement(
-          "thead",
-          null,
+          "table",
+          { className: "products-table" },
+          _react2.default.createElement(_ShopCaption2.default, { caption: this.props.caption }),
           _react2.default.createElement(
-            "tr",
+            "thead",
             null,
             _react2.default.createElement(
-              "th",
+              "tr",
               null,
-              "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u043E\u0432\u0430\u0440\u0430"
-            ),
-            _react2.default.createElement(
-              "th",
-              null,
-              "\u0426\u0435\u043D\u0430 \u0442\u043E\u0432\u0430\u0440\u0430"
-            ),
-            _react2.default.createElement(
-              "th",
-              null,
-              "\u041E\u0441\u0442\u0430\u0442\u043E\u043A \u043D\u0430 \u0441\u043A\u043B\u0430\u0434\u0435"
-            ),
-            _react2.default.createElement(
-              "th",
-              null,
-              "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435"
-            ),
-            _react2.default.createElement(
-              "th",
-              null,
-              "\u0424\u0443\u043D\u043A\u0446\u0438\u043E\u043D\u0430\u043B"
+              _react2.default.createElement(
+                "th",
+                null,
+                "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u043E\u0432\u0430\u0440\u0430"
+              ),
+              _react2.default.createElement(
+                "th",
+                null,
+                "\u0426\u0435\u043D\u0430 \u0442\u043E\u0432\u0430\u0440\u0430"
+              ),
+              _react2.default.createElement(
+                "th",
+                null,
+                "\u041E\u0441\u0442\u0430\u0442\u043E\u043A \u043D\u0430 \u0441\u043A\u043B\u0430\u0434\u0435"
+              ),
+              _react2.default.createElement(
+                "th",
+                null,
+                "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435"
+              ),
+              _react2.default.createElement(
+                "th",
+                { colSpan: "2" },
+                "\u0424\u0443\u043D\u043A\u0446\u0438\u043E\u043D\u0430\u043B"
+              )
             )
+          ),
+          _react2.default.createElement(
+            "tbody",
+            null,
+            productsCode
           )
         ),
         _react2.default.createElement(
-          "tbody",
-          null,
-          answersCodeForProduct
-        )
+          "div",
+          { className: "controls" },
+          _react2.default.createElement("input", {
+            className: "addButton",
+            type: "button",
+            value: "\u041D\u043E\u0432\u044B\u0439 \u043F\u0440\u043E\u0434\u0443\u043A\u0442",
+            disabled: this.state.disabled,
+            onClick: this.cbAddNewProduct
+          })
+        ),
+        (this.state.selectedProductCode || this.state.editMode === "add") && _react2.default.createElement(_ProductCard2.default, {
+          product: this.state.editedProduct,
+          mode: this.state.editMode,
+          onSave: this.cbSaveProduct,
+          onCancel: this.cbCancelEdit,
+          onFormChange: this.cbFormChange
+        })
       );
     }
   }]);
@@ -31792,21 +31922,29 @@ var Product = function (_React$Component) {
     return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = Product.__proto__ || Object.getPrototypeOf(Product)).call.apply(_ref, [this].concat(args))), _this), _this.deleteProduct = function (eo) {
       eo.stopPropagation();
       return _this.props.cbDeleteProduct(_this.props.data.code);
+    }, _this.editProduct = function (eo) {
+      eo.stopPropagation();
+      return _this.props.cbEditButton(_this.props.data.code);
+    }, _this.handleRowClick = function () {
+      // Блокируем клик по строке в режиме добавления
+      if (_this.props.editMode === "add") {
+        return;
+      }
+      _this.props.cbSelectProduct(_this.props.data.code);
     }, _temp), _possibleConstructorReturn(_this, _ret);
   }
 
   _createClass(Product, [{
     key: "render",
     value: function render() {
-      var _this2 = this;
+      var isEditDisabled = this.props.disabled && this.props.editMode;
 
       return _react2.default.createElement(
         "tr",
         {
+          "data-id": this.props.dataId,
           style: { backgroundColor: this.props.isSelected ? "yellow" : "white" },
-          onClick: function onClick() {
-            _this2.props.cbSelectProduct(_this2.props.data.code);
-          }
+          onClick: this.handleRowClick
         },
         _react2.default.createElement(
           "td",
@@ -31832,10 +31970,22 @@ var Product = function (_React$Component) {
           "td",
           null,
           _react2.default.createElement("input", {
+            className: "editButton",
+            type: "button",
+            value: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
+            onClick: this.editProduct,
+            disabled: isEditDisabled
+          })
+        ),
+        _react2.default.createElement(
+          "td",
+          null,
+          _react2.default.createElement("input", {
             className: "deleteButton",
             type: "button",
             value: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C",
-            onClick: this.deleteProduct
+            onClick: this.deleteProduct,
+            disabled: this.props.disabled
           })
         )
       );
@@ -31916,7 +32066,13 @@ exports.default = ProductLink;
 /* 31 */
 /***/ (function(module, exports) {
 
-module.exports = [{"code":2,"name":"Яблоко","price":"3р.","residual":"10кг","url":"https://pngicon.ru/file/uploads/apple.png"},{"code":3,"name":"Груша","price":"3,5р.","residual":"16кг","url":"https://cdn.ime.by/UserFiles/images/catalog/Goods/6491/00086491/norm/00086491.n_1.png?s=500x500"},{"code":4,"name":"Виноград","price":"6р.","residual":"20кг","url":"https://foodcity.ru/storage/products/October2018/dSTg1Wk44PJACMVYH1Z5.jpg"},{"code":5,"name":"Персик","price":"10р.","residual":"3кг","url":"data:image/jpeg;base64,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"}]
+throw new Error("Module build failed: SyntaxError: D:/react/react-2/ishop3/components/ProductCard.js: Unexpected token (135:13)\n\n\u001b[0m \u001b[90m 133 | \u001b[39m            \u001b[33m<\u001b[39m\u001b[33mdiv\u001b[39m\u001b[33m>\u001b[39m{formData\u001b[33m.\u001b[39mname}\u001b[33m<\u001b[39m\u001b[33m/\u001b[39m\u001b[33mdiv\u001b[39m\u001b[33m>\u001b[39m\n \u001b[90m 134 | \u001b[39m          ) \u001b[33m:\u001b[39m (\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 135 | \u001b[39m            \u001b[33m<\u001b[39m\u001b[33m>\u001b[39m\n \u001b[90m     | \u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 136 | \u001b[39m              \u001b[33m<\u001b[39m\u001b[33minput\u001b[39m\n \u001b[90m 137 | \u001b[39m                type\u001b[33m=\u001b[39m\u001b[32m\"text\"\u001b[39m\n \u001b[90m 138 | \u001b[39m                value\u001b[33m=\u001b[39m{formData\u001b[33m.\u001b[39mname}\u001b[0m\n");
+
+/***/ }),
+/* 32 */
+/***/ (function(module, exports) {
+
+module.exports = [{"code":2,"name":"Яблоко","price":3,"residual":10,"url":"https://pngicon.ru/file/uploads/apple.png"},{"code":3,"name":"Груша","price":3.5,"residual":16,"url":"https://cdn.ime.by/UserFiles/images/catalog/Goods/6491/00086491/norm/00086491.n_1.png?s=500x500"},{"code":4,"name":"Виноград","price":6,"residual":20,"url":"https://foodcity.ru/storage/products/October2018/dSTg1Wk44PJACMVYH1Z5.jpg"},{"code":5,"name":"Персик","price":10,"residual":3,"url":"data:image/jpeg;base64,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"}]
 
 /***/ })
 /******/ ]);
