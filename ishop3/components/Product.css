@@ -1,3 +1,4 @@
+.addButton,
 .deleteButton {
    background-color: #4CAF50; 
   border: none;
@@ -11,6 +12,8 @@
   cursor: pointer;
   border-radius: 8px;
 }
+
+.addButton:hover ,
 .deleteButton:hover {
   background-color: #45a049;
 }
@@ -32,6 +35,6 @@
   background-color: #58a18d;
 }
 
-.editButton:disabled, .deleteButton:disabled {
+.addButton:disabled, .editButton:disabled, .deleteButton:disabled {
   background-color: #8d8d8d;
 }

@@ -1,205 +1,190 @@
-﻿import React from "react";
+import React from "react";
+import PropTypes from "prop-types";
 import "./Shop.css";
 import ShopCaption from "./ShopCaption";
 import Product from "./Product";
+import ProductCard from "./ProductCard";
 
 class Shop extends React.Component {
+  static propTypes = {
+    caption: PropTypes.string.isRequired,
+    listProducts: PropTypes.arrayOf(
+      PropTypes.shape({
+        code: PropTypes.number.isRequired,
+        name: PropTypes.string.isRequired,
+        price: PropTypes.number.isRequired,
+        residual: PropTypes.number.isRequired,
+        url: PropTypes.string,
+      })
+    ),
+  };
+
+  static defaultProps = {
+    listProducts: [],
+  };
+
+  normalizeProducts = (products) => {
+    if (!products || !Array.isArray(products)) return [];
+
+    return products.map((product) => ({
+      ...product,
+      code: Number(product.code) || Date.now(),
+      price: Number(product.price) || 0,
+      residual: Number(product.residual) || 0,
+    }));
+  };
+
   state = {
     selectedProductCode: null,
-    listProducts: this.props.listProducts || [],
-    disabled: false,
-    editMode: false, // false, 'edit', 'add'
+    listProducts: this.normalizeProducts(this.props.listProducts),
+    buttonsDisabled: false,
+    editMode: false,
     editedProduct: null,
-    errors: {},
-    originalProduct: null,
   };
 
-  hasChanges = () => {
-    if (!this.state.originalProduct || !this.state.editedProduct) return false;
-    return (
-      JSON.stringify(this.state.originalProduct) !==
-      JSON.stringify(this.state.editedProduct)
-    );
-  };
+  componentDidUpdate(prevProps) {
+    if (prevProps.listProducts !== this.props.listProducts) {
+      this.setState({
+        listProducts: this.normalizeProducts(this.props.listProducts),
+      });
+    }
+  }
 
-  validateField = (name, value) => {
-    const errors = { ...this.state.errors };
-    if (!value || value.toString().trim() === "")
-      errors[name] = "Поле не может быть пустым";
-    else delete errors[name];
-    return errors;
-  };
-
-  handleInputChange = (field, value) => {
-    const updatedProduct = { ...this.state.editedProduct, [field]: value };
-    const errors = this.validateField(field, value);
-    this.setState({ editedProduct: updatedProduct, errors });
-  };
+  getEmptyProduct = () => ({
+    code: Date.now(),
+    name: "",
+    price: 0,
+    residual: 0,
+    url: "",
+  });
 
   selectProduct = (code) => {
-    if (this.state.editMode === "add") return;
-    if (this.state.editMode === "edit" && this.hasChanges()) {
-      alert(
-        "Есть несохраненные изменения. Сохраните или отмените редактирование."
-      );
-      return;
-    }
-
-    const product = this.state.listProducts.find((p) => p.code === code);
-    if (this.state.editMode === "edit") {
+    if (this.state.selectedProductCode === code) {
       this.setState({
-        selectedProductCode: code,
+        selectedProductCode: null,
         editMode: false,
-        disabled: false,
-        editedProduct: product,
-        originalProduct: product,
-        errors: {},
+        buttonsDisabled: false,
+        editedProduct: null,
       });
-    } else {
-      if (this.state.selectedProductCode === code) {
-        this.setState({
-          selectedProductCode: null,
-          editMode: false,
-          editedProduct: null,
-          originalProduct: null,
-        });
-      } else {
-        this.setState({
-          selectedProductCode: code,
-          editMode: false,
-          editedProduct: product,
-          originalProduct: product,
-        });
-      }
-    }
-  };
-
-  cbEditButton = (code) => {
-    if (this.state.editMode === "add") return;
-    if (this.state.editMode === "edit" && this.hasChanges()) {
-      alert(
-        "Есть несохраненные изменения. Сохраните или отмените редактирование."
-      );
       return;
     }
 
     const product = this.state.listProducts.find((p) => p.code === code);
     this.setState({
-      disabled: true,
+      selectedProductCode: code,
+      editMode: false,
+      buttonsDisabled: false,
+      editedProduct: product,
+    });
+  };
+
+  cbEditButton = (code) => {
+    const product = this.state.listProducts.find((p) => p.code === code);
+    this.setState({
+      buttonsDisabled: false,
       selectedProductCode: code,
       editMode: "edit",
       editedProduct: { ...product },
-      originalProduct: product,
-      errors: {},
     });
   };
 
   cbAddNewProduct = () => {
     this.setState({
       selectedProductCode: null,
-      disabled: true,
+      buttonsDisabled: true,
       editMode: "add",
-      editedProduct: {
-        code: Date.now(),
-        name: "",
-        price: "",
-        residual: "",
-        url: "",
-      },
-      originalProduct: null,
-      errors: {},
+      editedProduct: this.getEmptyProduct(),
     });
   };
 
   cbDeleteProduct = (code) => {
-    if (this.state.editMode === "add") return;
     const agree = confirm("Вы действительно хотите удалить товар?");
     if (agree === true) {
       const newListProducts = this.state.listProducts.filter(
         (item) => item.code !== code
       );
+
+      let newSelectedProductCode = this.state.selectedProductCode;
+      let newEditedProduct = this.state.editedProduct;
+
+      if (this.state.selectedProductCode === code) {
+        newSelectedProductCode = null;
+        newEditedProduct = null;
+      } else if (
+        this.state.editedProduct &&
+        this.state.editedProduct.code === code
+      ) {
+        newEditedProduct = null;
+      }
+
       this.setState({
-        disabled: false,
+        buttonsDisabled: false,
         listProducts: newListProducts,
-        selectedProductCode: null,
+        selectedProductCode: newSelectedProductCode,
         editMode: false,
-        editedProduct: null,
-        originalProduct: null,
+        editedProduct: newEditedProduct,
       });
     }
   };
 
-  cbSaveProduct = () => {
-    const errors = {};
-    if (
-      !this.state.editedProduct.name ||
-      this.state.editedProduct.name.trim() === ""
-    )
-      errors.name = "Поле не может быть пустым";
-    if (
-      !this.state.editedProduct.price ||
-      this.state.editedProduct.price.toString().trim() === ""
-    )
-      errors.price = "Поле не может быть пустым";
-    if (
-      !this.state.editedProduct.residual ||
-      this.state.editedProduct.residual.toString().trim() === ""
-    )
-      errors.residual = "Поле не может быть пустым";
-
-    if (Object.keys(errors).length > 0) {
-      this.setState({ errors });
-      return;
-    }
+  handleSaveProduct = (updatedProduct) => {
+    const normalizedProduct = {
+      ...updatedProduct,
+      price: Number(updatedProduct.price) || 0,
+      residual: Number(updatedProduct.residual) || 0,
+    };
 
     if (this.state.editMode === "edit") {
       const newListProducts = this.state.listProducts.map((product) =>
-        product.code === this.state.editedProduct.code
-          ? this.state.editedProduct
-          : product
+        product.code === normalizedProduct.code ? normalizedProduct : product
       );
       this.setState({
         listProducts: newListProducts,
-        disabled: false,
+        buttonsDisabled: false,
         editMode: false,
         editedProduct: null,
-        originalProduct: null,
-        errors: {},
       });
     } else if (this.state.editMode === "add") {
-      const newProduct = { ...this.state.editedProduct, code: Date.now() };
+      const newProduct = {
+        ...normalizedProduct,
+        code: Date.now(),
+      };
       this.setState({
         listProducts: [...this.state.listProducts, newProduct],
-        disabled: false,
+        buttonsDisabled: false,
         editMode: false,
         editedProduct: null,
-        originalProduct: null,
-        errors: {},
       });
     }
   };
 
-  cbCancelEdit = () => {
+  handleCancelEdit = () => {
     this.setState({
-      disabled: false,
+      buttonsDisabled: false,
       editMode: false,
       editedProduct: null,
-      originalProduct: null,
-      errors: {},
     });
   };
 
-  hasErrors = () => Object.keys(this.state.errors).length > 0;
+  handleFormChange = (hasChanges) => {
+    if (this.state.editMode === "edit") {
+      this.setState({ buttonsDisabled: hasChanges });
+    }
+  };
 
   render() {
-    const listProducts = this.state.listProducts || [];
+    const {
+      listProducts,
+      selectedProductCode,
+      editMode,
+      editedProduct,
+      buttonsDisabled,
+    } = this.state;
+
     const productsCode = listProducts.map((v) => (
       <Product
         data={v}
-        isSelected={
-          v.code === this.state.selectedProductCode &&
-          this.state.editMode !== "add"
-        }
+        isSelected={v.code === selectedProductCode && editMode !== "add"}
         cbSelectProduct={this.selectProduct}
         cbDeleteProduct={this.cbDeleteProduct}
         cbEditButton={this.cbEditButton}
@@ -209,9 +194,7 @@ class Shop extends React.Component {
         residual={v.residual}
         url={v.url}
         dataId={v.code}
-        disabled={this.state.disabled}
-        editMode={this.state.editMode}
-        hasChanges={this.state.editMode === "edit" && this.hasChanges()}
+        buttonsDisabled={buttonsDisabled}
       />
     ));
 
@@ -242,131 +225,22 @@ class Shop extends React.Component {
         </table>
 
         <input
-          className="deleteButton"
+          className="addButton"
           type="button"
           value="Новый продукт"
-          disabled={this.state.disabled}
+          disabled={buttonsDisabled}
           onClick={this.cbAddNewProduct}
         />
 
-        {(this.state.selectedProductCode || this.state.editMode) &&
-          this.state.editedProduct && (
-            <div className="product-card">
-              <h3>
-                {this.state.editMode === "add"
-                  ? "Добавление товара"
-                  : this.state.editMode === "edit"
-                  ? "Редактирование товара"
-                  : "Просмотр товара"}
-              </h3>
-
-              {/* БЛОК ID - отображаем во всех режимах кроме добавления */}
-              {this.state.editMode !== "add" && (
-                <div className="form-field">
-                  <label>ID товара: </label>
-                  <span className="product-id">
-                    {this.state.editedProduct.code}
-                  </span>
-                </div>
-              )}
-
-              <div className="form-field">
-                <label>Название: </label>
-                {this.state.editMode ? (
-                  <div>
-                    <input
-                      type="text"
-                      value={this.state.editedProduct.name || ""}
-                      onChange={(e) =>
-                        this.handleInputChange("name", e.target.value)
-                      }
-                    />
-                    {this.state.errors.name && (
-                      <span className="error-message">
-                        {this.state.errors.name}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <span>{this.state.editedProduct.name}</span>
-                )}
-              </div>
-
-              <div className="form-field">
-                <label>Цена: </label>
-                {this.state.editMode ? (
-                  <div>
-                    <input
-                      type="number"
-                      value={this.state.editedProduct.price || ""}
-                      onChange={(e) =>
-                        this.handleInputChange("price", e.target.value)
-                      }
-                    />
-                    {this.state.errors.price && (
-                      <span className="error-message">
-                        {this.state.errors.price}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <span>{this.state.editedProduct.price}</span>
-                )}
-              </div>
-
-              <div className="form-field">
-                <label>Остаток: </label>
-                {this.state.editMode ? (
-                  <div>
-                    <input
-                      type="number"
-                      value={this.state.editedProduct.residual || ""}
-                      onChange={(e) =>
-                        this.handleInputChange("residual", e.target.value)
-                      }
-                    />
-                    {this.state.errors.residual && (
-                      <span className="error-message">
-                        {this.state.errors.residual}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <span>{this.state.editedProduct.residual}</span>
-                )}
-              </div>
-
-              <div className="form-field">
-                <label>URL изображения: </label>
-                {this.state.editMode ? (
-                  <input
-                    type="text"
-                    value={this.state.editedProduct.url || ""}
-                    onChange={(e) =>
-                      this.handleInputChange("url", e.target.value)
-                    }
-                  />
-                ) : (
-                  <span>
-                    {this.state.editedProduct.url || "Нет изображения"}
-                  </span>
-                )}
-              </div>
-
-              {(this.state.editMode === "edit" ||
-                this.state.editMode === "add") && (
-                <div className="card-controls">
-                  <button
-                    onClick={this.cbSaveProduct}
-                    disabled={this.hasErrors()}
-                  >
-                    {this.state.editMode === "add" ? "Добавить" : "Сохранить"}
-                  </button>
-                  <button onClick={this.cbCancelEdit}>Отмена</button>
-                </div>
-              )}
-            </div>
-          )}
+        {(selectedProductCode || editMode) && editedProduct && (
+          <ProductCard
+            product={editedProduct}
+            mode={editMode}
+            onSave={this.handleSaveProduct}
+            onCancel={this.handleCancelEdit}
+            onFormChange={this.handleFormChange}
+          />
+        )}
       </div>
     );
   }
