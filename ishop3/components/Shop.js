@@ -14,49 +14,30 @@ class Shop extends React.Component {
     originalProduct: null,
   };
 
-  // Проверяем, были ли изменения в форме
   hasChanges = () => {
-    if (!this.state.originalProduct || !this.state.editedProduct) {
-      return false;
-    }
+    if (!this.state.originalProduct || !this.state.editedProduct) return false;
     return (
       JSON.stringify(this.state.originalProduct) !==
       JSON.stringify(this.state.editedProduct)
     );
   };
 
-  // Валидация при изменении полей
   validateField = (name, value) => {
     const errors = { ...this.state.errors };
-    if (!value || value.toString().trim() === "") {
+    if (!value || value.toString().trim() === "")
       errors[name] = "Поле не может быть пустым";
-    } else {
-      delete errors[name];
-    }
+    else delete errors[name];
     return errors;
   };
 
-  // Обработчик изменения полей
   handleInputChange = (field, value) => {
-    const updatedProduct = {
-      ...this.state.editedProduct,
-      [field]: value,
-    };
+    const updatedProduct = { ...this.state.editedProduct, [field]: value };
     const errors = this.validateField(field, value);
-    this.setState({
-      editedProduct: updatedProduct,
-      errors,
-    });
+    this.setState({ editedProduct: updatedProduct, errors });
   };
 
-  // Метод выбора товара
   selectProduct = (code) => {
-    // В режиме добавления клики по строкам игнорируются
-    if (this.state.editMode === "add") {
-      return;
-    }
-
-    // Если есть несохраненные изменения - игнорируем клик
+    if (this.state.editMode === "add") return;
     if (this.state.editMode === "edit" && this.hasChanges()) {
       alert(
         "Есть несохраненные изменения. Сохраните или отмените редактирование."
@@ -65,8 +46,6 @@ class Shop extends React.Component {
     }
 
     const product = this.state.listProducts.find((p) => p.code === code);
-
-    // Если в режиме редактирования - переходим в просмотр и разблокируем кнопки
     if (this.state.editMode === "edit") {
       this.setState({
         selectedProductCode: code,
@@ -76,9 +55,7 @@ class Shop extends React.Component {
         originalProduct: product,
         errors: {},
       });
-    }
-    // Обычный режим просмотра
-    else {
+    } else {
       if (this.state.selectedProductCode === code) {
         this.setState({
           selectedProductCode: null,
@@ -97,14 +74,8 @@ class Shop extends React.Component {
     }
   };
 
-  // Метод редактирования
   cbEditButton = (code) => {
-    // В режиме добавления кнопки редактирования заблокированы
-    if (this.state.editMode === "add") {
-      return;
-    }
-
-    // Если есть несохраненные изменения - игнорируем
+    if (this.state.editMode === "add") return;
     if (this.state.editMode === "edit" && this.hasChanges()) {
       alert(
         "Есть несохраненные изменения. Сохраните или отмените редактирование."
@@ -123,14 +94,13 @@ class Shop extends React.Component {
     });
   };
 
-  // Метод добавления нового товара
   cbAddNewProduct = () => {
     this.setState({
-      selectedProductCode: null, // снимаем выделение с товаров
-      disabled: true, // блокируем все кнопки
-      editMode: "add", // режим добавления
+      selectedProductCode: null,
+      disabled: true,
+      editMode: "add",
       editedProduct: {
-        code: Date.now(), // временный код
+        code: Date.now(),
         name: "",
         price: "",
         residual: "",
@@ -142,17 +112,13 @@ class Shop extends React.Component {
   };
 
   cbDeleteProduct = (code) => {
-    // В режиме добавления кнопки удаления заблокированы
-    if (this.state.editMode === "add") {
-      return;
-    }
-
+    if (this.state.editMode === "add") return;
     const agree = confirm("Вы действительно хотите удалить товар?");
     if (agree === true) {
-      const newListProducts = this.state.listProducts.filter((item) => {
-        return item.code !== code;
-      });
-      return this.setState({
+      const newListProducts = this.state.listProducts.filter(
+        (item) => item.code !== code
+      );
+      this.setState({
         disabled: false,
         listProducts: newListProducts,
         selectedProductCode: null,
@@ -164,26 +130,22 @@ class Shop extends React.Component {
   };
 
   cbSaveProduct = () => {
-    // Финальная проверка перед сохранением
     const errors = {};
     if (
       !this.state.editedProduct.name ||
       this.state.editedProduct.name.trim() === ""
-    ) {
+    )
       errors.name = "Поле не может быть пустым";
-    }
     if (
       !this.state.editedProduct.price ||
       this.state.editedProduct.price.toString().trim() === ""
-    ) {
+    )
       errors.price = "Поле не может быть пустым";
-    }
     if (
       !this.state.editedProduct.residual ||
       this.state.editedProduct.residual.toString().trim() === ""
-    ) {
+    )
       errors.residual = "Поле не может быть пустым";
-    }
 
     if (Object.keys(errors).length > 0) {
       this.setState({ errors });
@@ -191,13 +153,11 @@ class Shop extends React.Component {
     }
 
     if (this.state.editMode === "edit") {
-      // Сохраняем редактирование существующего товара
       const newListProducts = this.state.listProducts.map((product) =>
         product.code === this.state.editedProduct.code
           ? this.state.editedProduct
           : product
       );
-
       this.setState({
         listProducts: newListProducts,
         disabled: false,
@@ -207,12 +167,7 @@ class Shop extends React.Component {
         errors: {},
       });
     } else if (this.state.editMode === "add") {
-      // Добавляем новый товар
-      const newProduct = {
-        ...this.state.editedProduct,
-        code: Date.now(), // генерируем постоянный код
-      };
-
+      const newProduct = { ...this.state.editedProduct, code: Date.now() };
       this.setState({
         listProducts: [...this.state.listProducts, newProduct],
         disabled: false,
@@ -234,20 +189,17 @@ class Shop extends React.Component {
     });
   };
 
-  hasErrors = () => {
-    return Object.keys(this.state.errors).length > 0;
-  };
+  hasErrors = () => Object.keys(this.state.errors).length > 0;
 
   render() {
     const listProducts = this.state.listProducts || [];
-
     const productsCode = listProducts.map((v) => (
       <Product
         data={v}
         isSelected={
           v.code === this.state.selectedProductCode &&
           this.state.editMode !== "add"
-        } // в режиме добавления нет выделения
+        }
         cbSelectProduct={this.selectProduct}
         cbDeleteProduct={this.cbDeleteProduct}
         cbEditButton={this.cbEditButton}
@@ -269,9 +221,9 @@ class Shop extends React.Component {
           <ShopCaption caption={this.props.caption} />
           <thead>
             <tr>
-              <th>Название товара</th>
-              <th>Цена товара</th>
-              <th>Остаток на складе</th>
+              <th>Название</th>
+              <th>Цена</th>
+              <th>Остаток</th>
               <th>Изображение</th>
               <th colSpan="2">Функционал</th>
             </tr>
@@ -282,12 +234,13 @@ class Shop extends React.Component {
             ) : (
               <tr>
                 <td colSpan="6" style={{ textAlign: "center" }}>
-                  Нет товаров для отображения
+                  Нет товаров
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+
         <input
           className="deleteButton"
           type="button"
@@ -296,7 +249,6 @@ class Shop extends React.Component {
           onClick={this.cbAddNewProduct}
         />
 
-        {/* Карточка товара - показываем в режиме просмотра, редактирования ИЛИ добавления */}
         {(this.state.selectedProductCode || this.state.editMode) &&
           this.state.editedProduct && (
             <div className="product-card">
@@ -307,6 +259,16 @@ class Shop extends React.Component {
                   ? "Редактирование товара"
                   : "Просмотр товара"}
               </h3>
+
+              {/* БЛОК ID - отображаем во всех режимах кроме добавления */}
+              {this.state.editMode !== "add" && (
+                <div className="form-field">
+                  <label>ID товара: </label>
+                  <span className="product-id">
+                    {this.state.editedProduct.code}
+                  </span>
+                </div>
+              )}
 
               <div className="form-field">
                 <label>Название: </label>
@@ -391,7 +353,6 @@ class Shop extends React.Component {
                 )}
               </div>
 
-              {/* Кнопки управления показываем в режиме редактирования ИЛИ добавления */}
               {(this.state.editMode === "edit" ||
                 this.state.editMode === "add") && (
                 <div className="card-controls">
