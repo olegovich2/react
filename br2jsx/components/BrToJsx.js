@@ -2,7 +2,6 @@ import React, { Component } from "react";
 
 class Br2jsx extends Component {
   parseText = (text) => {
-    if (!text) return [];
     const lines = text.split(/<\s*br\s*\/?\s*>/gi);
     const result = [];
     for (let i = 0; i < lines.length; i++) {
@@ -20,10 +19,12 @@ class Br2jsx extends Component {
     const { text } = this.props;
 
     if (!text) {
-      return <div>Нет текста для отображения</div>;
+      console.log("Нет текста для отображения");
     }
 
-    return (
+    return !text ? (
+      <div></div>
+    ) : (
       <div
         style={{
           padding: "20px",
