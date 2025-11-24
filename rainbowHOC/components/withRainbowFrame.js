@@ -1,20 +1,9 @@
 import React from "react";
-import PropTypes from "prop-types";
 
-const withRainbowFrame = (WrappedComponent) => {
+const withRainbowFrame = (colors) => (WrappedComponent) => {
   class WithRainbowFrame extends React.Component {
-    static propTypes = {
-      colors: PropTypes.arrayOf(PropTypes.string),
-    };
-
-    static defaultProps = {
-      colors: [],
-    };
-
     render() {
-      const { colors, ...otherProps } = this.props;
-
-      let content = <WrappedComponent {...otherProps} />;
+      let content = <WrappedComponent {...this.props} />;
 
       if (!colors || colors.length === 0) {
         return content;

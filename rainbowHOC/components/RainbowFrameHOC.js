@@ -1,22 +1,16 @@
 import React, { Component } from "react";
-import PropTypes from "prop-types";
 import DoubleButton from "./DoubleButton";
 import withRainbowFrame from "./withRainbowFrame";
+import arrayColors from "../colors.json";
 
-const FramedDoubleButton = withRainbowFrame(DoubleButton);
+const FramedDoubleButton = withRainbowFrame(arrayColors)(DoubleButton);
 
 class RainbowFrameHOC extends Component {
-  static propTypes = {
-    colors: PropTypes.arrayOf(PropTypes.string).isRequired,
-  };
-
   handleButtonClick = (num) => {
     alert(num);
   };
 
   render() {
-    const { colors } = this.props;
-
     return (
       <div style={{ padding: "20px" }}>
         <DoubleButton
@@ -31,7 +25,6 @@ class RainbowFrameHOC extends Component {
           caption1="я из лесу"
           caption2="мороз"
           cbPressed={this.handleButtonClick}
-          colors={colors}
         >
           вышел, был сильный
         </FramedDoubleButton>
