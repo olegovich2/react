@@ -19,7 +19,6 @@ const withRainbowFrame = (colors) => (WrappedComponent) => {
               textAlign: "center",
               borderRadius: "5px",
             }}
-            key={i}
           >
             {content}
           </div>
