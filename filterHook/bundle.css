@@ -1,0 +1,43 @@
+.controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 5px;
+}
+
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+table, table caption, table td, table th {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+
+table {
+  margin: 5px;
+}
+
+table td {
+  padding: 30px 75px;
+}
+
+.tableScroll {
+  height: 650px;
+  width: 30%;
+  overflow-x: auto;
+  border: 1px solid #ccc;
+}
+
+.tableScroll p {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+}
+/*# sourceMappingURL=bundle.css.map*/
