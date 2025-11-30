@@ -1,0 +1,15 @@
+.controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 5px;
+}
+
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
