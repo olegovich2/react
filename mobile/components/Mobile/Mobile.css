@@ -1,0 +1,64 @@
+.mobile-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.btn-add {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.filters button {
+  margin-left: 10px;
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filters button.active {
+  background: #2196F3;
+  color: white;
+  border-color: #2196F3;
+}
+
+.clients-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.clients-table th,
+.clients-table td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  text-align: left;
+}
+
+.clients-table th {
+  background: #f8f9fa;
+  font-weight: bold;
+}
+
+.stats {
+  padding: 10px;
+  background: #e9ecef;
+  border-radius: 4px;
+  text-align: center;
+}
