@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import PropTypes from "prop-types";
 import Controls from "./Controls";
 import List from "./List";
@@ -21,19 +21,16 @@ const Filter = ({ listWords }) => {
     setIsSorted(false);
   }, []);
 
-  const processWords = () => {
+  const processedWords = useMemo(() => {
     let processedWords = [...listWords];
     if (filter) {
-      processedWords = [...listWords].filter((word) => word.includes(filter));
+      processedWords = processedWords.filter((word) => word.includes(filter));
     }
     if (isSorted) {
       processedWords = [...processedWords].sort();
     }
-
     return processedWords;
-  };
-
-  const processedWords = processWords();
+  }, [listWords, filter, isSorted]);
 
   return (
     <div>
