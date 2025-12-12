@@ -1,10 +1,10 @@
 import React from 'react';
-import { ImageData } from '../../types/api.types';
+import { UploadedImage } from '../../types/api.types';
 
 interface ImageGalleryProps {
-  images: ImageData[];
-  onView: (imageId: string) => void;
-  onDelete: (imageId: string) => void;
+  images: UploadedImage[];
+  onView: (imageId: number) => void;
+  onDelete: (imageId: number) => void;
 }
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete }) => {
@@ -19,14 +19,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
           <div className="blockIMG">
             <img 
               className="smallImageUpload" 
-              src={`data:image/png;base64,${image.smallIMG}`}
-              alt={image.fileNameOriginIMG}
+              src={`data:image/png;base64,${image.smallImage}`} 
+              alt={image.fileName} 
               data-img="fromDB"
             />
           </div>
           
           <div className="blockFileInfo">
-            <p data-container="filename">{image.fileNameOriginIMG}</p>
+            <p data-container="filename">{image.fileName}</p> {/* МЕНЯЕМ fileNameOriginIMG на fileName */}
             <p data-container="comment">{image.comment}</p>
           </div>
           

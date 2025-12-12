@@ -1,326 +1,493 @@
 import { APIResponse } from '../types/api.types';
 
 /**
- * Универсальный fetch клиент с полной типизацией
- * T - тип данных в ответе (data поле)
+ * Безопасный HTTP клиент для работы с API
+ * Все валидации на сервере, клиент только передает данные
  */
 class FetchClient {
   private baseURL: string;
+  private isRefreshingToken = false;
+  private refreshQueue: Array<{
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+  }> = [];
 
   constructor(baseURL: string = '') {
     this.baseURL = baseURL;
+    this.setupGlobalHandlers();
   }
 
   /**
-   * Основной типизированный метод запроса
-   * @template T - тип данных в ответе (по умолчанию any)
-   * @param url - URL endpoint
-   * @param options - опции fetch запроса
-   * @returns Promise с типизированным ответом
+   * Настройка глобальных обработчиков ошибок
+   */
+  private setupGlobalHandlers() {
+    // Автоматический редирект на логин при 401
+    window.addEventListener('auth-required', () => {
+      this.clearAuthData();
+      if (window.location.pathname !== '/login' && 
+          !window.location.pathname.includes('/confirm-email')) {
+        window.location.href = '/login';
+      }
+    });
+
+    // Обработчик сетевых ошибок
+    window.addEventListener('offline', () => {
+      console.warn('Соединение потеряно');
+    });
+  }
+
+  /**
+   * Основной безопасный метод запроса
    */
   async request<T = any>(
     url: string,
     options: RequestInit = {}
-  ): Promise<APIResponse & { data?: T }> {
+  ): Promise<APIResponse & { data?: T; field?: string }> {
     const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`;
+    
+    // Безопасное получение токена
+    const token = this.getToken();
+    
+    // Базовые безопасные заголовки
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...(options.headers as Record<string, string> || {})
+    };
 
-    // Получаем токен как в вашем коде
-    let token = '';
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        token = user.jwt_access;
-      }
-    } catch (e) {
-      console.warn('Не удалось получить токен:', e);
-    }
-
-    // Создаем headers объект
-    const headers: Record<string, string> = {};
-    
-    // Добавляем Content-Type если это не FormData
-    if (!(options.body instanceof FormData)) {
-      headers['Content-Type'] = 'application/json';
-    }
-    
-    // Добавляем Authorization header если есть токен
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    
-    // Добавляем пользовательские headers если есть
-    if (options.headers) {
-      if (options.headers instanceof Headers) {
-        // Если это Headers объект
-        options.headers.forEach((value, key) => {
-          headers[key] = value;
-        });
-      } else if (Array.isArray(options.headers)) {
-        // Если это массив пар [key, value]
-        options.headers.forEach(([key, value]) => {
-          if (typeof value === 'string') {
-            headers[key] = value;
-          }
-        });
-      } else {
-        // Если это обычный объект
-        Object.entries(options.headers).forEach(([key, value]) => {
-          if (typeof value === 'string') {
-            headers[key] = value;
-          }
-        });
-      }
+    // Для FormData убираем Content-Type
+    if (options.body instanceof FormData) {
+      delete headers['Content-Type'];
     }
 
-    // Преобразуем body если нужно
-    let body = options.body;
-    if (body && typeof body === 'object' && !(body instanceof FormData)) {
-      body = JSON.stringify(body);
+    // Логирование для отладки (только в development)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔗 ${options.method || 'GET'} ${fullUrl}`, {
+        hasToken: !!token,
+        bodySize: options.body ? JSON.stringify(options.body).length : 0
+      });
     }
 
     try {
+      const startTime = Date.now();
       const response = await fetch(fullUrl, {
         ...options,
         headers,
-        body,
         credentials: 'include',
+        body: options.body instanceof FormData 
+          ? options.body 
+          : options.body ? JSON.stringify(options.body) : undefined
       });
 
-      console.log(`Запрос ${url}: статус ${response.status}`);
+      const responseTime = Date.now() - startTime;
+      
+      // Проверка типа контента
+      const contentType = response.headers.get('content-type') || '';
+      let data: any;
 
-      // 🔥 Обработка редиректов как в вашем коде
-      if (response.redirected) {
-        const redirectUrl = response.url;
-        console.log(`Сервер сделал редирект на: ${redirectUrl}`);
-
-        // Обработка редиректов на страницы входа
-        if (redirectUrl.includes('/main/entry') || redirectUrl.includes('/login')) {
-          // Очищаем localStorage КАК В ВАШЕМ КОДЕ
-          this.clearLocalStorage();
-          
-          // Редирект в браузере
-          setTimeout(() => {
-            window.location.href = redirectUrl.includes('http') 
-              ? redirectUrl 
-              : `${window.location.origin}${redirectUrl}`;
-          }, 100);
-          
-          return {
-            success: false,
-            message: 'Redirected to login',
-            redirected: true,
-            redirectUrl: redirectUrl
-          };
-        }
-
-        // Для других редиректов
-        window.location.href = redirectUrl;
-        return {
-          success: false,
-          message: 'Redirected',
-          redirected: true,
-          redirectUrl: redirectUrl
-        };
-      }
-
-      // Проверка статуса (как в вашем if (response.ok))
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Ошибка ${url}:`, errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      // Обработка разных типов ответов
-      const contentType = response.headers.get('content-type');
-      let responseData: any;
-
-      if (contentType?.includes('application/json')) {
-        responseData = await response.json();
+      if (contentType.includes('application/json')) {
+        data = await response.json();
       } else {
-        // Ваш сервер иногда возвращает текст/HTML
-        responseData = await response.text();
-        
-        // Если это HTML страница, обрабатываем особо
-        if (responseData.includes('<!DOCTYPE html>') || responseData.includes('<html')) {
-          console.warn('Сервер вернул HTML вместо JSON для', url);
-          
-          // Для некоторых endpoints это нормально
-          if (url.includes('/main/auth/variants')) {
-            // Проверяем наличие ошибок в HTML
-            if (responseData.includes('errorMessage')) {
-              const errorMatch = responseData.match(/errorMessage=([^&"]+)/);
-              if (errorMatch) {
-                throw new Error(decodeURIComponent(errorMatch[1]));
-              }
-            }
-            
-            // Если нет ошибок, считаем успехом
-            return {
-              success: true,
-              data: { message: 'Registration successful' } as T,
-              redirected: false
-            };
-          }
+        const text = await response.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { message: text || 'Некорректный ответ сервера' };
         }
       }
 
+      // Логирование медленных запросов
+      if (responseTime > 3000) {
+        console.warn(`⚠️ Медленный запрос ${url}: ${responseTime}ms`);
+      }
+
+      // Обработка HTTP ошибок
+      if (!response.ok) {
+        return this.handleErrorResponse(response.status, data, url);
+      }
+
+      // Успешный ответ
       return {
         success: true,
-        data: responseData as T,
-        redirected: false
+        data: data as T,
+        status: response.status,
+        responseTime
       };
 
     } catch (error: any) {
-      console.error('Fetch error for', url, ':', error);
-
-      // Обработка специфических ошибок
-      if (error.message.includes('Failed to fetch')) {
-        return {
-          success: false,
-          message: 'Ошибка соединения с сервером. Проверьте подключение.'
-        };
-      }
-
-      if (error.message.includes('401')) {
-        this.clearLocalStorage();
-        window.location.href = '/login';
-      }
-
-      return {
-        success: false,
-        message: error.message || 'Неизвестная ошибка'
-      };
+      return this.handleNetworkError(error, url);
     }
   }
 
   /**
-   * POST запрос с типизацией
-   * @template T - тип данных в ответе
+   * Обработка HTTP ошибок
    */
-  async post<T = any>(url: string, data?: any): Promise<APIResponse & { data?: T }> {
-    return this.request<T>(url, {
-      method: 'POST',
-      body: data,
-    });
+  private handleErrorResponse(status: number, data: any, url: string) {
+    const errorResult: APIResponse & { field?: string } = {
+      success: false,
+      message: data.message || `Ошибка ${status}`,
+      status,
+      field: data.field
+    };
+
+    switch (status) {
+      case 400: // Bad Request
+        console.error(`❌ Ошибка валидации (400) ${url}:`, data.message);
+        break;
+
+      case 401: // Unauthorized
+        console.warn(`🔐 Требуется авторизация (401) ${url}`);
+        this.clearAuthData();
+        window.dispatchEvent(new CustomEvent('auth-required'));
+        break;
+
+      case 403: // Forbidden
+        console.error(`⛔ Доступ запрещен (403) ${url}:`, data.message);
+        if (data.message?.includes('не активирован')) {
+          window.dispatchEvent(new CustomEvent('account-not-activated'));
+        }
+        break;
+
+      case 404: // Not Found
+        console.error(`🔍 Не найдено (404) ${url}`);
+        break;
+
+      case 429: // Too Many Requests
+        console.error(`🐌 Слишком много запросов (429) ${url}`);
+        errorResult.message = 'Слишком много запросов. Подождите немного.';
+        break;
+
+      case 500: // Internal Server Error
+        console.error(`💥 Ошибка сервера (500) ${url}:`, data.message);
+        errorResult.message = 'Внутренняя ошибка сервера. Попробуйте позже.';
+        break;
+
+      default:
+        console.error(`❓ Неизвестная ошибка (${status}) ${url}:`, data.message);
+    }
+
+    return errorResult;
   }
 
   /**
-   * GET запрос с типизацией
-   * @template T - тип данных в ответе
+   * Обработка сетевых ошибок
    */
+  private handleNetworkError(error: any, url: string): APIResponse {
+    console.error(`🌐 Сетевая ошибка ${url}:`, error);
+
+    let message = 'Неизвестная ошибка сети';
+
+    if (error.message?.includes('Failed to fetch')) {
+      message = 'Ошибка соединения с сервером. Проверьте интернет.';
+      window.dispatchEvent(new CustomEvent('connection-error'));
+    } else if (error.name === 'AbortError') {
+      message = 'Запрос отменен';
+    } else if (error.name === 'TimeoutError') {
+      message = 'Таймаут запроса';
+    } else if (error.message) {
+      message = error.message;
+    }
+
+    return {
+      success: false,
+      message,
+      status: 0
+    };
+  }
+
+  /**
+   * Безопасное получение токена
+   */
+  private getToken(): string {
+    try {
+      return localStorage.getItem('token') || '';
+    } catch (error) {
+      console.error('Ошибка получения токена из localStorage:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Безопасное сохранение токена
+   */
+  private setToken(token: string): void {
+    try {
+      localStorage.setItem('token', token);
+    } catch (error) {
+      console.error('Ошибка сохранения токена в localStorage:', error);
+    }
+  }
+
+  /**
+   * Очистка данных аутентификации
+   */
+  private clearAuthData(): void {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('tempData');
+    } catch (error) {
+      console.error('Ошибка очистки данных аутентификации:', error);
+    }
+  }
+
+  // ==================== HTTP МЕТОДЫ ====================
+
   async get<T = any>(url: string): Promise<APIResponse & { data?: T }> {
     return this.request<T>(url, { method: 'GET' });
   }
 
-  /**
-   * PUT запрос с типизацией
-   * @template T - тип данных в ответе
-   */
+  async post<T = any>(url: string, data?: any): Promise<APIResponse & { data?: T }> {
+    return this.request<T>(url, { 
+      method: 'POST', 
+      body: data 
+    });
+  }
+
   async put<T = any>(url: string, data?: any): Promise<APIResponse & { data?: T }> {
-    return this.request<T>(url, {
-      method: 'PUT',
-      body: data,
+    return this.request<T>(url, { 
+      method: 'PUT', 
+      body: data 
     });
   }
 
-  /**
-   * DELETE запрос с типизацией
-   * @template T - тип данных в ответе
-   */
   async delete<T = any>(url: string, data?: any): Promise<APIResponse & { data?: T }> {
-    return this.request<T>(url, {
-      method: 'DELETE',
-      body: data,
+    return this.request<T>(url, { 
+      method: 'DELETE', 
+      body: data 
     });
   }
 
+  // ==================== АУТЕНТИФИКАЦИЯ ====================
+
   /**
-   * POST с FormData и типизацией
-   * @template T - тип данных в ответе
+   * Вход пользователя
    */
-  async postFormData<T = any>(
-    url: string, 
-    formData: FormData
-  ): Promise<APIResponse & { data?: T }> {
-    // Создаем headers отдельно для FormData
-    const headers: Record<string, string> = {};
+  async login(login: string, password: string) {
+    const response = await this.post<{
+      token: string;
+      user: {
+        login: string;
+        email: string;
+        createdAt: string;
+      }
+    }>('/auth/login', { login, password });
     
-    // Для FormData НЕ добавляем Content-Type, браузер сам установит
-    const token = localStorage.getItem('token');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (response.success && response.data) {
+      this.setToken(response.data.token);
+      this.saveUserData(response.data.user);
     }
     
-    return this.request<T>(url, {
-      method: 'POST',
-      body: formData,
-      headers,
+    return response;
+  }
+
+  /**
+   * Регистрация пользователя
+   */
+  async register(login: string, password: string, email: string) {
+    return this.post<{ message: string }>('/auth/register', {
+      login,
+      password,
+      email
     });
   }
 
   /**
-   * Специальный метод для загрузки файлов через FormData
-   * @template T - тип данных в ответе
+   * Подтверждение email
    */
-  async uploadFile<T = any>(
-    url: string,
-    file: File,
-    fieldName: string = 'file',
-    additionalData: Record<string, any> = {}
-  ): Promise<APIResponse & { data?: T }> {
-    const formData = new FormData();
-    formData.append(fieldName, file);
-    
-    // Добавляем дополнительные данные
-    Object.entries(additionalData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    });
-    
-    return this.postFormData<T>(url, formData);
+  async confirmEmail(token: string) {
+    return this.get<{ message: string }>(`/auth/confirm/${token}`);
   }
 
   /**
-   * Очистка localStorage как в вашем коде
+   * Проверка JWT токена
    */
-  private clearLocalStorage(): void {
-    const itemsToRemove = [
-      'user',
-      'token',
-      'allSurveys',
-      'originImage',
-      'survey',
-      'tempUploadData'
-    ];
-    
-    itemsToRemove.forEach(item => {
-      localStorage.removeItem(item);
+  async verifyToken() {
+    return this.post<{ 
+      user: { 
+        login: string; 
+        sessionId: number;
+      } 
+    }>('/auth/verify', {});
+  }
+
+  /**
+   * Выход пользователя
+   */
+  async logout() {
+    const response = await this.post<{ message: string }>('/auth/logout', {});
+    if (response.success) {
+      this.clearAuthData();
+      window.dispatchEvent(new CustomEvent('user-logged-out'));
+    }
+    return response;
+  }
+
+  /**
+   * Сохранение данных пользователя
+   */
+  private saveUserData(user: any) {
+    try {
+      localStorage.setItem('user', JSON.stringify({
+        login: user.login,
+        email: user.email,
+        createdAt: user.createdAt
+      }));
+    } catch (error) {
+      console.error('Ошибка сохранения данных пользователя:', error);
+    }
+  }
+
+  /**
+   * Получение данных текущего пользователя
+   */
+  getCurrentUser() {
+    try {
+      const userStr = localStorage.getItem('user');
+      return userStr ? JSON.parse(userStr) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // ==================== ОПРОСЫ ====================
+
+  /**
+   * Сохранение опроса
+   */
+  async saveSurvey(surveyData: any) {
+    return this.post<{ message: string }>('/surveys/save', {
+      survey: surveyData
     });
-    
-    console.log('LocalStorage очищен (как в вашем коде)');
+  }
+
+  /**
+   * Получение всех опросов и изображений пользователя
+   */
+  async getSurveys() {
+    return this.get<{
+      surveys: Array<{
+        id: number;
+        survey: any;
+        createdAt: string;
+      }>;
+      images: Array<{
+        id: number;
+        fileName: string;
+        comment: string;
+        smallImage: string;
+        createdAt: string;
+      }>;
+    }>('/surveys');
+  }
+
+  /**
+   * Удаление опроса или изображения
+   */
+  async deleteSurveyOrImage(id: number) {
+    return this.delete<{ message: string }>(`/surveys/${id}`);
+  }
+
+  // ==================== ИЗОБРАЖЕНИЯ ====================
+
+  /**
+   * Загрузка изображения (Base64)
+   */
+  async uploadImageBase64(filename: string, base64Data: string, comment?: string) {
+    return this.post<{ message: string }>('/images/upload', {
+      filename,
+      file: base64Data,
+      comment: comment || ''
+    });
+  }
+
+  /**
+   * Получение оригинального изображения
+   */
+  async getImage(id: number) {
+    return this.get<{ filename: string; image: string }>(`/images/${id}`);
+  }
+
+  // ==================== ДИАГНОЗЫ ====================
+
+  /**
+   * Поиск диагнозов и рекомендаций
+   */
+  async searchDiagnoses(titles: string[]) {
+    return this.post<{
+      titles: string[];
+      diagnostic: string[];
+      treatment: string[];
+    }>('/diagnoses/search', { titles });
+  }
+
+  // ==================== УТИЛИТЫ ====================
+
+  /**
+   * Проверка соединения с сервером
+   */
+  async checkConnection() {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`${this.baseURL}/health`, {
+        method: 'GET',
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Отмена запроса
+   */
+  createAbortController() {
+    return new AbortController();
   }
 
   /**
    * Установка базового URL
    */
-  setBaseURL(url: string): void {
+  setBaseURL(url: string) {
     this.baseURL = url;
+    console.log(`🔧 Base URL изменен на: ${url}`);
   }
 
   /**
    * Получение текущего базового URL
    */
-  getBaseURL(): string {
+  getBaseURL() {
     return this.baseURL;
+  }
+
+  /**
+   * Проверка авторизации
+   */
+  isAuthenticated(): boolean {
+    return !!this.getToken();
+  }
+
+  /**
+   * Получение токена (публичный метод)
+   */
+  getTokenPublic(): string | null {
+    try {
+      return localStorage.getItem('token');
+    } catch {
+      return null;
+    }
   }
 }
 
-// Создаем и экспортируем синглтон экземпляр
-const API_URL = process.env.REACT_APP_API_URL || '';
-export const fetchClient = new FetchClient(API_URL);
+// Создаем экземпляр клиента
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? '/api'  // В production - относительный путь
+  : 'http://localhost:5000/api';  // В development
 
-// Также экспортируем класс для возможности создания новых инстансов
-export { FetchClient };
-export default fetchClient;
+export const fetchClient = new FetchClient(API_URL);

@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, LoginCredentials } from '../types/api.types';
+import { User } from '../types/api.types';
 import { login as apiLogin, register as apiRegister } from '../api/auth.api';
 
 interface AuthContextType {
   user: User | null;
-  login: (credentials: LoginCredentials) => Promise<{ success: boolean; message?: string }>;
-  register: (data: any) => Promise<{ success: boolean; message?: string }>;
+  login: (login: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  register: (login: string, password: string, email: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -43,29 +43,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = async (login: string, password: string) => {
     try {
-      const response = await apiLogin(credentials);
+      const response = await apiLogin(login, password); // Передаем два аргумента
       
       if (response.success && response.data) {
-        localStorage.setItem('user', JSON.stringify(response.data));
-        localStorage.setItem('token', response.data.jwt_access);
-        setUser(response.data);
+        const userData: User = {
+          login: response.data.user?.login || login,
+          email: response.data.user?.email || '',
+          token: response.data.token
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', response.data.token || '');
+        setUser(userData);
         return { success: true };
       }
       
       return { success: false, message: response.message };
     } catch (error: any) {
-      return { success: false, message: error.message };
+      return { success: false, message: error.message || 'Ошибка входа' };
     }
   };
 
-  const register = async (data: any) => {
+  const register = async (login: string, password: string, email: string) => {
     try {
-      const response = await apiRegister(data);
+      const response = await apiRegister(login, password, email); // Три аргумента
       return response;
     } catch (error: any) {
-      return { success: false, message: error.message };
+      return { 
+        success: false, 
+        message: error.message || 'Ошибка регистрации' 
+      };
     }
   };
 

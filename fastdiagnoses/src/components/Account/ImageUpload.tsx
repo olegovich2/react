@@ -1,111 +1,83 @@
-import React, { useState, useRef, ChangeEvent, FormEvent } from 'react';
-import { useWebSocket } from '../../context/WebSocketContext';
+// ImageUpload.tsx - минимальная версия без ошибок
+import React, { useState, useRef } from 'react';
+import { uploadImage, validateFile } from '../../api/images.api';
 
 interface ImageUploadProps {
-  onUpload: (file: File, comment: string) => void;
+  onUploadSuccess?: () => void;
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ onUpload }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [comment, setComment] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
+const ImageUpload: React.FC<ImageUploadProps> = ({ onUploadSuccess }) => {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { isConnected } = useWebSocket();
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      
-      // Проверка типа файла
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-      if (!allowedTypes.includes(selectedFile.type)) {
-        alert('Пожалуйста, выберите файл изображения (JPEG, PNG или GIF)');
-        return;
-      }
-      
-      // Проверка размера файла (например, 10MB)
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        alert('Файл слишком большой. Максимальный размер: 10MB');
-        return;
-      }
-      
-      setFile(selectedFile);
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setError(validation.message || 'Недопустимый файл');
+      return;
     }
+
+    setError(null);
+    await handleUpload(file);
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleUpload = async (file: File) => {
+    setUploading(true);
     
-    if (!isConnected) {
-      alert('WebSocket не подключен. Пожалуйста, подождите...');
-      return;
-    }
-
-    if (!file) {
-      alert('Пожалуйста, выберите файл');
-      return;
-    }
-
-    setIsUploading(true);
     try {
-      await onUpload(file, comment);
+      const result = await uploadImage(file, 'Медицинское изображение');
       
-      // Сброс формы после успешной загрузки
-      setFile(null);
-      setComment('');
+      if (result.success) {
+        if (onUploadSuccess) {
+          onUploadSuccess();
+        }
+      } else {
+        setError(result.message || 'Ошибка загрузки');
+      }
+    } catch (error: any) {
+      setError(error.message || 'Неизвестная ошибка');
+    } finally {
+      setUploading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (error) {
-      console.error('Ошибка загрузки:', error);
-      alert('Произошла ошибка при загрузке файла');
-    } finally {
-      setIsUploading(false);
+    }
+  };
+
+  const handleButtonClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
   return (
-    <div className="uploadOnServer" data-div="uploadOnServer">
-      <form className="formForUploadOnServer" data-form="formForUploadOnServer" onSubmit={handleSubmit}>
-        <p>Здесь Вы можете загрузить изображение (флюорографию, изображения сыпи и тд.):</p>
-        
-        <input 
-          className="file" 
-          type="file" 
-          name="fileName"
-          data-input="fileChoice"
-          accept="image/jpeg, image/png, image/gif, .jpg, .jpeg, .png, .gif"
-          onChange={handleFileChange}
-          ref={fileInputRef}
-          disabled={isUploading}
-        />
-        
-        <textarea 
-          className="comment" 
-          rows={4}
-          placeholder="Введите комментарий"
-          name="textareaComment"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          disabled={isUploading}
-        />
-        
-        <button 
-          className="buttonFromTemplate" 
-          type="button"
-          data-button="buttonUpload"
-          onClick={handleSubmit}
-          disabled={isUploading || !isConnected}
-        >
-          {isUploading ? 'Загрузка...' : 'Загрузить'}
-        </button>
-        
-        {!isConnected && (
-          <div className="errors_p">
-            WebSocket не подключен. Загрузка изображений временно недоступна.
-          </div>
-        )}
-      </form>
+    <div className="image-upload">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        accept="image/*"
+        style={{ display: 'none' }}
+        disabled={uploading}
+      />
+      
+      <button
+        onClick={handleButtonClick}
+        disabled={uploading}
+        className="upload-button"
+      >
+        {uploading ? 'Загрузка...' : 'Загрузить изображение'}
+      </button>
+      
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
     </div>
   );
 };

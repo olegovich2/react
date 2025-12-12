@@ -4,8 +4,8 @@ import Footer from '../components/Layout/Footer';
 import RegisterForm from '../components/Auth/RegisterForm';
 
 const RegisterPage: React.FC = () => {
-  const handleRegisterSuccess = (message: string) => {
-    console.log('Регистрация успешна:', message);
+  const handleRegisterSuccess = () => {
+    console.log('Регистрация успешна');
   };
 
   const handleRegisterError = (message: string) => {

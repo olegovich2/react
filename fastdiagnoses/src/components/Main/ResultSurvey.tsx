@@ -53,8 +53,9 @@ const ResultSurvey: React.FC<ResultSurveyProps> = ({ survey, onClose, onSaveToAc
         alert('Пользователь не найден');
         return;
       }
+console.log(survey, localStorage.getItem('survey'));
 
-      const result = await saveSurveyToDB(user.login, JSON.stringify(survey));
+      const result = await saveSurveyToDB(user.login, survey);
 
       if (result.success) {
         alert('Данные успешно записаны и отобразятся в личном кабинете');

@@ -4,7 +4,7 @@ import { Survey } from '../../types/api.types';
 interface SurveyListProps {
   surveys: Survey[];
   onView: (survey: Survey) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
 }
 
 const SurveyList: React.FC<SurveyListProps> = ({ surveys, onView, onDelete }) => {

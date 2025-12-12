@@ -1,7 +1,7 @@
 import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { WebSocketProvider } from './context/WebSocketContext';
+import ConfirmEmailPage from '../src/pages/ConfirmEmailPage';
 
 // Компоненты для отображения во время загрузки
 const LoadingSpinner = () => (
@@ -120,7 +120,7 @@ const App: React.FC = () => {
 
   return (
     <AuthProvider>
-      <WebSocketProvider>
+      
         <Router>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
@@ -183,7 +183,7 @@ const App: React.FC = () => {
               <Route path="/main/entry" element={
                 <Navigate to="/login" replace />
               } />
-              
+              <Route path="/confirm/:token" element={<ConfirmEmailPage />} />
               {/* Страницы ошибок (можно добавить позже) */}
               {/* <Route path="/error" element={<ErrorPage />} />
               <Route path="/main/auth/error" element={<AuthErrorPage />} />
@@ -220,7 +220,7 @@ const App: React.FC = () => {
             </Routes>
           </Suspense>
         </Router>
-      </WebSocketProvider>
+      
     </AuthProvider>
   );
 };

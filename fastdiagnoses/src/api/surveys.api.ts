@@ -9,7 +9,7 @@ export const getDiagnosisRecommendations = async (titles: string[]): Promise<API
   try {
     console.log('Запрос рекомендаций для диагнозов:', titles);
     
-    const result = await fetchClient.post('/searchDiagnoses', { titles });
+    const result = await fetchClient.post('/diagnoses/search', { titles });
     
     if (result.success && result.data) {
       // Возвращаем как в вашем rewriteSurveyLocalStorage
@@ -40,7 +40,7 @@ export const getDiagnosisRecommendations = async (titles: string[]): Promise<API
  */
 export const checkUserDatabase = async (login: string): Promise<APIResponse> => {
   try {
-    const result = await fetchClient.post('/justAsk', { login });
+    const result = await fetchClient.post('/auth/verify', { login });
     
     if (result.success) {
       return {
@@ -63,26 +63,42 @@ export const checkUserDatabase = async (login: string): Promise<APIResponse> => 
  * Сохранение опроса в БД
  * Точная копия postSurveyToPersonalDB
  */
-export const saveSurveyToDB = async (login: string, survey: string): Promise<APIResponse> => {
+export const saveSurveyToDB = async (login: string, surveyData: any): Promise<APIResponse> => {
   try {
     console.log('Сохранение опроса для пользователя:', login);
     
-    // 1. Сначала проверяем/создаем БД
-    const checkResult = await checkUserDatabase(login);
-    
-    if (!checkResult.success) {
-      return checkResult;
+    let surveyObj;
+    if (typeof surveyData === 'string') {
+      surveyObj = JSON.parse(surveyData);
+    } else {
+      surveyObj = surveyData;
     }
     
-    // 2. Сохраняем опрос
-    const result = await fetchClient.post('/toPersonalDB', { login, survey });
+    // Дебаг структуры
+    console.log('🔍 Дебаг saveSurveyToDB:');
+    console.log('1. surveyObj:', surveyObj);
+    console.log('2. Ключи:', Object.keys(surveyObj));
     
-    if (result.success) {
-      return {
-        success: true,
-        message: 'Опрос успешно сохранен в личном кабинете'
-      };
-    }
+    // ✅ НЕ добавляем system и symptoms - они не нужны!
+    // Просто используем оригинальный объект
+    const surveyToSend = { ...surveyObj };
+    
+    console.log('5. Отправляемый объект:', surveyToSend);
+    
+    const token = localStorage.getItem('token') || '';
+    console.log('6. Токен:', token ? 'есть' : 'нет');
+    
+    const response = await fetch('http://localhost:5000/api/surveys/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ survey: surveyToSend }) // отправляем как есть
+    });
+    
+    const result = await response.json();
+    console.log('7. Ответ сервера:', result);
     
     return result;
     
@@ -131,7 +147,7 @@ export const getUserSurveys = async (login: string): Promise<APIResponse> => {
  * Удаление опроса или изображения
  * Точная копия deleteSurveysAndImages
  */
-export const deleteSurvey = async (login: string, id: string): Promise<APIResponse> => {
+export const deleteSurvey = async (login: string, id: number): Promise<APIResponse> => {
   try {
     console.log('Удаление записи:', id, 'для пользователя:', login);
     

@@ -1,90 +1,130 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { register } from '../../api/auth.api';
-import { RegisterData } from '../../types/api.types';
-import { validateEmail } from '../../utils/formatters';
+import { useAuth } from '../../context/AuthContext';
+import { RegisterCredentials } from '../../types/api.types';
 
 interface RegisterFormProps {
-  onSuccess?: (message: string) => void;
+  onSuccess?: () => void;
   onError?: (message: string) => void;
+  redirectOnSuccess?: boolean;
+}
+
+// Создаем локальный тип для формы
+interface RegisterFormData extends RegisterCredentials {
+  confirmPassword: string;
 }
 
 const RegisterForm: React.FC<RegisterFormProps> = ({
   onSuccess,
-  onError
+  onError,
+  redirectOnSuccess = true
 }) => {
-  const [formData, setFormData] = useState<RegisterData>({
+  const [formData, setFormData] = useState<RegisterFormData>({
     login: '',
     password: '',
-    confirmPassword: '',
-    email: ''
+    email: '',
+    confirmPassword: ''
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState<'weak' | 'medium' | 'strong'>('weak');
   const navigate = useNavigate();
+  const { register } = useAuth();
+
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     // Валидация логина
     if (!formData.login.trim()) {
       newErrors.login = 'Логин обязателен';
-    } else if (formData.login.length < 3) {
-      newErrors.login = 'Логин должен содержать минимум 3 символа';
-    } else if (formData.login.includes('<') || formData.login.includes('>') || 
-               formData.login.includes('/') || formData.login.includes('&')) {
-      newErrors.login = 'Логин содержит запрещенные символы';
+    } else if (formData.login.length < 4) {
+      newErrors.login = 'Логин должен быть не менее 4 символов';
+    } else if (formData.login.length > 20) {
+      newErrors.login = 'Логин должен быть не более 20 символов';
+    }
+
+    // Валидация email
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email обязателен';
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Введите корректный email';
     }
 
     // Валидация пароля
     if (!formData.password) {
       newErrors.password = 'Пароль обязателен';
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Пароль должен содержать минимум 6 символов';
-    } else if (formData.password.includes('<') || formData.password.includes('>') || 
-               formData.password.includes(' ')) {
-      newErrors.password = 'Пароль содержит запрещенные символы';
+      newErrors.password = 'Пароль должен быть не менее 6 символов';
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      newErrors.password = 'Пароль должен содержать заглавные, строчные буквы и цифры';
     }
 
     // Подтверждение пароля
-    if (formData.password !== formData.confirmPassword) {
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Подтвердите пароль';
+    } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Пароли не совпадают';
-    }
-
-    // Валидация email
-    if (!formData.email) {
-      newErrors.email = 'Email обязателен';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Введите корректный email адрес';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const checkPasswordStrength = (password: string): 'weak' | 'medium' | 'strong' => {
+    let strength = 0;
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (password.length >= 8) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/\d/.test(password)) strength++;
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
     
-    // Очищаем ошибку при изменении поля
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-    
-    // Очищаем сообщение об успехе при изменении формы
-    if (successMessage) {
-      setSuccessMessage('');
+    if (strength <= 2) return 'weak';
+    if (strength <= 4) return 'medium';
+    return 'strong';
+  };
+
+  const getPasswordStrengthText = (strength: 'weak' | 'medium' | 'strong'): string => {
+    switch (strength) {
+      case 'weak': return 'Слабый';
+      case 'medium': return 'Средний';
+      case 'strong': return 'Сильный';
+      default: return '';
     }
   };
+
+  const getPasswordStrengthClass = (strength: 'weak' | 'medium' | 'strong'): string => {
+    switch (strength) {
+      case 'weak': return 'password-weak';
+      case 'medium': return 'password-medium';
+      case 'strong': return 'password-strong';
+      default: return '';
+    }
+  };
+
+ const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, value } = e.target;
+  setFormData((prev: RegisterFormData) => ({
+    ...prev,
+    [name]: value
+  }));
+  
+  // Проверка силы пароля
+  if (name === 'password') {
+    setPasswordStrength(checkPasswordStrength(value));
+  }
+  
+  // Очищаем ошибку при изменении поля
+  if (errors[name]) {
+    setErrors(prev => ({
+      ...prev,
+      [name]: ''
+    }));
+  }
+};
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -95,44 +135,40 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
     setIsLoading(true);
     setErrors({});
-    setSuccessMessage('');
 
-    try {
-      const result = await register({
-        login: formData.login,
-        password: formData.password,
-        email: formData.email
-      });
+    try {     
+      
+      const result = await register(
+      formData.login,
+      formData.password,
+      formData.email
+    );
 
       if (result.success) {
-        const message = result.message || 'Регистрация успешна! Проверьте email для подтверждения.';
-        setSuccessMessage(message);
-        
-        // Очищаем форму
-        setFormData({
-          login: '',
-          password: '',
-          confirmPassword: '',
-          email: ''
-        });
-        
+        // Успешная регистрация
         if (onSuccess) {
-          onSuccess(message);
+          onSuccess();
         }
         
-        // Автоматический редирект на страницу входа через 5 секунд
-        setTimeout(() => {
-          navigate('/login');
-        }, 5000);
+        if (redirectOnSuccess) {
+          navigate('/register-success', { 
+            state: { 
+              email: formData.email,
+              login: formData.login
+            } 
+          });
+        }
       } else {
-        setErrors({ submit: result.message || 'Ошибка регистрации' });
+        // Ошибка регистрации
+        const errorMessage = result.message || 'Ошибка регистрации';
+        setErrors({ submit: errorMessage });
         
         if (onError) {
-          onError(result.message || 'Ошибка регистрации');
+          onError(errorMessage);
         }
       }
     } catch (error: any) {
-      const errorMessage = error.message || 'Произошла ошибка при регистрации';
+      const errorMessage = error.message || 'Произошла ошибка';
       setErrors({ submit: errorMessage });
       
       if (onError) {
@@ -147,107 +183,218 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     navigate('/login');
   };
 
+  const handleTermsClick = () => {
+    // TODO: Открыть модальное окно с условиями
+    alert('Условия использования будут отображены в модальном окне');
+  };
+
   return (
     <div className="auth-form-container">
-      <h3>Чтобы зарегистрироваться - заполните данные полей:</h3>
-      
-      {successMessage && (
-        <div className="success">
-          <p className="success_p">{successMessage}</p>
-          <p className="success_p">Вы будете перенаправлены на страницу входа через 5 секунд...</p>
-        </div>
-      )}
+      <div className="auth-header">
+        <h3>Регистрация в системе</h3>
+        <p className="auth-subtitle">Создайте аккаунт для доступа к диагностической системе</p>
+      </div>
       
       {errors.submit && (
-        <div className="errors">
-          <p className="errors_p">{errors.submit}</p>
+        <div className="upload-message upload-error">
+          <i className="fas fa-exclamation-circle"></i>
+          {errors.submit}
         </div>
       )}
       
       <form 
         className="formForAuth" 
         onSubmit={handleSubmit} 
-        data-form="auth"
+        data-form="register"
+        noValidate
       >
         <div className="fields">
-          <p>Введите ваш логин:</p>
-          <input 
-            className={`input ${errors.login ? 'errors' : ''}`}
-            type="text"
-            placeholder="Введите ваш логин"
-            name="login"
-            value={formData.login}
-            onChange={handleChange}
-            disabled={isLoading}
-            autoComplete="username"
-          />
-          {errors.login && <span className="errors_p">{errors.login}</span>}
+          <label htmlFor="register-login">
+            <i className="fas fa-user"></i> Логин:
+          </label>
+          <div className="input-wrapper">
+            <input 
+              id="register-login"
+              className={`input ${errors.login ? 'errors' : ''}`}
+              type="text"
+              placeholder="Придумайте логин (4-20 символов)"
+              name="login"
+              value={formData.login}
+              onChange={handleChange}
+              data-input="register-login"
+              disabled={isLoading}
+              autoComplete="username"
+              autoFocus
+            />
+            {errors.login && (
+              <span className="input-error">
+                <i className="fas fa-exclamation-triangle"></i> {errors.login}
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="fields">
-          <p>Введите ваш пароль:</p>
-          <input 
-            className={`input ${errors.password ? 'errors' : ''}`}
-            type="password"
-            placeholder="Введите ваш пароль"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            disabled={isLoading}
-            autoComplete="new-password"
-          />
-          {errors.password && <span className="errors_p">{errors.password}</span>}
+          <label htmlFor="register-email">
+            <i className="fas fa-envelope"></i> Email:
+          </label>
+          <div className="input-wrapper">
+            <input 
+              id="register-email"
+              className={`input ${errors.email ? 'errors' : ''}`}
+              type="email"
+              placeholder="Введите ваш email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              data-input="register-email"
+              disabled={isLoading}
+              autoComplete="email"
+            />
+            {errors.email && (
+              <span className="input-error">
+                <i className="fas fa-exclamation-triangle"></i> {errors.email}
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="fields">
-          <p>Подтвердите пароль:</p>
-          <input 
-            className={`input ${errors.confirmPassword ? 'errors' : ''}`}
-            type="password"
-            placeholder="Подтвердите пароль"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            disabled={isLoading}
-            autoComplete="new-password"
-          />
-          {errors.confirmPassword && <span className="errors_p">{errors.confirmPassword}</span>}
+          <label htmlFor="register-password">
+            <i className="fas fa-lock"></i> Пароль:
+          </label>
+          <div className="input-wrapper">
+            <input 
+              id="register-password"
+              className={`input ${errors.password ? 'errors' : ''}`}
+              type="password"
+              placeholder="Придумайте пароль (мин. 6 символов)"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              data-input="register-password"
+              disabled={isLoading}
+              autoComplete="new-password"
+            />
+            {formData.password && (
+              <div className={`password-strength ${getPasswordStrengthClass(passwordStrength)}`}>
+                <div className="strength-bar">
+                  <div 
+                    className="strength-fill" 
+                    style={{ 
+                      width: passwordStrength === 'weak' ? '33%' : 
+                             passwordStrength === 'medium' ? '66%' : '100%' 
+                    }}
+                  ></div>
+                </div>
+                <span className="strength-text">
+                  Сложность: {getPasswordStrengthText(passwordStrength)}
+                </span>
+              </div>
+            )}
+            {errors.password && (
+              <span className="input-error">
+                <i className="fas fa-exclamation-triangle"></i> {errors.password}
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="fields">
-          <p>Введите ваш email:</p>
-          <input 
-            className={`input ${errors.email ? 'errors' : ''}`}
-            type="email"
-            placeholder="Введите ваш email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            disabled={isLoading}
-            autoComplete="email"
-          />
-          {errors.email && <span className="errors_p">{errors.email}</span>}
+          <label htmlFor="register-confirm-password">
+            <i className="fas fa-lock"></i> Подтверждение пароля:
+          </label>
+          <div className="input-wrapper">
+            <input 
+              id="register-confirm-password"
+              className={`input ${errors.confirmPassword ? 'errors' : ''}`}
+              type="password"
+              placeholder="Повторите пароль"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              data-input="register-confirm-password"
+              disabled={isLoading}
+              autoComplete="new-password"
+            />
+            {errors.confirmPassword && (
+              <span className="input-error">
+                <i className="fas fa-exclamation-triangle"></i> {errors.confirmPassword}
+              </span>
+            )}
+            {formData.password && formData.confirmPassword && 
+             formData.password === formData.confirmPassword && (
+              <span className="input-success">
+                <i className="fas fa-check-circle"></i> Пароли совпадают
+              </span>
+            )}
+          </div>
         </div>
         
-        <button 
-          className="buttonFromTemplate" 
-          type="submit"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Регистрация...' : 'Отправить'}
-        </button>
+        <div className="form-terms">
+          <label className="checkbox-label">
+            <input type="checkbox" required />
+            <span>
+              Я соглашаюсь с{' '}
+              <button 
+                type="button" 
+                className="terms-link"
+                onClick={handleTermsClick}
+              >
+                условиями использования
+              </button>{' '}
+              и политикой конфиденциальности
+            </span>
+          </label>
+        </div>
+        
+        <div className="form-actions">
+          <button 
+            className="buttonFromTemplate" 
+            type="submit"
+            data-button="register"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <i className="fas fa-spinner fa-spin"></i> Регистрация...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-user-plus"></i> Зарегистрироваться
+              </>
+            )}
+          </button>
+        </div>
       </form>
       
       <div className="auth-links">
-        <p>Уже есть аккаунт?</p>
-        <button 
-          className="buttonFromTemplate" 
-          type="button"
-          onClick={handleLoginClick}
-          disabled={isLoading}
-        >
-          Войти
-        </button>
+        <div className="auth-divider">
+          <span>Уже есть аккаунт?</span>
+        </div>
+        
+        <div className="auth-options">
+          <button 
+            className="upload-button" 
+            type="button"
+            onClick={handleLoginClick}
+            disabled={isLoading}
+          >
+            <i className="fas fa-sign-in-alt"></i> Войти в систему
+          </button>
+        </div>
+      </div>
+      
+      <div className="auth-info">
+        <p>
+          <i className="fas fa-info-circle"></i> 
+          После регистрации вам будет отправлено письмо для подтверждения email.
+          Без подтверждения email вход в систему невозможен.
+        </p>
+        <p>
+          <i className="fas fa-shield-alt"></i> 
+          Ваши данные защищены и используются только для предоставления медицинских услуг.
+        </p>
       </div>
     </div>
   );

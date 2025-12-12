@@ -1,178 +1,85 @@
 import { fetchClient } from './fetchClient';
-import { LoginCredentials, RegisterData, APIResponse } from '../types/api.types';
 
-/**
- * Вход в систему
- * Точная копия postDataForVerify из requestsForEntry.js
- */
-export const login = async (credentials: LoginCredentials): Promise<APIResponse> => {
+// Аутентификация
+export const checkJWT = async (): Promise<{success: boolean}> => {
+  // Проверяем есть ли токен
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return { success: false };
+  }
+  
   try {
-    console.log('Отправка данных для входа:', credentials.login);
+    const result = await fetchClient.verifyToken();
     
-    const result = await fetchClient.post('/entryData', credentials);
-    
-    // Если успешно, сохраняем пользователя как в вашем коде
-    if (result.success && result.data) {
-      console.log('Вход успешен, сохраняем пользователя:', result.data.login);
-      
-      localStorage.setItem('user', JSON.stringify(result.data));
-      localStorage.setItem('token', result.data.jwt_access);
-      
-      // Редирект на главную как в вашем redirectToMain()
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 100);
-      
-      return {
-        success: true,
-        data: result.data,
-        message: 'Вход успешен'
-      };
+    // Проверяем успешность и статус
+    if (result.success) {
+      return { success: true };
+    } else {
+      // Если 401 или любая другая ошибка
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      return { success: false };
     }
-    
-    return result;
-    
-  } catch (error: any) {
-    console.error('Ошибка входа:', error);
-    return {
-      success: false,
-      message: error.message || 'Ошибка входа'
-    };
+  } catch (error) {
+    console.error('JWT check error:', error);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    return { success: false };
   }
 };
 
-/**
- * Регистрация
- * Точная копия отправки на /main/auth/variants
- */
-export const register = async (data: RegisterData): Promise<APIResponse> => {
-  try {
-    console.log('Регистрация пользователя:', data.login);
-    
-    // Создаем FormData КАК В БРАУЗЕРЕ
-    const formData = new FormData();
-    formData.append('login', data.login);
-    formData.append('password', data.password);
-    formData.append('email', data.email);
-    
-    // Отправляем КАК В ВАШЕМ HTML ФОРМЕ
-    const result = await fetchClient.postFormData('/main/auth/variants', formData);
-    
-    // Ваш сервер делает редирект или возвращает HTML
-    if (result.redirected && result.redirectUrl) {
-      const redirectUrl = result.redirectUrl;
-      
-      // Проверяем куда редирект
-      if (redirectUrl.includes('/main/auth/success')) {
-        const urlParams = new URLSearchParams(redirectUrl.split('?')[1]);
-        const login = urlParams.get('login');
-        
-        return {
-          success: true,
-          message: `Регистрация успешна! Пользователь ${login} зарегистрирован. Проверьте email для подтверждения.`
-        };
-      }
-      
-      if (redirectUrl.includes('/main/auth/error')) {
-        const urlParams = new URLSearchParams(redirectUrl.split('?')[1]);
-        const errorMessage = urlParams.get('errorMessage');
-        
-        return {
-          success: false,
-          message: errorMessage || 'Ошибка регистрации'
-        };
-      }
-    }
-    
-    // Если сервер вернул HTML с ошибкой
-    if (!result.success && result.message) {
-      return result;
-    }
-    
-    // Если дошло до сюда без ошибок
-    return {
-      success: true,
-      message: 'Регистрация отправлена. Проверьте email для подтверждения.'
-    };
-    
-  } catch (error: any) {
-    console.error('Ошибка регистрации:', error);
-    return {
-      success: false,
-      message: error.message || 'Ошибка регистрации'
-    };
-  }
+export const login = async (login: string, password: string) => {
+  return fetchClient.login(login, password);
 };
 
-/**
- * Проверка JWT токена
- * Точная копия checkJWT из requestsForSurveys.js
- */
-export const checkJWT = async (): Promise<APIResponse> => {
-  try {
-    const result = await fetchClient.post('/checkJWT', {});
-    
-    if (result.redirected) {
-      return {
-        success: false,
-        message: 'Токен недействителен',
-        redirected: true
-      };
-    }
-    
-    return {
-      success: true,
-      message: 'Токен действителен'
-    };
-    
-  } catch (error: any) {
-    return {
-      success: false,
-      message: error.message || 'Ошибка проверки токена'
-    };
-  }
+export const register = async (login: string, password: string, email: string) => {
+  return fetchClient.register(login, password, email);
 };
 
-/**
- * Редирект на главную
- * Точная копия redirectToMain из requests.js
- */
-export const redirectToMain = async (): Promise<APIResponse> => {
-  try {
-    const result = await fetchClient.post('/toMain', {});
-    
-    if (result.redirected && result.redirectUrl) {
-      window.location.href = result.redirectUrl;
-    }
-    
-    return result;
-    
-  } catch (error: any) {
-    return {
-      success: false,
-      message: error.message || 'Ошибка редиректа'
-    };
-  }
+export const confirmEmail = async (token: string) => {
+  return fetchClient.get(`/auth/confirm/${token}`);
 };
 
-/**
- * Редирект на страницу аккаунта
- * Точная копия redirectToAccount из requestsForSurveys.js
- */
-export const redirectToAccount = async (): Promise<APIResponse> => {
-  try {
-    const result = await fetchClient.post('/toAccount', {});
-    
-    if (result.redirected && result.redirectUrl) {
-      window.location.href = result.redirectUrl;
-    }
-    
-    return result;
-    
-  } catch (error: any) {
-    return {
-      success: false,
-      message: error.message || 'Ошибка редиректа'
-    };
-  }
+export const logoutUser = async () => {
+  return fetchClient.logout();
+};
+
+// Опросы
+export const saveSurveyToAccount = async (survey: any) => {
+  return fetchClient.saveSurvey(survey);
+};
+
+export const getSurveysFromAccount = async () => {
+  return fetchClient.getSurveys();
+};
+
+export const deleteSurvey = async (id: number) => {
+  return fetchClient.deleteSurveyOrImage(id);
+};
+
+// Изображения
+export const uploadImage = async (filename: string, base64Data: string, comment?: string) => {
+  return fetchClient.uploadImageBase64(filename, base64Data, comment);
+};
+
+export const getImage = async (id: number) => {
+  return fetchClient.getImage(id);
+};
+
+// Диагнозы
+export const searchDiagnoses = async (titles: string[]) => {
+  return fetchClient.searchDiagnoses(titles);
+};
+
+// Утилиты
+export const getCurrentUser = () => {
+  return fetchClient.getCurrentUser();
+};
+
+export const isAuthenticated = () => {
+  return fetchClient.isAuthenticated();
+};
+
+export const checkConnection = async () => {
+  return fetchClient.checkConnection();
 };
