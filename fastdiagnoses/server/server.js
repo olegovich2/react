@@ -940,39 +940,47 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   }
 });
 
-// 7. Загрузка изображения
+// 7. Загрузка изображения (исправленная)
 app.post("/api/images/upload", authenticateToken, async (req, res) => {
   try {
+    console.log("📤 Начало загрузки изображения...");
     const { filename, file, comment } = req.body;
     const { login } = req.user;
 
+    console.log(`👤 Пользователь: ${login}`);
+    console.log(
+      `📁 Файл: ${filename}, размер данных: ${file ? file.length : 0} символов`
+    );
+
     // Валидация
     const validated = validateImageBase64(file, filename);
+    console.log("✅ Валидация пройдена");
 
     // Создание превью
+    console.log("🖼️  Создание превью...");
     const buffer = Buffer.from(validated.base64Data, "base64");
     const resizedBuffer = await sharp(buffer).resize(100, 100).toBuffer();
-
     const smallImage = resizedBuffer.toString("base64");
+    console.log("✅ Превью создано");
 
-    // Сохранение
+    // Сохранение (ИСПРАВЛЕНО - используем обратные кавычки)
+    console.log("💾 Сохранение в БД...");
     await query(
-      `INSERT INTO ?? (fileNameOriginIMG, originIMG, comment, smallIMG) 
+      `INSERT INTO \`${login}\` (fileNameOriginIMG, originIMG, comment, smallIMG) 
        VALUES (?, ?, ?, ?)`,
-      [
-        login,
-        validated.filename,
-        validated.base64Data,
-        comment || "",
-        smallImage,
-      ]
+      [validated.filename, validated.base64Data, comment || "", smallImage]
     );
+
+    console.log("✅ Изображение успешно сохранено");
 
     res.json({
       success: true,
       message: "Изображение загружено успешно",
     });
   } catch (error) {
+    console.error("❌ Upload image error:", error);
+    console.error("❌ Stack trace:", error.stack);
+
     if (error.name === "ValidationError") {
       return res.status(400).json({
         success: false,
@@ -981,10 +989,31 @@ app.post("/api/images/upload", authenticateToken, async (req, res) => {
       });
     }
 
-    console.error("Upload image error:", error);
+    // Проверяем специфичные ошибки
+    if (error.message && error.message.includes("sharp")) {
+      console.error(
+        "⚠️  Проблема с библиотекой sharp. Установите: npm install sharp"
+      );
+      return res.status(500).json({
+        success: false,
+        message: "Ошибка обработки изображения. Установите библиотеку sharp.",
+      });
+    }
+
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      console.error(
+        `⚠️  Таблица пользователя ${req.user?.login} не существует`
+      );
+      return res.status(404).json({
+        success: false,
+        message: "Таблица пользователя не найдена",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Ошибка загрузки изображения",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -1060,29 +1089,32 @@ app.post("/api/diagnoses/search", async (req, res) => {
 });
 
 // 9. Получение данных пользователя
-app.get("/api/surveys", authenticateToken, async (req, res) => {
+app.post("/api/surveys", authenticateToken, async (req, res) => {
   try {
     const { login } = req.user;
 
+    // Используем динамическое имя таблицы в SQL строке
     const [surveys, images] = await Promise.all([
       query(
-        "SELECT id, survey FROM ?? WHERE survey IS NOT NULL ORDER BY id DESC",
-        [login]
+        `SELECT id, survey FROM \`${login}\` WHERE survey IS NOT NULL ORDER BY id DESC`,
+        [] // Без параметров
       ),
       query(
-        "SELECT id, fileNameOriginIMG, comment, smallIMG FROM ?? WHERE fileNameOriginIMG IS NOT NULL ORDER BY id DESC",
-        [login]
+        `SELECT id, fileNameOriginIMG, originIMG, comment, smallIMG FROM \`${login}\` WHERE fileNameOriginIMG IS NOT NULL ORDER BY id DESC`,
+        [] // Без параметров
       ),
     ]);
 
     const parsedSurveys = surveys.map((row) => ({
       id: row.id,
+      date: JSON.parse(row.survey).date,
       survey: JSON.parse(row.survey),
     }));
 
     const parsedImages = images.map((row) => ({
       id: row.id,
       fileName: row.fileNameOriginIMG,
+      originIMG: row.originIMG,
       comment: row.comment,
       smallImage: row.smallIMG,
     }));
@@ -1094,6 +1126,17 @@ app.get("/api/surveys", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Get surveys error:", error);
+
+    // Проверка на отсутствие таблицы
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      return res.json({
+        success: true,
+        surveys: [],
+        images: [],
+        message: "У вас пока нет сохраненных данных",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Ошибка получения данных",
@@ -1114,7 +1157,8 @@ app.delete("/api/surveys/:id", authenticateToken, async (req, res) => {
       });
     }
 
-    const result = await query("DELETE FROM ?? WHERE id = ?", [login, id]);
+    // Используем обратные кавычки для имени таблицы
+    const result = await query(`DELETE FROM \`${login}\` WHERE id = ?`, [id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
@@ -1129,6 +1173,15 @@ app.delete("/api/surveys/:id", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Delete error:", error);
+
+    // Проверка на отсутствие таблицы
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      return res.status(404).json({
+        success: false,
+        message: "Таблица пользователя не найдена",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Ошибка удаления",

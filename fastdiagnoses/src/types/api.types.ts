@@ -55,12 +55,9 @@ export interface JWTVerifyResponse {
 
 // ==================== ОПРОСЫ ====================
 export interface Survey {
-  id: number;
-  system: string;
-  symptoms: Record<string, any>;
+  id: number;  
   diagnosis?: string[];
   recommendations?: string[];
-  createdAt?: string;
   date: string;
   nameSurname: string;
   age: number;
@@ -91,7 +88,7 @@ export interface UploadedImage {
   fileName: string;
   comment: string;
   smallImage: string;
-  createdAt?: string;
+  originIMG?: string;
 }
 
 export interface ImageUploadRequest {

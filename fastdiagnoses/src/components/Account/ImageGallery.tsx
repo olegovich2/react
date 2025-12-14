@@ -13,42 +13,50 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
   }
 
   return (
-    <div data-div="allDownloadImages">
+    <div className="image-gallery-container">
       {images.map((image) => (
-        <div key={image.id} className="imageFromDB" data-div={image.id}>
-          <div className="blockIMG">
-            <img 
-              className="smallImageUpload" 
-              src={`data:image/png;base64,${image.smallImage}`} 
-              alt={image.fileName} 
-              data-img="fromDB"
-            />
+        <div key={image.id} className="image-item" data-image-id={image.id}>
+          <div className="image-preview">
+            {image.smallImage && (
+              <img 
+                src={`data:image/jpeg;base64,${image.smallImage}`} 
+                alt={image.fileName}
+                className="thumbnail"
+                onClick={() => onView(image.id)}
+              />
+            )}
           </div>
           
-          <div className="blockFileInfo">
-            <p data-container="filename">{image.fileName}</p> {/* МЕНЯЕМ fileNameOriginIMG на fileName */}
-            <p data-container="comment">{image.comment}</p>
+          <div className="image-info">
+            <p className="image-filename">
+              <strong>📁 Файл:</strong> {image.fileName}
+            </p>
+            <p className="image-comment">
+              <strong>💬 Комментарий:</strong> {image.comment || "Нет комментария"}
+            </p>
+            <p className="image-size">
+              <strong>📏 Размер:</strong> {image.originIMG 
+                ? `${Math.round(image.originIMG.length * 3 / 4 / 1024)} KB` 
+                : 'Миниатюра (100x100px)'}
+            </p>
           </div>
           
-          <div className="blockButtons">
+          <div className="image-actions">
             <button 
-              className="buttonFromTemplate" 
+              className="buttonFromTemplate view-image-button" 
               type="button"
-              data-container="lookButtonImages"
-              data-id={image.id}
               onClick={() => onView(image.id)}
+              title="Просмотреть изображение"
             >
-              Посмотреть
+              <i className="fas fa-eye"></i> Просмотреть
             </button>
-            
             <button 
-              className="buttonFromTemplate" 
+              className="buttonFromTemplate delete-image-button" 
               type="button"
-              data-container="deleteButtonImages"
-              data-id={image.id}
               onClick={() => onDelete(image.id)}
+              title="Удалить изображение"
             >
-              Удалить
+              <i className="fas fa-trash-alt"></i> Удалить
             </button>
           </div>
         </div>

@@ -16,7 +16,7 @@ export const getDiagnosisRecommendations = async (titles: string[]): Promise<API
       return {
         success: true,
         data: {
-          title: titles,
+          title: result.data.titles,
           diagnostic: result.data.diagnostic || [],
           treatment: result.data.treatment || []
         }
@@ -119,10 +119,12 @@ export const getUserSurveys = async (login: string): Promise<APIResponse> => {
   try {
     console.log('Запрос опросов для:', login);
     
-    const result = await fetchClient.post('/getSurveys', { login });
+    const result = await fetchClient.post('/surveys', { login });
     
     if (result.success && result.data) {
       // Обрабатываем как в objectToLIstSurveysAndImages
+      console.log(result.data);
+      
       return {
         success: true,
         data: {
@@ -151,19 +153,24 @@ export const deleteSurvey = async (login: string, id: number): Promise<APIRespon
   try {
     console.log('Удаление записи:', id, 'для пользователя:', login);
     
-    const result = await fetchClient.post('/deleteRow', { login, id });
+    // DELETE запрос без тела - сервер берет id из URL и login из токена
+    const result = await fetchClient.delete(`/surveys/${id}`);
     
     if (result.success) {
-      // После удаления обновляем список как в вашем коде
-      const updatedSurveys = await getUserSurveys(login);
+      console.log('Запись успешно удалена');
       return {
         success: true,
         message: 'Запись успешно удалена',
-        data: updatedSurveys.data
+        data: result.data
       };
     }
     
-    return result;
+    // Возвращаем ошибку от сервера
+    return {
+      success: false,
+      message: result.message || 'Ошибка удаления',
+      field: result.field
+    };
     
   } catch (error: any) {
     console.error('Ошибка удаления:', error);

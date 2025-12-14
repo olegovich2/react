@@ -9,8 +9,10 @@ interface ResultSurveyProps {
 }
 
 const ResultSurvey: React.FC<ResultSurveyProps> = ({ survey, onClose, onPrint, onSaveAsWord }) => {
+  console.log('jnhf,jnfkjhsdbclkjshd', survey);
+  
   return (
-    <div className="unvisible" data-account="resultSurvey">
+    <div data-account="resultSurvey">
       <div id="printFromAccount">
         <div className="header_for_print">
           <h2>QUICK DIAGNOSIS</h2>
@@ -44,7 +46,7 @@ const ResultSurvey: React.FC<ResultSurveyProps> = ({ survey, onClose, onPrint, o
         
         <div className="many_content_survey">
           Предварительный диагноз:
-          <p data-account="listDiagnosis">{survey.title.join(' ')}</p>
+          <p data-account="listDiagnosis">{survey.title?.join(', ')}</p>
         </div>
         
         <div className="many_content_survey">

@@ -160,21 +160,19 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
       personalData.anamnesis = historyTaking(formData);
       personalData.otherGuidelines = otherGuidelines;
 
-      // 3. Сохраняем в localStorage (как в оригинале)
-      localStorage.setItem("survey", JSON.stringify(personalData));
-
-      // 4. Отправляем на сервер для получения рекомендаций
+           // 3. Отправляем на сервер для получения рекомендаций
       const result = await getDiagnosisRecommendations(personalData.title);
 
       if (result.success && result.data) {
-        // 5. Объединяем данные с рекомендациями
+        // 4. Объединяем данные с рекомендациями
         const completeSurvey: Survey = {
           ...personalData,
+          title: result.data.title || [],
           diagnostic: result.data.diagnostic || [],
           treatment: result.data.treatment || [],
         };
 
-        // 6. Вызываем callback с результатом
+        // 5. Вызываем callback с результатом
         onSubmit(completeSurvey);
       }
 

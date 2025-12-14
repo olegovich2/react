@@ -74,21 +74,40 @@ export const getImage = async (id: number) => {
 /**
  * Получение списка всех изображений пользователя
  */
-export const getUserImages = async () => {
-  const result = await fetchClient.getSurveys();
-  
-  if (result.success && result.data) {
+// images.api.ts
+export const getUserImages = async (): Promise<any> => {
+  try {
+    console.log('📥 Запрос изображений пользователя...');
+    
+    // Используем прямой запрос вместо getSurveys()
+    const response = await fetchClient.get('/api/surveys');
+    console.log('📊 Прямой ответ от /api/surveys:', response);
+    
+    if (response.success) {
+      // Сервер возвращает images прямо в response, а не в response.data
+      const images = response.data.images || (response.data && response.data.images) || [];
+      console.log(`🖼️  Изображения получены:`, images.length, 'шт.');
+      console.log('📝 Первое изображение:', images[0]);
+      
+      return {
+        success: true,
+        images: images
+      };
+    }
+    
+    console.warn('⚠️  Сервер вернул неуспешный ответ:', response);
     return {
-      success: true,
-      images: result.data.images || []
+      success: false,
+      message: response.message || 'Не удалось получить изображения'
+    };
+    
+  } catch (error: any) {
+    console.error('❌ Ошибка получения изображений:', error);
+    return {
+      success: false,
+      message: error.message || 'Ошибка получения изображений'
     };
   }
-  
-  return {
-    success: false,
-    message: result.message || 'Ошибка получения изображений',
-    images: []
-  };
 };
 
 /**
