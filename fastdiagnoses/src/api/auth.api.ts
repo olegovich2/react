@@ -63,7 +63,7 @@ export const uploadImage = async (filename: string, base64Data: string, comment?
 };
 
 export const getImage = async (id: number) => {
-  return fetchClient.getImage(id);
+  return fetchClient.getImageById(id);
 };
 
 // Диагнозы

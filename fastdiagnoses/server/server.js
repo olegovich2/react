@@ -6,8 +6,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const sharp = require("sharp");
 const nodemailer = require("nodemailer");
-const validator = require("validator"); // Для профессиональной валидации
-const cron = require("node-cron"); // Для периодических задач
+const validator = require("validator");
+const cron = require("node-cron");
 require("dotenv").config();
 
 const app = express();
@@ -25,9 +25,8 @@ const poolConfig = {
 
 const JWT_SECRET = process.env.JWT_SECRET || "registration-secret-key";
 const JWT_SECRET_TWO = process.env.JWT_SECRET_TWO || "session-secret-key";
-const MAX_USERS_PER_EMAIL = 4; // Максимум 4 пользователя на один email
+const MAX_USERS_PER_EMAIL = 4;
 
-// Email transporter
 const transporter = nodemailer.createTransport({
   service: "Gmail",
   host: "smtp.gmail.com",
@@ -57,10 +56,6 @@ async function query(sql, params = []) {
 }
 
 // ==================== ФУНКЦИИ ОЧИСТКИ ====================
-
-/**
- * Очистка неактивированных аккаунтов старше 24 часов
- */
 async function cleanupExpiredRegistrations() {
   try {
     console.log("🧹 Запуск очистки неактивированных аккаунтов...");
@@ -73,10 +68,8 @@ async function cleanupExpiredRegistrations() {
 
     for (const user of users) {
       try {
-        // Проверяем, истек ли токен регистрации
         jwt.verify(user.jwt, JWT_SECRET);
       } catch (tokenError) {
-        // Токен истек - удаляем пользователя
         await query(
           "DELETE FROM usersdata WHERE login = ? AND logic = 'false'",
           [user.login]
@@ -101,27 +94,20 @@ async function cleanupExpiredRegistrations() {
   }
 }
 
-/**
- * Очистка истекших сессий - теперь работает с колонкой date
- */
 async function cleanupExpiredSessions() {
   try {
     console.log("🧹 Запуск очистки истекших сессий...");
 
-    // Получаем все сессии
     const sessions = await query(
       "SELECT id, login, jwt_access, date FROM sessionsdata"
     );
 
     let deletedCount = 0;
 
-    // Проверяем каждую сессию на истекший токен
     for (const session of sessions) {
       try {
-        // Проверяем, истек ли сессионный токен
         jwt.verify(session.jwt_access, JWT_SECRET_TWO);
       } catch (tokenError) {
-        // Токен истек - удаляем сессию
         await query("DELETE FROM sessionsdata WHERE id = ?", [session.id]);
         deletedCount++;
         console.log(
@@ -130,7 +116,6 @@ async function cleanupExpiredSessions() {
       }
     }
 
-    // Дополнительно: удаляем сессии старше 2 часов (на всякий случай)
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
     const result = await query("DELETE FROM sessionsdata WHERE date < ?", [
       twoHoursAgo,
@@ -158,50 +143,38 @@ async function cleanupExpiredSessions() {
   }
 }
 
-/**
- * Запуск периодической очистки (очистка сессий с 2 до 3 ночи)
- */
 function startCleanupSchedule() {
-  // 📅 Расписание очистки:
-  // 1. Неактивированные аккаунты - каждый день в 3:00
-  // 2. Истекшие сессии - каждый час с 2:00 до 3:00 ночи
-
-  // Очистка неактивированных аккаунтов в 3:00 каждые сутки
   cron.schedule("0 3 * * *", async () => {
     console.log("⏰ [03:00] Запуск очистки неактивированных аккаунтов...");
     await cleanupExpiredRegistrations();
     console.log("✅ Очистка неактивированных аккаунтов завершена.");
   });
 
-  // Очистка сессий с 2:00 до 3:00 ночи каждый час
   cron.schedule("0 2 * * *", async () => {
     console.log("⏰ [02:00] Запуск ночной очистки сессий...");
     await cleanupExpiredSessions();
     console.log("✅ Ночная очистка сессий завершена.");
   });
 
-  // Дополнительная очистка сессий в 2:30 на всякий случай
   cron.schedule("30 2 * * *", async () => {
     console.log("⏰ [02:30] Запуск дополнительной очистки сессий...");
     await cleanupExpiredSessions();
     console.log("✅ Дополнительная очистка сессий завершена.");
   });
 
-  // Также запускаем при старте сервера (один раз)
   setTimeout(async () => {
     console.log("🚀 Запуск начальной очистки при старте сервера...");
     await cleanupExpiredRegistrations();
     await cleanupExpiredSessions();
     console.log("✅ Начальная очистка завершена.");
-  }, 15000); // Через 15 секунд после старта
+  }, 15000);
 
   console.log("📅 Расписание очистки активировано:");
   console.log("   • Неактивированные аккаунты: каждый день в 03:00");
   console.log("   • Истекшие сессии: каждый день с 02:00 до 03:00");
 }
 
-// ==================== ВАЛИДАЦИЯ (НА СЕРВЕРЕ!) ====================
-
+// ==================== ВАЛИДАЦИЯ ====================
 const ValidationError = class extends Error {
   constructor(message, field) {
     super(message);
@@ -210,9 +183,6 @@ const ValidationError = class extends Error {
   }
 };
 
-/**
- * Валидация логина на сервере
- */
 function validateLogin(login) {
   if (!login || login.trim().length === 0) {
     throw new ValidationError("Логин обязателен", "login");
@@ -229,13 +199,11 @@ function validateLogin(login) {
     );
   }
 
-  // Проверка на опасные символы
   const dangerousChars = new RegExp("[<>/\\\\&'\"]");
   if (dangerousChars.test(login)) {
     throw new ValidationError("Логин содержит недопустимые символы", "login");
   }
 
-  // Проверка на SQL инъекции
   const sqlKeywords = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|EXEC)\b)/i;
   if (sqlKeywords.test(login)) {
     throw new ValidationError("Логин содержит недопустимые слова", "login");
@@ -244,9 +212,6 @@ function validateLogin(login) {
   return login.trim();
 }
 
-/**
- * Валидация пароля на сервере
- */
 function validatePassword(password) {
   if (!password || password.length === 0) {
     throw new ValidationError("Пароль обязателен", "password");
@@ -266,7 +231,6 @@ function validatePassword(password) {
     );
   }
 
-  // Проверка сложности
   const hasUpperCase = /[A-Z]/.test(password);
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumbers = /\d/.test(password);
@@ -278,7 +242,6 @@ function validatePassword(password) {
     );
   }
 
-  // Проверка на кириллицу
   const cyrillic = /[а-яА-ЯёЁ]/;
   if (cyrillic.test(password)) {
     throw new ValidationError(
@@ -290,20 +253,15 @@ function validatePassword(password) {
   return password;
 }
 
-/**
- * Валидация email на сервере
- */
 function validateEmail(email) {
   if (!email || email.trim().length === 0) {
     throw new ValidationError("Email обязателен", "email");
   }
 
-  // Используем профессиональную библиотеку validator
   if (!validator.isEmail(email)) {
     throw new ValidationError("Некорректный формат email", "email");
   }
 
-  // Проверка на disposable email
   const disposableDomains = [
     "tempmail",
     "throwaway",
@@ -323,27 +281,19 @@ function validateEmail(email) {
   return email.trim().toLowerCase();
 }
 
-/**
- * Валидация данных опроса
- */
 function validateSurvey(survey) {
   if (!survey || typeof survey !== "object") {
     throw new ValidationError("Некорректные данные опроса", "survey");
   }
 
-  // Проверка на чрезмерно большой размер
   const surveyStr = JSON.stringify(survey);
   if (surveyStr.length > 100000) {
-    // 100KB максимум
     throw new ValidationError("Данные опроса слишком большие", "survey");
   }
 
   return survey;
 }
 
-/**
- * Валидация изображения (Base64)
- */
 function validateImageBase64(base64Data, filename) {
   if (!base64Data || typeof base64Data !== "string") {
     throw new ValidationError("Некорректные данные изображения", "file");
@@ -353,18 +303,15 @@ function validateImageBase64(base64Data, filename) {
     throw new ValidationError("Имя файла обязательно", "filename");
   }
 
-  // Проверка размера (максимум 10MB в Base64)
   if (base64Data.length > 15 * 1024 * 1024) {
     throw new ValidationError("Файл слишком большой (максимум 10MB)", "file");
   }
 
-  // Проверка формата Base64
   const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/;
   if (!base64Regex.test(base64Data.replace(/\s/g, ""))) {
     throw new ValidationError("Некорректный формат Base64", "file");
   }
 
-  // Проверка расширения файла
   const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"];
   if (!allowedExtensions.some((ext) => filename.toLowerCase().endsWith(ext))) {
     throw new ValidationError(
@@ -392,7 +339,6 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Статика React
 const buildPath = path.join(__dirname, "..", "build");
 app.use(express.static(buildPath));
 
@@ -408,11 +354,8 @@ const authenticateToken = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-
-    // Верификация токена
     const decoded = jwt.verify(token, JWT_SECRET_TWO);
 
-    // Проверка сессии в БД (используем колонку date)
     const session = await query(
       "SELECT * FROM sessionsdata WHERE jwt_access = ? AND login = ?",
       [token, decoded.login]
@@ -425,9 +368,8 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Проверка срока действия сессии (дополнительно к JWT expiry)
     const sessionAge = Date.now() - new Date(session[0].date).getTime();
-    const MAX_SESSION_AGE = 2 * 60 * 60 * 1000; // 2 часа
+    const MAX_SESSION_AGE = 2 * 60 * 60 * 1000;
 
     if (sessionAge > MAX_SESSION_AGE) {
       await query("DELETE FROM sessionsdata WHERE jwt_access = ?", [token]);
@@ -492,12 +434,10 @@ app.post("/api/auth/verify", authenticateToken, (req, res) => {
 // 2. Регистрация с email подтверждением
 app.post("/api/auth/register", async (req, res) => {
   try {
-    // Валидация на сервере
     const login = validateLogin(req.body.login);
     const password = validatePassword(req.body.password);
     const email = validateEmail(req.body.email);
 
-    // 🔥 Проверяем количество пользователей на email
     const emailUsage = await query(
       "SELECT COUNT(*) as count FROM usersdata WHERE email = ?",
       [email]
@@ -505,12 +445,9 @@ app.post("/api/auth/register", async (req, res) => {
 
     const userCount = emailUsage[0].count || 0;
 
-    // Если уже 4 пользователя на этот email
     if (userCount >= MAX_USERS_PER_EMAIL) {
-      // Попробуем очистить неактивированные аккаунты перед отказом
       await cleanupExpiredRegistrations();
 
-      // Проверяем снова после очистки
       const updatedEmailUsage = await query(
         "SELECT COUNT(*) as count FROM usersdata WHERE email = ? AND logic = 'true'",
         [email]
@@ -527,7 +464,6 @@ app.post("/api/auth/register", async (req, res) => {
       }
     }
 
-    // Проверяем уникальность логина
     const existingLogin = await query(
       "SELECT login FROM usersdata WHERE login = ?",
       [login]
@@ -537,25 +473,21 @@ app.post("/api/auth/register", async (req, res) => {
       throw new ValidationError("Логин уже занят", "login");
     }
 
-    // Хеширование пароля
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Генерация токена подтверждения
     const confirmToken = jwt.sign(
       { login, email, purpose: "registration" },
       JWT_SECRET,
       { expiresIn: "24h" }
     );
 
-    // Создание пользователя (пока не активен)
     await query(
       `INSERT INTO usersdata (login, password, email, jwt, logic) 
        VALUES (?, ?, ?, ?, ?)`,
       [login, hashedPassword, email, confirmToken, "false"]
     );
 
-    // Обновляем счетчик
     const updatedCount = await query(
       "SELECT COUNT(*) as count FROM usersdata WHERE email = ? AND logic = 'true'",
       [email]
@@ -563,7 +495,6 @@ app.post("/api/auth/register", async (req, res) => {
 
     const activeUserCount = updatedCount[0].count || 0;
 
-    // Отправка email подтверждения
     const confirmUrl = `${
       process.env.CLIENT_URL || "http://localhost:5000"
     }/confirm/${confirmToken}`;
@@ -622,12 +553,10 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// 3. Подтверждение email - возвращаем HTML страницу
+// 3. Подтверждение email
 app.get("/api/auth/confirm/:token", async (req, res) => {
   try {
     const { token } = req.params;
-
-    // Верификация токена
     const decoded = jwt.verify(token, JWT_SECRET);
 
     if (decoded.purpose !== "registration") {
@@ -653,7 +582,6 @@ app.get("/api/auth/confirm/:token", async (req, res) => {
       `);
     }
 
-    // Активация пользователя
     const result = await query(
       "UPDATE usersdata SET logic = 'true' WHERE login = ? AND email = ? AND logic = 'false'",
       [decoded.login, decoded.email]
@@ -682,7 +610,6 @@ app.get("/api/auth/confirm/:token", async (req, res) => {
       `);
     }
 
-    // Создание личной таблицы для пользователя
     await query(
       `CREATE TABLE IF NOT EXISTS \`${decoded.login}\` (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -694,7 +621,6 @@ app.get("/api/auth/confirm/:token", async (req, res) => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     );
 
-    // Возвращаем HTML страницу с успехом и авто-редиректом
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -777,17 +703,14 @@ app.get("/api/auth/confirm/:token", async (req, res) => {
 // 4. Вход пользователя
 app.post("/api/auth/login", async (req, res) => {
   try {
-    // Валидация
     const login = validateLogin(req.body.login);
     const password = validatePassword(req.body.password);
 
-    // Поиск пользователя
     const users = await query("SELECT * FROM usersdata WHERE login = ?", [
       login,
     ]);
 
     if (users.length === 0) {
-      // Задержка для защиты от брутфорса
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return res.status(401).json({
         success: false,
@@ -797,7 +720,6 @@ app.post("/api/auth/login", async (req, res) => {
 
     const user = users[0];
 
-    // Проверка активации
     if (user.logic !== "true") {
       return res.status(403).json({
         success: false,
@@ -805,10 +727,8 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    // Проверка пароля
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      // Логирование неудачной попытки входа
       await query(
         "INSERT INTO login_attempts (login, ip_address, success) VALUES (?, ?, ?)",
         [login, req.ip, false]
@@ -821,18 +741,15 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    // Генерация сессионного токена
     const sessionToken = jwt.sign({ login: user.login }, JWT_SECRET_TWO, {
       expiresIn: "2h",
     });
 
-    // Сохранение сессии
     await query("INSERT INTO sessionsdata (login, jwt_access) VALUES (?, ?)", [
       user.login,
       sessionToken,
     ]);
 
-    // Удаление старых сессий (оставляем последние 5) - используем колонку date
     await query(
       `DELETE FROM sessionsdata 
        WHERE login = ? AND id NOT IN (
@@ -894,21 +811,22 @@ app.post("/api/auth/logout", authenticateToken, async (req, res) => {
 app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   try {
     const survey = validateSurvey(req.body.survey);
-    const { login } = req.user;
-    // Проверяем что survey есть
+    const login = req.user.login; // Используем только логин из токена
+
+    console.log(`💾 Сохранение опроса для пользователя: ${login}`);
+
     if (!survey) {
       return res.status(400).json({
         success: false,
         message: "Данные опроса отсутствуют",
       });
     }
-    // Проверяем существует ли таблица пользователя
+
     const tableExists = await query(
       "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
       [process.env.DB_DATABASE || "diagnoses", login]
     );
 
-    // Создаем таблицу если не существует
     if (tableExists[0].count === 0) {
       await query(
         `CREATE TABLE IF NOT EXISTS \`${login}\` (
@@ -922,10 +840,11 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
       );
     }
 
-    // Вставляем данные
     await query(`INSERT INTO \`${login}\` (survey) VALUES (?)`, [
       JSON.stringify(survey),
     ]);
+
+    console.log(`✅ Опрос успешно сохранен для ${login}`);
 
     res.json({
       success: true,
@@ -940,38 +859,35 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   }
 });
 
-// 7. Загрузка изображения (исправленная)
+// 7. Загрузка изображения
 app.post("/api/images/upload", authenticateToken, async (req, res) => {
+  const login = req.user.login; // Используем только логин из токена
   try {
     console.log("📤 Начало загрузки изображения...");
     const { filename, file, comment } = req.body;
-    const { login } = req.user;
 
     console.log(`👤 Пользователь: ${login}`);
     console.log(
       `📁 Файл: ${filename}, размер данных: ${file ? file.length : 0} символов`
     );
 
-    // Валидация
     const validated = validateImageBase64(file, filename);
     console.log("✅ Валидация пройдена");
 
-    // Создание превью
     console.log("🖼️  Создание превью...");
     const buffer = Buffer.from(validated.base64Data, "base64");
     const resizedBuffer = await sharp(buffer).resize(100, 100).toBuffer();
     const smallImage = resizedBuffer.toString("base64");
     console.log("✅ Превью создано");
 
-    // Сохранение (ИСПРАВЛЕНО - используем обратные кавычки)
-    console.log("💾 Сохранение в БД...");
+    console.log(`💾 Сохранение в БД для пользователя ${login}...`);
     await query(
       `INSERT INTO \`${login}\` (fileNameOriginIMG, originIMG, comment, smallIMG) 
        VALUES (?, ?, ?, ?)`,
       [validated.filename, validated.base64Data, comment || "", smallImage]
     );
 
-    console.log("✅ Изображение успешно сохранено");
+    console.log(`✅ Изображение успешно сохранено для ${login}`);
 
     res.json({
       success: true,
@@ -989,7 +905,6 @@ app.post("/api/images/upload", authenticateToken, async (req, res) => {
       });
     }
 
-    // Проверяем специфичные ошибки
     if (error.message && error.message.includes("sharp")) {
       console.error(
         "⚠️  Проблема с библиотекой sharp. Установите: npm install sharp"
@@ -1001,9 +916,7 @@ app.post("/api/images/upload", authenticateToken, async (req, res) => {
     }
 
     if (error.code === "ER_NO_SUCH_TABLE") {
-      console.error(
-        `⚠️  Таблица пользователя ${req.user?.login} не существует`
-      );
+      console.error(`⚠️  Таблица пользователя ${login} не существует`);
       return res.status(404).json({
         success: false,
         message: "Таблица пользователя не найдена",
@@ -1030,7 +943,6 @@ app.post("/api/diagnoses/search", async (req, res) => {
       });
     }
 
-    // Валидация каждого элемента
     const validatedTitles = titles.map((title) => {
       if (typeof title !== "string" || title.length > 100) {
         throw new ValidationError("Некорректный диагноз для поиска", "titles");
@@ -1043,7 +955,6 @@ app.post("/api/diagnoses/search", async (req, res) => {
 
     const results = await query(sql, validatedTitles);
 
-    // Форматирование результатов
     const diagnoses = [];
     const diagnosticsSet = new Set();
     const treatmentsSet = new Set();
@@ -1088,20 +999,252 @@ app.post("/api/diagnoses/search", async (req, res) => {
   }
 });
 
-// 9. Получение данных пользователя
+// 9. Получение ТОЛЬКО опросов пользователя
 app.post("/api/surveys", authenticateToken, async (req, res) => {
   try {
-    const { login } = req.user;
+    const login = req.user.login; // Используем только логин из токена
+    console.log(`📥 Запрос ОПРОСОВ пользователя: ${login}`);
 
-    // Используем динамическое имя таблицы в SQL строке
+    const tableExists = await query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+      [process.env.DB_DATABASE || "diagnoses", login]
+    );
+
+    if (tableExists[0].count === 0) {
+      return res.json({
+        success: true,
+        surveys: [],
+        message: "У вас пока нет сохраненных опросов",
+      });
+    }
+
+    const surveys = await query(
+      `SELECT id, survey FROM \`${login}\` WHERE survey IS NOT NULL ORDER BY id DESC`
+    );
+
+    const parsedSurveys = surveys.map((row) => ({
+      id: row.id,
+      date: JSON.parse(row.survey).date,
+      survey: JSON.parse(row.survey),
+    }));
+
+    console.log(`✅ Найдено опросов: ${parsedSurveys.length}`);
+
+    res.json({
+      success: true,
+      surveys: parsedSurveys,
+    });
+  } catch (error) {
+    console.error("❌ Ошибка получения опросов:", error);
+
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      return res.json({
+        success: true,
+        surveys: [],
+        message: "У вас пока нет сохраненных опросов",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Ошибка получения опросов",
+    });
+  }
+});
+
+// 10. Получение ТОЛЬКО изображений пользователя
+app.post("/api/images", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login; // Используем только логин из токена
+    console.log(`🖼️ Запрос ИЗОБРАЖЕНИЙ пользователя: ${login}`);
+
+    const tableExists = await query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+      [process.env.DB_DATABASE || "diagnoses", login]
+    );
+
+    if (tableExists[0].count === 0) {
+      return res.json({
+        success: true,
+        images: [],
+        message: "У вас пока нет сохраненных изображений",
+      });
+    }
+
+    const images = await query(
+      `SELECT id, fileNameOriginIMG, originIMG, comment, smallIMG FROM \`${login}\` WHERE fileNameOriginIMG IS NOT NULL ORDER BY id DESC`
+    );
+
+    const parsedImages = images.map((row) => ({
+      id: row.id,
+      fileName: row.fileNameOriginIMG,
+      originIMG: row.originIMG,
+      comment: row.comment,
+      smallImage: row.smallIMG,
+    }));
+
+    console.log(`✅ Найдено изображений: ${parsedImages.length}`);
+
+    res.json({
+      success: true,
+      images: parsedImages,
+    });
+  } catch (error) {
+    console.error("❌ Ошибка получения изображений:", error);
+
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      return res.json({
+        success: true,
+        images: [],
+        message: "У вас пока нет сохраненных изображений",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Ошибка получения изображений",
+    });
+  }
+});
+
+// 11. Получение конкретного опроса
+app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login; // Используем только логин из токена
+    const { id } = req.params;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        message: "Некорректный ID",
+      });
+    }
+
+    const results = await query(
+      "SELECT survey FROM ?? WHERE id = ? AND survey IS NOT NULL",
+      [login, id]
+    );
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Опрос не найден",
+      });
+    }
+
+    res.json({
+      success: true,
+      survey: JSON.parse(results[0].survey),
+    });
+  } catch (error) {
+    console.error("❌ Ошибка получения опроса:", error);
+    res.status(500).json({
+      success: false,
+      message: "Ошибка получения опроса",
+    });
+  }
+});
+
+// 12. Получение конкретного изображения
+app.get("/api/images/:id", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login; // Используем только логин из токена
+    const { id } = req.params;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        message: "Некорректный ID",
+      });
+    }
+
+    const results = await query(
+      "SELECT fileNameOriginIMG, originIMG FROM ?? WHERE id = ? AND fileNameOriginIMG IS NOT NULL",
+      [login, id]
+    );
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Изображение не найдено",
+      });
+    }
+
+    res.json({
+      success: true,
+      filename: results[0].fileNameOriginIMG,
+      image: results[0].originIMG,
+    });
+  } catch (error) {
+    console.error("❌ Ошибка получения изображения:", error);
+    res.status(500).json({
+      success: false,
+      message: "Ошибка получения изображения",
+    });
+  }
+});
+
+// 13. Удаление записи
+app.delete("/api/data/:id", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login; // Используем только логин из токена
+    const { id } = req.params;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        message: "Некорректный ID",
+      });
+    }
+
+    const result = await query(`DELETE FROM \`${login}\` WHERE id = ?`, [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Запись не найдена",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Запись успешно удалена",
+    });
+  } catch (error) {
+    console.error("❌ Ошибка удаления записи:", error);
+    res.status(500).json({
+      success: false,
+      message: "Ошибка удаления записи",
+    });
+  }
+});
+
+// 14. Получение всех данных (опросы + изображения) для обратной совместимости
+app.post("/api/surveys/old", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login; // Используем только логин из токена
+    console.log(`📊 Запрос ВСЕХ данных пользователя: ${login}`);
+
+    const tableExists = await query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+      [process.env.DB_DATABASE || "diagnoses", login]
+    );
+
+    if (tableExists[0].count === 0) {
+      return res.json({
+        success: true,
+        surveys: [],
+        images: [],
+        message: "У вас пока нет сохраненных данных",
+      });
+    }
+
     const [surveys, images] = await Promise.all([
       query(
-        `SELECT id, survey FROM \`${login}\` WHERE survey IS NOT NULL ORDER BY id DESC`,
-        [] // Без параметров
+        `SELECT id, survey FROM \`${login}\` WHERE survey IS NOT NULL ORDER BY id DESC`
       ),
       query(
-        `SELECT id, fileNameOriginIMG, originIMG, comment, smallIMG FROM \`${login}\` WHERE fileNameOriginIMG IS NOT NULL ORDER BY id DESC`,
-        [] // Без параметров
+        `SELECT id, fileNameOriginIMG, originIMG, comment, smallIMG FROM \`${login}\` WHERE fileNameOriginIMG IS NOT NULL ORDER BY id DESC`
       ),
     ]);
 
@@ -1127,7 +1270,6 @@ app.post("/api/surveys", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Get surveys error:", error);
 
-    // Проверка на отсутствие таблицы
     if (error.code === "ER_NO_SUCH_TABLE") {
       return res.json({
         success: true,
@@ -1140,90 +1282,6 @@ app.post("/api/surveys", authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Ошибка получения данных",
-    });
-  }
-});
-
-// 10. Удаление
-app.delete("/api/surveys/:id", authenticateToken, async (req, res) => {
-  try {
-    const { login } = req.user;
-    const { id } = req.params;
-
-    if (!id || isNaN(parseInt(id))) {
-      return res.status(400).json({
-        success: false,
-        message: "Некорректный ID",
-      });
-    }
-
-    // Используем обратные кавычки для имени таблицы
-    const result = await query(`DELETE FROM \`${login}\` WHERE id = ?`, [id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Запись не найдена",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Удалено успешно",
-    });
-  } catch (error) {
-    console.error("Delete error:", error);
-
-    // Проверка на отсутствие таблицы
-    if (error.code === "ER_NO_SUCH_TABLE") {
-      return res.status(404).json({
-        success: false,
-        message: "Таблица пользователя не найдена",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Ошибка удаления",
-    });
-  }
-});
-
-// 11. Получение изображения
-app.get("/api/images/:id", authenticateToken, async (req, res) => {
-  try {
-    const { login } = req.user;
-    const { id } = req.params;
-
-    if (!id || isNaN(parseInt(id))) {
-      return res.status(400).json({
-        success: false,
-        message: "Некорректный ID",
-      });
-    }
-
-    const results = await query(
-      "SELECT fileNameOriginIMG, originIMG FROM ?? WHERE id = ?",
-      [login, id]
-    );
-
-    if (results.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Изображение не найдено",
-      });
-    }
-
-    res.json({
-      success: true,
-      filename: results[0].fileNameOriginIMG,
-      image: results[0].originIMG,
-    });
-  } catch (error) {
-    console.error("Get image error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Ошибка получения изображения",
     });
   }
 });
@@ -1270,6 +1328,18 @@ app.listen(PORT, () => {
     `📧 Ссылки подтверждения ведут на: http://localhost:5000/confirm/[token]`
   );
 
-  // Запускаем очистку
+  console.log("\n📊 Разделенные эндпоинты:");
+  console.log("   • POST   /api/surveys        - получение опросов (POST)");
+  console.log("   • POST   /api/images         - получение изображений (POST)");
+  console.log("   • DELETE /api/data/:id       - удаление данных");
+  console.log("   • GET    /api/surveys/:id    - получение конкретного опроса");
+  console.log(
+    "   • GET    /api/images/:id     - получение конкретного изображения"
+  );
+  console.log("\n📊 Старые эндпоинты для обратной совместимости:");
+  console.log(
+    "   • POST   /api/surveys/old    - получение всех данных (опросы + изображения)"
+  );
+
   startCleanupSchedule();
 });

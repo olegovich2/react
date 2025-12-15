@@ -21,7 +21,6 @@ class FetchClient {
    * Настройка глобальных обработчиков ошибок
    */
   private setupGlobalHandlers() {
-    // Автоматический редирект на логин при 401
     window.addEventListener('auth-required', () => {
       this.clearAuthData();
       if (window.location.pathname !== '/login' && 
@@ -30,7 +29,6 @@ class FetchClient {
       }
     });
 
-    // Обработчик сетевых ошибок
     window.addEventListener('offline', () => {
       console.warn('Соединение потеряно');
     });
@@ -45,10 +43,8 @@ class FetchClient {
   ): Promise<APIResponse & { data?: T; field?: string }> {
     const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`;
     
-    // Безопасное получение токена
     const token = this.getToken();
     
-    // Базовые безопасные заголовки
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
@@ -56,12 +52,10 @@ class FetchClient {
       ...(options.headers as Record<string, string> || {})
     };
 
-    // Для FormData убираем Content-Type
     if (options.body instanceof FormData) {
       delete headers['Content-Type'];
     }
 
-    // Логирование для отладки (только в development)
     if (process.env.NODE_ENV === 'development') {
       console.log(`🔗 ${options.method || 'GET'} ${fullUrl}`, {
         hasToken: !!token,
@@ -82,7 +76,6 @@ class FetchClient {
 
       const responseTime = Date.now() - startTime;
       
-      // Проверка типа контента
       const contentType = response.headers.get('content-type') || '';
       let data: any;
 
@@ -97,17 +90,14 @@ class FetchClient {
         }
       }
 
-      // Логирование медленных запросов
       if (responseTime > 3000) {
         console.warn(`⚠️ Медленный запрос ${url}: ${responseTime}ms`);
       }
 
-      // Обработка HTTP ошибок
       if (!response.ok) {
         return this.handleErrorResponse(response.status, data, url);
       }
 
-      // Успешный ответ
       return {
         success: true,
         data: data as T,
@@ -132,33 +122,33 @@ class FetchClient {
     };
 
     switch (status) {
-      case 400: // Bad Request
+      case 400:
         console.error(`❌ Ошибка валидации (400) ${url}:`, data.message);
         break;
 
-      case 401: // Unauthorized
+      case 401:
         console.warn(`🔐 Требуется авторизация (401) ${url}`);
         this.clearAuthData();
         window.dispatchEvent(new CustomEvent('auth-required'));
         break;
 
-      case 403: // Forbidden
+      case 403:
         console.error(`⛔ Доступ запрещен (403) ${url}:`, data.message);
         if (data.message?.includes('не активирован')) {
           window.dispatchEvent(new CustomEvent('account-not-activated'));
         }
         break;
 
-      case 404: // Not Found
+      case 404:
         console.error(`🔍 Не найдено (404) ${url}`);
         break;
 
-      case 429: // Too Many Requests
+      case 429:
         console.error(`🐌 Слишком много запросов (429) ${url}`);
         errorResult.message = 'Слишком много запросов. Подождите немного.';
         break;
 
-      case 500: // Internal Server Error
+      case 500:
         console.error(`💥 Ошибка сервера (500) ${url}:`, data.message);
         errorResult.message = 'Внутренняя ошибка сервера. Попробуйте позже.';
         break;
@@ -351,10 +341,18 @@ class FetchClient {
     }
   }
 
+  /**
+   * Получение логина текущего пользователя
+   */
+  getCurrentLogin(): string | null {
+    const user = this.getCurrentUser();
+    return user ? user.login : null;
+  }
+
   // ==================== ОПРОСЫ ====================
 
   /**
-   * Сохранение опроса
+   * Сохранение опроса (БЕЗ логина в body - сервер берет из токена)
    */
   async saveSurvey(surveyData: any) {
     return this.post<{ message: string }>('/surveys/save', {
@@ -363,36 +361,58 @@ class FetchClient {
   }
 
   /**
-   * Получение всех опросов и изображений пользователя
+   * Получение опросов пользователя (БЕЗ логина в body - сервер берет из токена)
    */
   async getSurveys() {
-    return this.get<{
+    return this.post<{
       surveys: Array<{
         id: number;
+        date: string;
         survey: any;
-        createdAt: string;
       }>;
-      images: Array<{
-        id: number;
-        fileName: string;
-        comment: string;
-        smallImage: string;
-        createdAt: string;
-      }>;
-    }>('/surveys');
+    }>('/surveys', {});
+  }
+
+  /**
+   * Получение конкретного опроса (БЕЗ логина в query - сервер берет из токена)
+   */
+  async getSurveyById(id: number) {
+    return this.get<{ survey: any }>(`/surveys/${id}`);
   }
 
   /**
    * Удаление опроса или изображения
    */
   async deleteSurveyOrImage(id: number) {
-    return this.delete<{ message: string }>(`/surveys/${id}`);
+    return this.delete<{ message: string }>(`/data/${id}`);
   }
 
   // ==================== ИЗОБРАЖЕНИЯ ====================
 
   /**
-   * Загрузка изображения (Base64)
+   * Получение изображений пользователя (БЕЗ логина в body - сервер берет из токена)
+   */
+  async getImages() {
+    return this.post<{
+      images: Array<{
+        id: number;
+        fileName: string;
+        originIMG: string;
+        comment: string;
+        smallImage: string;
+      }>;
+    }>('/images', {});
+  }
+
+  /**
+   * Получение конкретного изображения (БЕЗ логина в query - сервер берет из токена)
+   */
+  async getImageById(id: number) {
+    return this.get<{ filename: string; image: string }>(`/images/${id}`);
+  }
+
+  /**
+   * Загрузка изображения (Base64) БЕЗ логина в body - сервер берет из токена
    */
   async uploadImageBase64(filename: string, base64Data: string, comment?: string) {
     return this.post<{ message: string }>('/images/upload', {
@@ -402,17 +422,33 @@ class FetchClient {
     });
   }
 
+  // ==================== СТАРЫЕ ЭНДПОИНТЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
+
   /**
-   * Получение оригинального изображения
+   * Получение всех данных пользователя (опросы + изображения)
+   * Старый эндпоинт для обратной совместимости (БЕЗ логина в body)
    */
-  async getImage(id: number) {
-    return this.get<{ filename: string; image: string }>(`/images/${id}`);
+  async getAllUserData() {
+    return this.post<{
+      surveys: Array<{
+        id: number;
+        date: string;
+        survey: any;
+      }>;
+      images: Array<{
+        id: number;
+        fileName: string;
+        originIMG: string;
+        comment: string;
+        smallImage: string;
+      }>;
+    }>('/surveys/old', {});
   }
 
   // ==================== ДИАГНОЗЫ ====================
 
   /**
-   * Поиск диагнозов и рекомендаций
+   * Поиск диагнозов и рекомендаций (публичный эндпоинт, без аутентификации)
    */
   async searchDiagnoses(titles: string[]) {
     return this.post<{
@@ -483,11 +519,22 @@ class FetchClient {
       return null;
     }
   }
+
+  /**
+   * Получение заголовков с авторизацией
+   */
+  getAuthHeaders(): Record<string, string> {
+    const token = this.getToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+  }
 }
 
 // Создаем экземпляр клиента
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? '/api'  // В production - относительный путь
-  : 'http://localhost:5000/api';  // В development
+  ? '/api'
+  : 'http://localhost:5000/api';
 
 export const fetchClient = new FetchClient(API_URL);

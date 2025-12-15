@@ -1,18 +1,130 @@
+// images.api.ts (исправленная версия)
 import { fetchClient } from './fetchClient';
+import { APIResponse } from '../types/api.types';
+import { UploadedImage } from '../types/api.types';
 
-/**
- * Сервис для работы с изображениями через REST API
- * Вместо сложного WebSocket используем простые POST запросы
- */
+export const imagesApi = {
+  /**
+   * Получение изображений пользователя (БЕЗ логина - сервер берет из токена)
+   */
+  async getUserImages(): Promise<APIResponse & { data?: UploadedImage[] }> {
+    try {
+      console.log('📥 Запрос изображений пользователя...');
+      
+      const response = await fetchClient.getImages();
+      
+      if (response.success && response.data) {
+        return {
+          success: true,
+          data: response.data.images || [],
+        };
+      }
+      
+      return {
+        success: false,
+        message: response.message || 'Ошибка получения изображений',
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка получения изображений:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка получения изображений',
+      };
+    }
+  },
 
-/**
- * Конвертация файла в Base64
- */
-export const convertFileToBase64 = (file: File): Promise<string> => {
+  /**
+   * Загрузка изображения на сервер (БЕЗ логина - сервер берет из токена)
+   */
+  async uploadImage(file: File, comment?: string): Promise<APIResponse> {
+    try {
+      console.log(`📤 Загрузка изображения: ${file.name}`);
+      
+      const base64Data = await convertFileToBase64(file);
+      
+      const result = await fetchClient.uploadImageBase64(
+        file.name,
+        base64Data,
+        comment || ''
+      );
+      
+      if (result.success) {
+        console.log(`✅ Изображение ${file.name} успешно загружено`);
+        return {
+          success: true,
+          message: 'Изображение успешно загружено',
+        };
+      } else {
+        return {
+          success: false,
+          message: result.message || 'Ошибка загрузки изображения',
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Ошибка загрузки изображения:', error);
+      return {
+        success: false,
+        message: error.message || 'Неизвестная ошибка при загрузке файла',
+      };
+    }
+  },
+
+  /**
+   * Удаление изображения (БЕЗ логина - сервер берет из токена)
+   */
+  async deleteImage(id: number): Promise<APIResponse> {
+    try {
+      console.log(`🗑️ Удаление изображения ${id}...`);
+      
+      const response = await fetchClient.deleteSurveyOrImage(id);
+      
+      return response;
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка удаления изображения:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка удаления изображения',
+      };
+    }
+  },
+
+  /**
+   * Получение конкретного изображения по ID (БЕЗ логина - сервер берет из токена)
+   */
+  async getImageById(id: number): Promise<APIResponse & { data?: { filename: string, image: string } }> {
+    try {
+      console.log(`🔍 Получение изображения с ID: ${id}`);
+      
+      const response = await fetchClient.getImageById(id);
+      
+      if (response.success && response.data) {
+        return {
+          success: true,
+          data: response.data,
+        };
+      }
+      
+      return {
+        success: false,
+        message: response.message || 'Ошибка получения изображения',
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка получения изображения:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка получения изображения',
+      };
+    }
+  }
+};
+
+const convertFileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      // Убираем префикс "data:image/jpeg;base64,"
       const base64String = (reader.result as string).split(',')[1];
       resolve(base64String);
     };
@@ -21,122 +133,11 @@ export const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-/**
- * Загрузка изображения на сервер
- */
-export const uploadImage = async (
-  file: File, 
-  comment?: string
-) => {
-  try {
-    console.log(`📤 Начало загрузки файла: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
-    
-    // Конвертируем в Base64
-    const base64Data = await convertFileToBase64(file);
-    
-    // Отправляем на сервер
-    const result = await fetchClient.uploadImageBase64(
-      file.name,
-      base64Data,
-      comment || ''
-    );
-    
-    if (result.success) {
-      console.log(`✅ Файл ${file.name} успешно загружен`);
-      return {
-        success: true,
-        message: 'Изображение успешно загружено',
-        filename: file.name
-      };
-    } else {
-      console.error(`❌ Ошибка загрузки файла ${file.name}:`, result.message);
-      return {
-        success: false,
-        message: result.message || 'Ошибка загрузки файла'
-      };
-    }
-  } catch (error: any) {
-    console.error('❌ Ошибка при загрузке файла:', error);
-    return {
-      success: false,
-      message: error.message || 'Неизвестная ошибка при загрузке файла'
-    };
-  }
-};
+// Экспорт отдельных функций для обратной совместимости
+export const getUserImages = imagesApi.getUserImages;
+export const uploadImage = imagesApi.uploadImage;
+export const deleteImage = imagesApi.deleteImage;
+export const getImageById = imagesApi.getImageById;
 
-/**
- * Получение изображения по ID
- */
-export const getImage = async (id: number) => {
-  return fetchClient.getImage(id);
-};
-
-/**
- * Получение списка всех изображений пользователя
- */
-// images.api.ts
-export const getUserImages = async (): Promise<any> => {
-  try {
-    console.log('📥 Запрос изображений пользователя...');
-    
-    // Используем прямой запрос вместо getSurveys()
-    const response = await fetchClient.get('/api/surveys');
-    console.log('📊 Прямой ответ от /api/surveys:', response);
-    
-    if (response.success) {
-      // Сервер возвращает images прямо в response, а не в response.data
-      const images = response.data.images || (response.data && response.data.images) || [];
-      console.log(`🖼️  Изображения получены:`, images.length, 'шт.');
-      console.log('📝 Первое изображение:', images[0]);
-      
-      return {
-        success: true,
-        images: images
-      };
-    }
-    
-    console.warn('⚠️  Сервер вернул неуспешный ответ:', response);
-    return {
-      success: false,
-      message: response.message || 'Не удалось получить изображения'
-    };
-    
-  } catch (error: any) {
-    console.error('❌ Ошибка получения изображений:', error);
-    return {
-      success: false,
-      message: error.message || 'Ошибка получения изображений'
-    };
-  }
-};
-
-/**
- * Удаление изображения
- */
-export const deleteImage = async (id: number) => {
-  return fetchClient.deleteSurveyOrImage(id);
-};
-
-/**
- * Проверка размера файла перед загрузкой
- */
-export const validateFile = (file: File): { valid: boolean; message?: string } => {
-  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
-  
-  if (file.size > MAX_SIZE) {
-    return {
-      valid: false,
-      message: `Файл слишком большой. Максимальный размер: ${(MAX_SIZE / 1024 / 1024).toFixed(1)}MB`
-    };
-  }
-  
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp'];
-  if (!allowedTypes.includes(file.type)) {
-    return {
-      valid: false,
-      message: 'Недопустимый формат файла. Разрешены: JPG, PNG, GIF, BMP'
-    };
-  }
-  
-  return { valid: true };
-};
+// Экспорт объекта API для использования в модульном стиле
+export default imagesApi;

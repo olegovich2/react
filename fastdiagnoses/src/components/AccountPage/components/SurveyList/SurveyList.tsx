@@ -1,5 +1,5 @@
 import React from 'react';
-import { Survey } from '../../types/api.types';
+import { Survey } from '../../types/account.types';
 
 interface SurveyListProps {
   surveys: Survey[];
@@ -17,11 +17,25 @@ const SurveyList: React.FC<SurveyListProps> = ({ surveys, onView, onDelete }) =>
       {surveys.map((survey) => (
         <div key={survey.id} className="survey-item" data-div={survey.id}>
           <div className="survey-info">
-            <p className="survey-date" data-container="date">{survey.date}</p>
-            <p className="survey-name"><strong>Пациент:</strong> {survey.nameSurname || "Не указано"}</p>
-            <p className="survey-age"><strong>Возраст:</strong> {survey.age || "Не указано"}</p>
+            <p className="survey-date" data-container="date">
+              📅 {survey.date || 'Дата не указана'}
+            </p>
+            <p className="survey-name">
+              <strong>👤 Пациент:</strong> {survey.nameSurname || "Не указано"}
+            </p>
+            <p className="survey-age">
+              <strong>🎂 Возраст:</strong> {survey.age || "Не указано"}
+            </p>
             {survey.temperature && (
-              <p className="survey-temperature"><strong>Температура:</strong> {survey.temperature}</p>
+              <p className="survey-temperature">
+                <strong>🌡️ Температура:</strong> {survey.temperature}
+              </p>
+            )}
+            {survey.title && survey.title.length > 0 && (
+              <p className="survey-diagnosis">
+                <strong>🏥 Диагнозы:</strong> 
+                {Array.isArray(survey.title) ? survey.title.join(' ') : survey.title}
+              </p>
             )}
           </div>
           <div className="survey-actions">

@@ -1,11 +1,13 @@
+// src/components/AccountPage/components/ImageUpload/ImageUpload.tsx
 import React, { useState, useRef } from 'react';
-import { uploadImage } from '../../api/images.api';
+import { uploadImage } from '../../../../api/images.api';
+import { ImageUploadProps } from '../../types/account.types';
 
-interface ImageUploadProps {
-  onUploadSuccess: () => void;
-}
-
-const ImageUpload: React.FC<ImageUploadProps> = ({ onUploadSuccess }) => {
+const ImageUpload: React.FC<ImageUploadProps> = ({ 
+  onUploadSuccess,
+  maxSize = 10,
+  allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp']
+}) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [comment, setComment] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -18,19 +20,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onUploadSuccess }) => {
       const file = e.target.files[0];
       
       // Проверка типа файла
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
-      if (!validTypes.includes(file.type)) {
+      if (!allowedTypes.includes(file.type)) {
         setMessage({
-          text: 'Пожалуйста, выберите изображение (JPEG, PNG, GIF, BMP, WEBP)',
+          text: `Пожалуйста, выберите изображение (${allowedTypes.map(t => t.split('/')[1].toUpperCase()).join(', ')})`,
           type: 'error'
         });
         return;
       }
       
-      // Проверка размера файла (максимум 10MB)
-      if (file.size > 10 * 1024 * 1024) {
+      // Проверка размера файла
+      if (file.size > maxSize * 1024 * 1024) {
         setMessage({
-          text: 'Файл слишком большой. Максимальный размер: 10MB',
+          text: `Файл слишком большой. Максимальный размер: ${maxSize}MB`,
           type: 'error'
         });
         return;
@@ -136,7 +137,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onUploadSuccess }) => {
         <input
           type="file"
           id="imageUpload"
-          accept="image/*"
+          accept={allowedTypes.join(',')}
           onChange={handleFileSelect}
           ref={fileInputRef}
           disabled={isUploading}

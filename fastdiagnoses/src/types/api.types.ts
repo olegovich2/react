@@ -55,18 +55,16 @@ export interface JWTVerifyResponse {
 
 // ==================== ОПРОСЫ ====================
 export interface Survey {
-  id: number;  
-  diagnosis?: string[];
-  recommendations?: string[];
+  id: number;
   date: string;
   nameSurname: string;
-  age: number;
-  temperature: number;
+  age: string;
+  temperature: string;
   anamnesis: string;
   title: string[];
-  diagnostic?: string[];
-  treatment?: string[];
-  otherGuidelines?: string[];
+  diagnostic: string[];
+  treatment: string[];
+  otherGuidelines: string[];
 }
 
 export interface SurveyResponse {

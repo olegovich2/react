@@ -381,7 +381,7 @@ const handlePrint = () => {
         return;
       }
 
-      const result = await saveSurveyToDB(user.login, survey);
+      const result = await saveSurveyToDB(survey);
 
       if (result.success) {
         alert('Данные успешно записаны и отобразятся в личном кабинете');

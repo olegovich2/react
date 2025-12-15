@@ -1,5 +1,5 @@
 import React from 'react';
-import { UploadedImage } from '../../types/api.types';
+import { UploadedImage } from '../../../../types/api.types';
 
 interface ImageGalleryProps {
   images: UploadedImage[];

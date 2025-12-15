@@ -26,7 +26,7 @@ const LoadingSpinner = () => (
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const MainPage = lazy(() => import('./pages/MainPage'));
-const AccountPage = lazy(() => import('./pages/AccountPage'));
+const AccountPage = lazy(() => import('./components/AccountPage/AccountPage'));
 
 // Компонент для защищенных маршрутов
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
