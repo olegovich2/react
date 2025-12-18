@@ -2,6 +2,13 @@
 import React, { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction } from 'react';
 import { Survey, UploadedImage } from '../types/account.types'; // ← Локальные типы!
 
+interface PaginationState {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+}
+
 interface AccountContextType {
   // Общие состояния
   isLoading: boolean;
@@ -23,9 +30,21 @@ interface AccountContextType {
   showImageModal: boolean;
   setShowImageModal: Dispatch<SetStateAction<boolean>>;
   
+  // Пагинация опросов
+  surveysPagination: PaginationState;
+  setSurveysPagination: Dispatch<SetStateAction<PaginationState>>;
+  
+  // Пагинация изображений
+  imagesPagination: PaginationState;
+  setImagesPagination: Dispatch<SetStateAction<PaginationState>>;
+  
   // Обновление данных
   refreshSurveys: () => void;
   refreshImages: () => void;
+  
+  // Вспомогательные функции для пагинации
+  updateSurveysPage: (page: number) => void;
+  updateImagesPage: (page: number) => void;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -51,6 +70,22 @@ export const AccountProvider: React.FC<AccountProviderProps> = ({ children }) =>
   const [selectedImage, setSelectedImage] = useState<UploadedImage | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   
+  // Пагинация опросов
+  const [surveysPagination, setSurveysPagination] = useState<PaginationState>({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 5
+  });
+  
+  // Пагинация изображений
+  const [imagesPagination, setImagesPagination] = useState<PaginationState>({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 5
+  });
+  
   // Функции обновления данных
   const refreshSurveys = () => {
     console.log('Обновление опросов...');
@@ -58,6 +93,21 @@ export const AccountProvider: React.FC<AccountProviderProps> = ({ children }) =>
   
   const refreshImages = () => {
     console.log('Обновление изображений...');
+  };
+  
+  // Вспомогательные функции для обновления страниц
+  const updateSurveysPage = (page: number) => {
+    setSurveysPagination(prev => ({
+      ...prev,
+      currentPage: page
+    }));
+  };
+  
+  const updateImagesPage = (page: number) => {
+    setImagesPagination(prev => ({
+      ...prev,
+      currentPage: page
+    }));
   };
 
   const value: AccountContextType = {
@@ -75,8 +125,14 @@ export const AccountProvider: React.FC<AccountProviderProps> = ({ children }) =>
     setSelectedImage,
     showImageModal,
     setShowImageModal,
+    surveysPagination,
+    setSurveysPagination,
+    imagesPagination,
+    setImagesPagination,
     refreshSurveys,
     refreshImages,
+    updateSurveysPage,
+    updateImagesPage,
   };
 
   return (

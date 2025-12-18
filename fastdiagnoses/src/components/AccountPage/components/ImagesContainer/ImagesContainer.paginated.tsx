@@ -5,6 +5,7 @@ import {
   getPaginatedImages,
   deleteImage, 
 } from '../../../../api/images.api';
+import { UploadedImage } from '../../types/account.types';
 import ImageUpload from '../ImageUpload/ImageUpload';
 import ImageGallery from '../ImageGallery/ImageGallery';
 import Pagination from '../Pagination/Pagination';
@@ -12,54 +13,54 @@ import './ImagesContainer.css';
 
 const ImagesContainerPaginated: React.FC = React.memo(() => {
   const {
-    images,
     setImages,
     setIsLoading,
-    isLoading
+    isLoading,
+    imagesPagination,
+    setImagesPagination,
+    updateImagesPage
   } = useAccountContext();
 
+  const [localImages, setLocalImages] = useState<UploadedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 5,
-    hasNextPage: false,
-    hasPrevPage: false
-  });
 
   // Загрузка изображений с пагинацией
-  const loadImages = useCallback(async (page = 1) => {
+  const loadImages = useCallback(async (page: number) => {
+    
     setIsLoading(true);
     setError(null);
+    setCurrentPage(page);
     
     try {
       console.log(`📥 Загрузка изображений, страница ${page}...`);
       
       const result = await getPaginatedImages({
         page,
-        limit: pagination.itemsPerPage
+        limit: imagesPagination.itemsPerPage
       });
-      
+    //   console.log('loadImages вызван с page:', page, 'result:', result);
       if (result.success && result.data) {
         console.log(`✅ Успешно загружено ${result.data.images?.length || 0} изображений`);
         
-        // Обновляем изображения и пагинацию
-        setImages(result.data.images || []);
-        setCurrentPage(page);
+        // Обновляем изображения с правильной типизацией
+        setLocalImages(result.data.images || []);
         
         if (result.data.pagination) {
-          setPagination(prev => ({
-            ...prev,
-            ...result.data!.pagination,
-            currentPage: page
-          }));
+          setImagesPagination({
+            currentPage: page,
+            totalPages: result.data.pagination.totalPages,
+            totalItems: result.data.pagination.totalItems,
+            itemsPerPage: imagesPagination.itemsPerPage
+          });
         }
+        
+        // Обновляем контекст для обратной совместимости
+        setImages(result.data.images || []);
         
         console.log(`📊 Пагинация: страница ${page} из ${result.data.pagination?.totalPages || 1}`);
       } else {
-        setError(result.message || 'Не удалось загрузить изображения');
+        setError(result.message || 'Не удалось загрузить изображений');
         console.error('❌ Ошибка загрузки изображений:', result.message);
       }
     } catch (error: any) {
@@ -69,13 +70,15 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     } finally {
       setIsLoading(false);
     }
-  }, [setImages, setIsLoading, pagination.itemsPerPage]);
+  }, [setImages, setIsLoading, imagesPagination.itemsPerPage, setImagesPagination]);
 
   // Обработчик смены страницы
   const handlePageChange = useCallback((page: number) => {
     console.log(`🔄 Переход на страницу ${page}`);
     loadImages(page);
-  }, [loadImages]);
+    // Обновляем страницу в контексте отдельно, чтобы избежать циклов
+    updateImagesPage(page);
+  }, [loadImages, updateImagesPage]);
 
   // Прокрутка к галерее после смены страницы
   const scrollToGallery = useCallback(() => {
@@ -117,41 +120,52 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
 
   // Просмотр изображения
   const handleViewImage = useCallback((imageId: number) => {
+    // Сохраняем текущую страницу перед переходом
+    updateImagesPage(currentPage);
     window.location.href = `/account/images/${imageId}`;
-  }, []);
+  }, [currentPage, updateImagesPage]);
 
   // Загрузка нового изображения
   const handleImageUploadSuccess = useCallback(() => {
     console.log('🔄 Обновление списка изображений после загрузки...');
     // После загрузки нового изображения возвращаемся на первую страницу
     loadImages(1);
-  }, [loadImages]);
+    updateImagesPage(1);
+  }, [loadImages, updateImagesPage]);
 
-  // Первоначальная загрузка
+  // Первоначальная загрузка - используем сохраненную страницу из контекста
   useEffect(() => {
-    loadImages(1);
-  }, [loadImages]);
+    const initialPage = imagesPagination.currentPage;
+    console.log(`🔄 Начальная загрузка изображений. Страница из контекста: ${initialPage}...`);
+    setCurrentPage(initialPage);
+    loadImages(initialPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Загружаем только при монтировании
 
   // Мемоизируем галерею изображений
   const imageGallery = useMemo(() => (
     <ImageGallery
-      images={images}
+      images={localImages}
       onView={handleViewImage}
       onDelete={handleDeleteImage}
     />
-  ), [images, handleViewImage, handleDeleteImage]);
+  ), [localImages, handleViewImage, handleDeleteImage]);
 
   // Мемоизируем пагинацию
-  const paginationComponent = useMemo(() => (
-    <Pagination
-      currentPage={currentPage}
-      totalPages={pagination.totalPages}
-      totalItems={pagination.totalItems}
-      onPageChange={handlePageChange}
-      scrollToElement={scrollToGallery}
-      autoScroll={true}
-    />
-  ), [currentPage, pagination, handlePageChange, scrollToGallery]);
+  const paginationComponent = useMemo(() => {
+    if (!imagesPagination || imagesPagination.totalPages <= 1) return null;
+    
+    return (
+      <Pagination
+        currentPage={imagesPagination.currentPage}
+        totalPages={imagesPagination.totalPages}
+        totalItems={imagesPagination.totalItems}
+        onPageChange={handlePageChange}
+        scrollToElement={scrollToGallery}
+        autoScroll={true}
+      />
+    );
+  }, [imagesPagination, handlePageChange, scrollToGallery]);
 
   // Отображение статуса загрузки
   const renderLoading = useMemo(() => {
@@ -195,23 +209,23 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
 
   // Статистика изображений
   const imageStats = useMemo(() => {
-    if (images.length === 0) return null;
+    if (localImages.length === 0) return null;
 
-    const totalSize = images.reduce((sum, img) => sum + (img.fileSize || 0), 0);
+    const totalSize = localImages.reduce((sum, img) => sum + (img.fileSize || 0), 0);
     const readableSize = Math.round(totalSize / 1024 / 1024 * 100) / 100;
 
     return (
       <div className="image-stats">
         <p>
           <strong>📊 Статистика страницы {currentPage}:</strong> 
-          <span className="stat-item">Показано: {images.length} изображений</span>
+          <span className="stat-item">Показано: {localImages.length} изображений</span>
           <span className="stat-item">Размер: {readableSize} MB</span>
-          <span className="stat-item">Всего изображений: {pagination.totalItems}</span>
-          <span className="stat-item">Страниц: {pagination.totalPages}</span>
+          <span className="stat-item">Всего изображений: {imagesPagination.totalItems}</span>
+          <span className="stat-item">Страниц: {imagesPagination.totalPages}</span>
         </p>
       </div>
     );
-  }, [images, currentPage, pagination.totalItems, pagination.totalPages]);
+  }, [localImages, currentPage, imagesPagination.totalItems, imagesPagination.totalPages]);
 
   return (
     <div className="formForImageAndResult">
@@ -230,7 +244,7 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
           <h2>Загруженные изображения</h2>
           <div className="images-controls">
             <div className="page-info">
-              Страница <strong>{currentPage}</strong> из <strong>{pagination.totalPages}</strong>
+              Страница <strong>{currentPage}</strong> из <strong>{imagesPagination.totalPages}</strong>
             </div>
             <button 
               className="buttonFromTemplate refresh-button"
@@ -245,7 +259,7 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
         
         {imageStats}
         
-        {images.length === 0 && !isLoading ? (
+        {localImages.length === 0 && !isLoading ? (
           <div className="empty-images-message">
             <div className="empty-icon">
               <i className="fas fa-images fa-3x"></i>
@@ -265,19 +279,19 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
         ) : (
           <>
             {/* Пагинация сверху */}
-            {pagination.totalPages > 1 && paginationComponent}
+            {imagesPagination.totalPages > 1 && paginationComponent}
             
             {/* Галерея изображений */}
             {imageGallery}
             
             {/* Пагинация снизу */}
-            {pagination.totalPages > 1 && paginationComponent}
+            {imagesPagination.totalPages > 1 && paginationComponent}
             
             <div className="images-footer">
               <p className="images-count">
-                Показано: <strong>{(currentPage - 1) * pagination.itemsPerPage + 1}-{Math.min(currentPage * pagination.itemsPerPage, pagination.totalItems)}</strong> из <strong>{pagination.totalItems}</strong> изображений
+                Показано: <strong>{(currentPage - 1) * imagesPagination.itemsPerPage + 1}-{Math.min(currentPage * imagesPagination.itemsPerPage, imagesPagination.totalItems)}</strong> из <strong>{imagesPagination.totalItems}</strong> изображений
               </p>
-              {images.length > 10 && (
+              {localImages.length > 10 && (
                 <button 
                   className="buttonFromTemplate scroll-to-top-button"
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
