@@ -55,17 +55,19 @@ export interface PaginatedSurveysResponse {
 // ==================== ИЗОБРАЖЕНИЯ ====================
 export interface UploadedImage {
   id: number;
-  fileUuid?: string;       // Уникальный идентификатор файла
-  fileName: string;        // Оригинальное имя файла
-  comment: string;         // Комментарий пользователя
-  smallImage?: string;     // Base64 превью для совместимости
-  originIMG?: string;      // Base64 оригинал для совместимости
-  imageUrl?: string;       // URL к файлу на диске
-  thumbnailUrl?: string;   // URL к превью на диске
-  isFileOnDisk?: boolean;  // Флаг наличия файла на диске
-  fileSize?: number;       // Размер файла в байтах
-  dimensions?: string;     // Размеры изображения (ширинаxвысота)
-  created_at?: string;     // Дата создания
+  fileUuid?: string;       
+  fileName: string;       
+  comment: string;         
+  smallImage?: string;     
+  originIMG?: string;      
+  imageUrl?: string;       
+  thumbnailUrl?: string;
+  originalUrl?: string;
+  storedFilename?: string; 
+  isFileOnDisk?: boolean;  
+  fileSize?: number;       
+  dimensions?: string;     
+  created_at?: string;     
 }
 
 export interface ImageUploadResponse {

@@ -345,9 +345,15 @@ class FetchClient {
    * Получение логина текущего пользователя
    */
   getCurrentLogin(): string | null {
-    const user = this.getCurrentUser();
-    return user ? user.login : null;
+  try {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return null;
+    const user = JSON.parse(userStr);
+    return user.login || null;
+  } catch {
+    return null;
   }
+}
 
   // ==================== ОПРОСЫ ====================
 

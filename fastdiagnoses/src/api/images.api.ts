@@ -7,7 +7,7 @@ export const imagesApi = {
    */
   async getUserImages(): Promise<APIResponse & { data?: UploadedImage[] }> {
     try {
-      console.log('📥 Запрос изображений пользователя (новая версия)...');
+      console.log('📥 Запрос изображений пользователя...');
       
       const response = await fetchClient.post<{
         images: UploadedImage[];
@@ -16,21 +16,23 @@ export const imagesApi = {
       if (response.success && response.data) {
         console.log(`✅ Получено ${response.data.images?.length || 0} изображений`);
         
-        // Проверяем, есть ли у изображений URL для файловой системы
-        const imagesWithUrls = response.data.images.map((img: UploadedImage) => {
-          // Если есть URL для файловой системы, используем его
-          if (img.imageUrl) {
-            console.log(`🖼️ Изображение ${img.fileName} имеет URL: ${img.imageUrl}`);
-          } else if (img.originIMG) {
-            console.log(`🖼️ Изображение ${img.fileName} использует Base64`);
-          }
-          
-          return img;
+        // Логируем что пришло с сервера
+        response.data.images.forEach((img: UploadedImage, idx: number) => {
+          console.log(`📊 Изображение ${idx + 1} от сервера:`, {
+            id: img.id,
+            fileName: img.fileName,
+            fileUuid: img.fileUuid,
+            storedFilename: img.storedFilename,
+            originalUrl: img.originalUrl,
+            thumbnailUrl: img.thumbnailUrl,
+            isFileOnDisk: img.isFileOnDisk
+          });
         });
         
+        // Возвращаем как есть - сервер должен сформировать правильные URL
         return {
           success: true,
-          data: imagesWithUrls,
+          data: response.data.images,
         };
       }
       
@@ -57,12 +59,38 @@ export const imagesApi = {
   }): Promise<APIResponse & { 
     data?: {
       images: UploadedImage[];
-      pagination: any;
+      pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalItems: number;
+        itemsPerPage: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+      }
     }
   }> {
     try {
-      const response = await fetchClient.getPaginatedImages(params);
-      return response;
+      const response = await fetchClient.post<{
+        images: UploadedImage[];
+        pagination: any;
+      }>('/images/paginated', params || {});
+      
+      if (response.success && response.data) {
+        console.log(`✅ Получено ${response.data.images?.length || 0} изображений с пагинацией`);
+        return {
+          success: true,
+          data: {
+            images: response.data.images,
+            pagination: response.data.pagination
+          },
+        };
+      }
+      
+      return {
+        success: false,
+        message: response.message || 'Ошибка получения изображений',
+      };
+      
     } catch (error: any) {
       console.error('❌ Ошибка получения изображений с пагинацией:', error);
       return {
@@ -129,24 +157,80 @@ export const imagesApi = {
   },
 
   /**
-   * Получение конкретного изображения по ID
+   * Получение информации об изображении по ID
    */
-  async getImageById(id: number): Promise<APIResponse & { 
+  async getImageInfoById(id: number): Promise<APIResponse & { 
     data?: { 
       filename: string, 
-      image?: string,
-      imageUrl?: string,
-      isFileOnDisk?: boolean,
       fileUuid?: string,
-      thumbnailUrl?: string,
+      comment?: string,
       fileSize?: number,
-      dimensions?: string
+      dimensions?: string,
+      isFileOnDisk?: boolean
     } 
   }> {
     try {
-      console.log(`🔍 Получение изображения с ID: ${id}`);
+      console.log(`🔍 Получение информации об изображении ID: ${id}`);
       
       const response = await fetchClient.get(`/images/${id}`);
+      
+      if (response.success && response.data) {
+        return {
+          success: true,
+          data: response.data,
+        };
+      }
+      
+      // Fallback: ищем в общем списке
+      const imagesResponse = await imagesApi.getUserImages();
+      if (imagesResponse.success && imagesResponse.data) {
+        const image = imagesResponse.data.find((img: UploadedImage) => img.id === id);
+        if (image) {
+          return {
+            success: true,
+            data: {
+              filename: image.fileName,
+              fileUuid: image.fileUuid,
+              comment: image.comment,
+              fileSize: image.fileSize,
+              dimensions: image.dimensions,
+            },
+          };
+        }
+      }
+      
+      return {
+        success: false,
+        message: 'Изображение не найдено',
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка получения информации об изображении:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка получения информации об изображении',
+      };
+    }
+  },
+
+  /**
+   * Получение оригинального изображения по UUID
+   */
+  async getOriginalImageByUuid(uuid: string): Promise<APIResponse & {
+    data?: {
+      filename: string,
+      originalUrl: string,
+      thumbnailUrl: string,
+      fileUuid?: string,
+      fileSize?: number,
+      dimensions?: string,
+      comment?: string
+    }
+  }> {
+    try {
+      console.log(`🔍 Получение оригинального изображения UUID: ${uuid}`);
+      
+      const response = await fetchClient.get(`/images/original/${uuid}`);
       
       if (response.success && response.data) {
         return {
@@ -161,7 +245,52 @@ export const imagesApi = {
       };
       
     } catch (error: any) {
-      console.error('❌ Ошибка получения изображения:', error);
+      console.error('❌ Ошибка получения оригинального изображения:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка получения изображения',
+      };
+    }
+  },
+
+  /**
+   * Получение изображения для страницы просмотра
+   */
+  async getImageForViewPage(id: number): Promise<APIResponse & {
+    data?: UploadedImage
+  }> {
+    try {
+      console.log(`🔍 Получение изображения для страницы ID: ${id}`);
+      
+      const imagesResponse = await imagesApi.getUserImages();
+      
+      if (!imagesResponse.success) {
+        return imagesResponse;
+      }
+      
+      if (!imagesResponse.data) {
+        return {
+          success: false,
+          message: 'Нет данных изображений',
+        };
+      }
+      
+      const image = imagesResponse.data.find((img: UploadedImage) => img.id === id);
+      
+      if (!image) {
+        return {
+          success: false,
+          message: `Изображение с ID ${id} не найдено`,
+        };
+      }
+      
+      return {
+        success: true,
+        data: image,
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка получения изображения для страницы:', error);
       return {
         success: false,
         message: error.message || 'Ошибка получения изображения',
@@ -173,42 +302,64 @@ export const imagesApi = {
    * Формирование URL для доступа к файлу на сервере
    */
   getImageUrl(image: UploadedImage): string {
-    // Если нет изображения, возвращаем пустую строку
     if (!image) {
       console.warn('⚠️ Нет данных изображения');
       return '';
     }
 
-    // Если есть URL к файлу на диске, используем его
-    if (image.imageUrl) {
-      // Проверяем, не является ли это уже полным URL
-      if (image.imageUrl.startsWith('http') || image.imageUrl.startsWith('/')) {
-        return image.imageUrl;
-      }
-      // Если относительный путь, добавляем базовый URL
-      const baseURL = fetchClient.getBaseURL();
-      const apiBase = baseURL.replace('/api', '');
-      return `${apiBase}${image.imageUrl}`;
+    console.log('🔍 getImageUrl для изображения:', {
+      id: image.id,
+      fileName: image.fileName,
+      originalUrl: image.originalUrl,
+      thumbnailUrl: image.thumbnailUrl,
+      storedFilename: image.storedFilename,
+      fileUuid: image.fileUuid
+    });
+
+    // ПРИОРИТЕТ 1: Если сервер отправил originalUrl
+    if (image.originalUrl) {
+      console.log('✅ Используем originalUrl от сервера');
+      return imagesApi.makeFullUrl(image.originalUrl);
     }
-    
-    // Если есть Base64, используем его (для совместимости)
+
+    // ПРИОРИТЕТ 2: Если сервер отправил thumbnailUrl как fallback
+    if (image.thumbnailUrl) {
+      console.log('⚠️ Нет originalUrl, используем thumbnailUrl');
+      return imagesApi.makeFullUrl(image.thumbnailUrl);
+    }
+
+    // ПРИОРИТЕТ 3: Если есть storedFilename (имя файла на диске от сервера)
+    if (image.storedFilename) {
+      const login = fetchClient.getCurrentLogin();
+      if (login) {
+        const url = `/uploads/${login}/originals/${image.storedFilename}`;
+        console.log('⚠️ Нет URL от сервера, строим из storedFilename:', url);
+        return imagesApi.makeFullUrl(url);
+      }
+    }
+
+    // ПРИОРИТЕТ 4: Если есть только UUID и имя файла (запасной вариант)
+    if (image.fileUuid && image.fileName) {
+      const login = fetchClient.getCurrentLogin();
+      if (login) {
+        const extension = imagesApi.getFileExtension(image.fileName);
+        const baseName = imagesApi.getBaseFileName(image.fileName);
+        // Формируем имя: UUID_оригинальное_имя.расширение
+        const filename = `${image.fileUuid}_${baseName}${extension}`;
+        const url = `/uploads/${login}/originals/${filename}`;
+        console.log('⚠️ Нет storedFilename, строим из UUID и имени:', url);
+        return imagesApi.makeFullUrl(url);
+      }
+    }
+
+    // ПРИОРИТЕТ 5: Base64 для обратной совместимости
     if (image.originIMG) {
-      const mimeType = this.getMimeType(image.fileName);
+      const mimeType = imagesApi.getMimeType(image.fileName);
+      console.log('⚠️ Используем Base64 (обратная совместимость)');
       return `data:${mimeType};base64,${image.originIMG}`;
     }
-    
-    // Если есть thumbnail URL как fallback
-    if (image.thumbnailUrl) {
-      if (image.thumbnailUrl.startsWith('http') || image.thumbnailUrl.startsWith('/')) {
-        return image.thumbnailUrl;
-      }
-      const baseURL = fetchClient.getBaseURL();
-      const apiBase = baseURL.replace('/api', '');
-      return `${apiBase}${image.thumbnailUrl}`;
-    }
-    
-    // Fallback - пустая строка
-    console.warn(`⚠️ Нет данных для изображения: ${image.fileName}`);
+
+    console.warn('❌ Не удалось создать URL для изображения');
     return '';
   },
 
@@ -216,54 +367,129 @@ export const imagesApi = {
    * Формирование URL для превью
    */
   getThumbnailUrl(image: UploadedImage): string {
-    // Если нет изображения, возвращаем пустую строку
     if (!image) {
+      console.warn('⚠️ Нет данных изображения');
       return '';
     }
 
-    // Если есть URL к превью на диске, используем его
+    console.log('🔍 getThumbnailUrl для изображения:', {
+      id: image.id,
+      fileName: image.fileName,
+      thumbnailUrl: image.thumbnailUrl,
+      storedFilename: image.storedFilename,
+      fileUuid: image.fileUuid
+    });
+
+    // ПРИОРИТЕТ 1: Если сервер отправил thumbnailUrl
     if (image.thumbnailUrl) {
-      if (image.thumbnailUrl.startsWith('http') || image.thumbnailUrl.startsWith('/')) {
-        return image.thumbnailUrl;
-      }
-      const baseURL = fetchClient.getBaseURL();
-      const apiBase = baseURL.replace('/api', '');
-      return `${apiBase}${image.thumbnailUrl}`;
+      console.log('✅ Используем thumbnailUrl от сервера');
+      return imagesApi.makeFullUrl(image.thumbnailUrl);
     }
-    
-    // Если есть Base64 превью, используем его
+
+    // ПРИОРИТЕТ 2: Если есть storedFilename
+    if (image.storedFilename) {
+      const login = fetchClient.getCurrentLogin();
+      if (login) {
+        const url = `/uploads/${login}/thumbnails/${image.storedFilename}`;
+        console.log('⚠️ Нет thumbnailUrl от сервера, строим из storedFilename:', url);
+        return imagesApi.makeFullUrl(url);
+      }
+    }
+
+    // ПРИОРИТЕТ 3: Если есть только UUID и имя файла
+    if (image.fileUuid && image.fileName) {
+      const login = fetchClient.getCurrentLogin();
+      if (login) {
+        const extension = imagesApi.getFileExtension(image.fileName);
+        const baseName = imagesApi.getBaseFileName(image.fileName);
+        const filename = `${image.fileUuid}_${baseName}${extension}`;
+        const url = `/uploads/${login}/thumbnails/${filename}`;
+        console.log('⚠️ Нет storedFilename, строим из UUID и имени:', url);
+        return imagesApi.makeFullUrl(url);
+      }
+    }
+
+    // ПРИОРИТЕТ 4: Base64 превью
     if (image.smallImage) {
+      console.log('⚠️ Используем Base64 превью');
       return `data:image/jpeg;base64,${image.smallImage}`;
     }
+
+    // ПРИОРИТЕТ 5: Основное изображение как fallback
+    console.log('⚠️ Используем оригинальное изображение как превью');
+    return imagesApi.getImageUrl(image);
+  },
+
+  /**
+   * Преобразование относительного URL в полный
+   */
+  makeFullUrl(url: string): string {
+    if (!url) return '';
     
-    // Если есть основное изображение в Base64
-    if (image.originIMG) {
-      return `data:image/jpeg;base64,${image.originIMG}`;
+    // Если URL уже полный или data URL
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+      return url;
     }
     
-    // Fallback - используем основное изображение
-    return this.getImageUrl(image);
+    let baseURL = fetchClient.getBaseURL();
+    if (baseURL.endsWith('/api')) {
+      baseURL = baseURL.substring(0, baseURL.length - 4);
+    }
+    
+    if (url.startsWith('/')) {
+      // Проверяем, нужно ли добавлять base URL
+      if (url.startsWith('/uploads/')) {
+        // Для uploads URLs, проверяем если base URL уже есть
+        const fullUrl = `${baseURL}${url}`;
+        console.log('🔗 makeFullUrl:', { original: url, baseURL, fullUrl });
+        return fullUrl;
+      }
+      return `${baseURL}${url}`;
+    }
+    
+    return `${baseURL}/${url}`;
+  },
+
+  /**
+   * Получение расширения файла из имени
+   */
+  getFileExtension(filename: string): string {
+    if (!filename) return '.jpg';
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex === -1) return '.jpg';
+    return filename.substring(lastDotIndex).toLowerCase();
+  },
+
+  /**
+   * Получение имени файла без расширения
+   */
+  getBaseFileName(filename: string): string {
+    if (!filename) return 'image';
+    const extension = imagesApi.getFileExtension(filename);
+    const baseName = filename.substring(0, filename.length - extension.length);
+    // Очищаем имя файла от недопустимых символов
+    return baseName.replace(/[^a-zA-Z0-9а-яА-ЯёЁ._-]/g, '_');
   },
 
   /**
    * Определение MIME типа по имени файла
    */
   getMimeType(filename: string): string {
-    const ext = filename.toLowerCase().split('.').pop();
+    const ext = imagesApi.getFileExtension(filename).toLowerCase();
     switch (ext) {
-      case 'jpg':
-      case 'jpeg':
+      case '.jpg':
+      case '.jpeg':
         return 'image/jpeg';
-      case 'png':
+      case '.png':
         return 'image/png';
-      case 'gif':
+      case '.gif':
         return 'image/gif';
-      case 'bmp':
+      case '.bmp':
         return 'image/bmp';
-      case 'tiff':
-      case 'tif':
+      case '.tiff':
+      case '.tif':
         return 'image/tiff';
-      case 'webp':
+      case '.webp':
         return 'image/webp';
       default:
         return 'image/jpeg';
@@ -274,23 +500,25 @@ export const imagesApi = {
    * Проверка, использует ли изображение файловую систему
    */
   isUsingFileSystem(image: UploadedImage): boolean {
-    return !!(image.imageUrl || image.isFileOnDisk);
+    return !!(image.originalUrl || image.thumbnailUrl || image.storedFilename || image.fileUuid || image.isFileOnDisk);
   },
 
   /**
    * Получение размера файла в читаемом формате
    */
   getReadableFileSize(image: UploadedImage): string {
-    if (!image.fileSize) {
+    if (!image || !image.fileSize) {
       return 'Неизвестно';
     }
     
-    if (image.fileSize < 1024) {
-      return `${image.fileSize} B`;
-    } else if (image.fileSize < 1024 * 1024) {
-      return `${(image.fileSize / 1024).toFixed(2)} KB`;
+    const bytes = image.fileSize;
+    
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    } else if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(2)} KB`;
     } else {
-      return `${(image.fileSize / (1024 * 1024)).toFixed(2)} MB`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     }
   },
 
@@ -299,23 +527,48 @@ export const imagesApi = {
    */
   async checkImageAvailability(image: UploadedImage): Promise<boolean> {
     try {
-      const imageUrl = this.getImageUrl(image);
+      const imageUrl = imagesApi.getImageUrl(image);
       if (!imageUrl) return false;
       
-      // Для URL файловой системы проверяем доступность
-      if (imageUrl.startsWith('http') || imageUrl.startsWith('/')) {
-        const response = await fetch(imageUrl, { method: 'HEAD' });
-        return response.ok;
-      }
-      
-      // Для Base64 всегда доступно
       if (imageUrl.startsWith('data:')) {
         return true;
       }
       
-      return false;
+      const response = await fetch(imageUrl, { 
+        method: 'HEAD',
+        credentials: 'include'
+      });
+      
+      return response.ok;
     } catch {
       return false;
+    }
+  },
+
+  /**
+   * Скачивание изображения
+   */
+  async downloadImage(image: UploadedImage): Promise<void> {
+    try {
+      const imageUrl = imagesApi.getImageUrl(image);
+      if (!imageUrl) {
+        throw new Error('Нет данных для скачивания изображения');
+      }
+
+      const fullUrl = imagesApi.makeFullUrl(imageUrl);
+      const link = document.createElement("a");
+      link.href = fullUrl;
+      link.download = image.fileName || 'image.jpg';
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log(`✅ Изображение "${image.fileName}" скачивается`);
+    } catch (error) {
+      console.error('❌ Ошибка при скачивании изображения:', error);
+      throw error;
     }
   }
 };
@@ -336,11 +589,18 @@ const convertFileToBase64 = (file: File): Promise<string> => {
 export const getUserImages = imagesApi.getUserImages;
 export const uploadImage = imagesApi.uploadImage;
 export const deleteImage = imagesApi.deleteImage;
-export const getImageById = imagesApi.getImageById;
+export const getImageInfoById = imagesApi.getImageInfoById;
+export const getPaginatedImages = imagesApi.getPaginatedImages;
+export const getOriginalImageByUuid = imagesApi.getOriginalImageByUuid;
+export const getImageForViewPage = imagesApi.getImageForViewPage;
 export const getImageUrl = imagesApi.getImageUrl;
 export const getThumbnailUrl = imagesApi.getThumbnailUrl;
 export const getMimeType = imagesApi.getMimeType;
 export const getReadableFileSize = imagesApi.getReadableFileSize;
 export const isUsingFileSystem = imagesApi.isUsingFileSystem;
+export const downloadImage = imagesApi.downloadImage;
+export const makeFullUrl = imagesApi.makeFullUrl;
+export const getFileExtension = imagesApi.getFileExtension;
+export const getBaseFileName = imagesApi.getBaseFileName;
 
 export default imagesApi;

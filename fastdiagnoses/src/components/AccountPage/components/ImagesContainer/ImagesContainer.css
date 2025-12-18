@@ -330,3 +330,59 @@
     font-size: 1.2rem;
   }
 }
+
+/* Добавить в конец ImagesContainer.css */
+
+/* Пагинация для изображений */
+.page-info {
+    background-color: rgb(255, 255, 255);
+    padding: 8px 15px;
+    border-radius: 6px;
+    border: 1px solid rgb(88, 96, 98);
+    font-weight: 700;
+    color: rgb(88, 96, 98);
+    font-size: 14px;
+}
+
+/* Контейнер для пагинации в галерее */
+.pagination-container {
+    margin: 25px 0;
+    width: 100%;
+}
+
+/* Мобильная адаптация для пагинации */
+@media (max-width: 768px) {
+    .images-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .images-controls {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .page-info {
+        order: 1;
+        width: 100%;
+        text-align: center;
+    }
+    
+    .refresh-button {
+        order: 2;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-info {
+        font-size: 13px;
+        padding: 6px 12px;
+    }
+    
+    .images-header h2 {
+        font-size: 1.3rem;
+    }
+}

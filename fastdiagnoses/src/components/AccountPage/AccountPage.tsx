@@ -5,7 +5,8 @@ import Footer from '../Layout/Footer';
 import { AccountProvider } from './context/AccountContext';
 import { ScrollProvider } from './context/ScrollContext'; 
 import SurveysContainerPaginated from './components/SurveysContainer/SurveysContainer.paginated';
-import ImagesContainer from './components/ImagesContainer/ImagesContainer';
+import ImagesContainerPaginated from './components/ImagesContainer/ImagesContainer.paginated';
+
 import './AccountPage.css';
 
 const AccountPageContent: React.FC = () => {
@@ -34,7 +35,7 @@ const AccountPageContent: React.FC = () => {
           
           {/* 2. Блок загрузки и отображения изображений */}
           <div className="full-width-section">
-            <ImagesContainer />
+            <ImagesContainerPaginated />
           </div>
         </div>
       </main>

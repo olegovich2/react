@@ -27,6 +27,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const MainPage = lazy(() => import('./pages/MainPage'));
 const AccountPage = lazy(() => import('./components/AccountPage/AccountPage'));
+const ImagePage = lazy(() => import('./components/AccountPage/pages/ImagePage/ImagePage'));
 
 // Компонент для защищенных маршрутов
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -120,107 +121,128 @@ const App: React.FC = () => {
 
   return (
     <AuthProvider>
-      
-        <Router>
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes>
-              {/* Публичные маршруты (только для неаутентифицированных) */}
-              <Route path="/login" element={
-                <AuthRedirect>
-                  <LoginPage />
-                </AuthRedirect>
-              } />
-              
-              <Route path="/register" element={
-                <AuthRedirect>
-                  <RegisterPage />
-                </AuthRedirect>
-              } />
-              
-              {/* Защищенные маршруты (только для аутентифицированных) */}
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <MainPage />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/account" element={
-                <ProtectedRoute>
-                  <AccountPage />
-                </ProtectedRoute>
-              } />
-              
-              {/* Страница аккаунта с другим портом (для совместимости) */}
-              <Route path="/account7680" element={
-                <ProtectedRoute>
-                  <AccountPage />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/account7681" element={
-                <ProtectedRoute>
-                  <AccountPage />
-                </ProtectedRoute>
-              } />
-              
-              {/* Статические маршруты для совместимости со старыми URL */}
-              <Route path="/main" element={
-                <ProtectedRoute>
-                  <Navigate to="/" replace />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/main/account" element={
-                <ProtectedRoute>
-                  <Navigate to="/account" replace />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/main/auth" element={
-                <Navigate to="/register" replace />
-              } />
-              
-              <Route path="/main/entry" element={
-                <Navigate to="/login" replace />
-              } />
-              <Route path="/confirm/:token" element={<ConfirmEmailPage />} />
-              {/* Страницы ошибок (можно добавить позже) */}
-              {/* <Route path="/error" element={<ErrorPage />} />
-              <Route path="/main/auth/error" element={<AuthErrorPage />} />
-              <Route path="/main/entry/error" element={<LoginErrorPage />} /> */}
-              
-              {/* Маршрут по умолчанию (404) */}
-              <Route path="*" element={
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  height: '100vh',
-                  backgroundColor: 'rgb(184, 198, 202)',
-                  color: 'rgb(88, 96, 98)',
-                  flexDirection: 'column'
-                }}>
-                  <h1>404 - Страница не найдена</h1>
-                  <p style={{ marginTop: '20px' }}>
-                    <a 
-                      href="/" 
-                      style={{
-                        color: 'rgb(88, 96, 98)',
-                        textDecoration: 'none',
-                        border: '2px solid rgb(88, 96, 98)',
-                        padding: '10px 20px',
-                        borderRadius: '4px'
-                      }}
-                    >
-                      Вернуться на главную
-                    </a>
-                  </p>
-                </div>
-              } />
-            </Routes>
-          </Suspense>
-        </Router>
-      
+      <Router>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
+            {/* Публичные маршруты (только для неаутентифицированных) */}
+            <Route path="/login" element={
+              <AuthRedirect>
+                <LoginPage />
+              </AuthRedirect>
+            } />
+            
+            <Route path="/register" element={
+              <AuthRedirect>
+                <RegisterPage />
+              </AuthRedirect>
+            } />
+            
+            {/* Защищенные маршруты (только для аутентифицированных) */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <MainPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/account" element={
+              <ProtectedRoute>
+                <AccountPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Страница просмотра изображения */}
+            <Route path="/account/images/:id" element={
+              <ProtectedRoute>
+                <ImagePage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Страница аккаунта с другим портом (для совместимости) */}
+            <Route path="/account7680" element={
+              <ProtectedRoute>
+                <AccountPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/account7681" element={
+              <ProtectedRoute>
+                <AccountPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Статические маршруты для совместимости со старыми URL */}
+            <Route path="/main" element={
+              <ProtectedRoute>
+                <Navigate to="/" replace />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/main/account" element={
+              <ProtectedRoute>
+                <Navigate to="/account" replace />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/main/auth" element={
+              <Navigate to="/register" replace />
+            } />
+            
+            <Route path="/main/entry" element={
+              <Navigate to="/login" replace />
+            } />
+            
+            {/* Подтверждение email */}
+            <Route path="/confirm/:token" element={<ConfirmEmailPage />} />
+            
+            {/* Старые маршруты для совместимости с изображениями */}
+            <Route path="/image/:id" element={
+              <ProtectedRoute>
+                <Navigate to="/account/images/:id" replace />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/images/:id" element={
+              <ProtectedRoute>
+                <Navigate to="/account/images/:id" replace />
+              </ProtectedRoute>
+            } />
+            
+            {/* Страницы ошибок (можно добавить позже) */}
+            {/* <Route path="/error" element={<ErrorPage />} />
+            <Route path="/main/auth/error" element={<AuthErrorPage />} />
+            <Route path="/main/entry/error" element={<LoginErrorPage />} /> */}
+            
+            {/* Маршрут по умолчанию (404) */}
+            <Route path="*" element={
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh',
+                backgroundColor: 'rgb(184, 198, 202)',
+                color: 'rgb(88, 96, 98)',
+                flexDirection: 'column'
+              }}>
+                <h1>404 - Страница не найдена</h1>
+                <p style={{ marginTop: '20px' }}>
+                  <a 
+                    href="/" 
+                    style={{
+                      color: 'rgb(88, 96, 98)',
+                      textDecoration: 'none',
+                      border: '2px solid rgb(88, 96, 98)',
+                      padding: '10px 20px',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    Вернуться на главную
+                  </a>
+                </p>
+              </div>
+            } />
+          </Routes>
+        </Suspense>
+      </Router>
     </AuthProvider>
   );
 };

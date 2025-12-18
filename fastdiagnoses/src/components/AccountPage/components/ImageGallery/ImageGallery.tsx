@@ -1,6 +1,6 @@
 import React from 'react';
 import { UploadedImage } from '../../types/account.types';
-import { getThumbnailUrl, getReadableFileSize, isUsingFileSystem } from '../../../../api/images.api';
+import { getThumbnailUrl, getReadableFileSize } from '../../../../api/images.api';
 
 interface ImageGalleryProps {
   images: UploadedImage[];
@@ -18,35 +18,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
     );
   }
 
-  // Функция для обработки ошибок загрузки изображения
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>, image: UploadedImage) => {
-    console.error(`Ошибка загрузки изображения: ${image.fileName}`);
-    const target = e.currentTarget;
+  // Функция для получения fallback URL
+  const getFallbackUrl = (image: UploadedImage): string => {
+    // Используем imageUrl как fallback вместо оригинального URL
+    if (image.imageUrl && image.imageUrl !== image.thumbnailUrl) {
+      return image.imageUrl;
+    }
     
-    // Пробуем использовать Base64 как fallback
-    if (image.originIMG && !target.src.includes('data:')) {
-      const mimeType = getMimeTypeFallback(image.fileName);
-      target.src = `data:${mimeType};base64,${image.originIMG}`;
-    } else {
-      target.src = '/fallback-thumbnail.jpg';
-      target.alt = 'Изображение не загружено';
-    }
-  };
-
-  // Вспомогательная функция для определения MIME типа
-  const getMimeTypeFallback = (filename: string): string => {
-    const ext = filename.toLowerCase().split('.').pop();
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'gif':
-        return 'image/gif';
-      default:
-        return 'image/jpeg';
-    }
+    // Иначе placeholder
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9IiNmMGYwZjAiPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIi8+PHRleHQgeD0iNTAiIHk9IjUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2NjYiPk5vIGltYWdlPC90ZXh0Pjwvc3ZnPg==';
   };
 
   return (
@@ -54,10 +34,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
       {images.map((image) => {
         const thumbnailUrl = getThumbnailUrl(image);
         const fileSize = getReadableFileSize(image);
-        const usingFileSystem = isUsingFileSystem(image);
+        const fallbackUrl = getFallbackUrl(image);
         
         return (
-          <div key={image.id || image.fileUuid || image.fileName} 
+          <div key={image.id || image.fileUuid || `image-${image.id}`} 
                className="image-item" 
                data-image-id={image.id}>
             
@@ -66,11 +46,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
               {thumbnailUrl ? (
                 <img 
                   src={thumbnailUrl} 
-                  alt={image.fileName}
+                  alt={image.fileName || 'Изображение'}
                   className="thumbnail"
                   onClick={() => onView(image.id)}
-                  onError={(e) => handleImageError(e, image)}
+                  onError={(e) => {
+                    console.log(`Ошибка загрузки ${thumbnailUrl}, пробуем fallback`);
+                    e.currentTarget.src = fallbackUrl;
+                    e.currentTarget.onerror = null; // Отключаем повторные ошибки
+                  }}
                   loading="lazy"
+                  crossOrigin="anonymous"
                 />
               ) : (
                 <div className="thumbnail-placeholder">
@@ -79,18 +64,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
                 </div>
               )}
               
-              {/* Бейдж файловой системы */}
-              {usingFileSystem && (
-                <div className="filesystem-badge" title="Файл хранится на диске">
-                  <i className="fas fa-hdd"></i>
-                </div>
-              )}
+              <div className="filesystem-badge" title="Файл хранится на диске">
+                <i className="fas fa-hdd"></i>
+              </div>
             </div>
             
             {/* Информация об изображении */}
             <div className="image-info">
               <p className="image-filename">
-                <strong>📁 Файл:</strong> {image.fileName}
+                <strong>📁 Файл:</strong> {image.fileName || 'Неизвестный файл'}
               </p>
               
               <p className="image-comment">
@@ -115,9 +97,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
                 </p>
               )}
               
-              <p className="image-storage">
-                <strong>💾 Хранилище:</strong> 
-                {usingFileSystem ? ' Файловая система' : ' База данных (Base64)'}
+              <p className="image-url">
+                <strong>🔗 URL:</strong> 
+                <small>{thumbnailUrl ? (thumbnailUrl.length > 50 ? thumbnailUrl.substring(0, 50) + '...' : thumbnailUrl) : 'Нет URL'}</small>
               </p>
             </div>
             
@@ -128,7 +110,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
                 type="button"
                 onClick={() => onView(image.id)}
                 title="Просмотреть изображение"
-                disabled={!thumbnailUrl && !image.originIMG}
               >
                 <i className="fas fa-eye"></i> Просмотреть
               </button>
