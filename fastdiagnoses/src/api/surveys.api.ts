@@ -1,7 +1,7 @@
 // surveys.api.ts (исправленная версия)
 import { fetchClient } from './fetchClient';
 import { APIResponse } from '../types/api.types';
-import { Survey } from '../types/api.types';
+import { Survey } from '../components/AccountPage/types/account.types';
 
 export const surveysApi = {
   /**

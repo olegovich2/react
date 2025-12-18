@@ -1,6 +1,6 @@
 // src/pages/AccountPage/components/SurveysContainer/SurveyModal.tsx
 import React, { useCallback } from 'react';
-import { Survey } from '../../../../types/api.types';
+import { Survey } from '../../types/account.types';
 
 interface SurveyModalProps {
   survey: Survey;

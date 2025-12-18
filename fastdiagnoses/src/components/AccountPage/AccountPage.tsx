@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
 import { AccountProvider } from './context/AccountContext';
-import SurveysContainer from './components/SurveysContainer/SurveysContainer';
+import { ScrollProvider } from './context/ScrollContext'; 
+import SurveysContainerPaginated from './components/SurveysContainer/SurveysContainer.paginated';
 import ImagesContainer from './components/ImagesContainer/ImagesContainer';
 import './AccountPage.css';
 
@@ -26,12 +27,12 @@ const AccountPageContent: React.FC = () => {
 
       <main className="general">
         <div className="mainAccount">
-          {/* 1. Список опросов (на всю ширину) */}
+          {/* 1. Список опросов с пагинацией */}
           <div className="full-width-section">
-            <SurveysContainer />
+            <SurveysContainerPaginated />
           </div>
           
-          {/* 2. Блок загрузки и отображения изображений (на всю ширину) */}
+          {/* 2. Блок загрузки и отображения изображений */}
           <div className="full-width-section">
             <ImagesContainer />
           </div>
@@ -46,7 +47,9 @@ const AccountPageContent: React.FC = () => {
 const AccountPage: React.FC = () => {
   return (
     <AccountProvider>
-      <AccountPageContent />
+      <ScrollProvider> 
+        <AccountPageContent />
+      </ScrollProvider>
     </AccountProvider>
   );
 };

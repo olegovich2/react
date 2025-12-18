@@ -22,16 +22,84 @@ export interface Survey {
   diagnostic: string[];
   treatment: string[];
   otherGuidelines: string[];
-  survey?: string | object;
+  survey?: string | object; // Для обратной совместимости
+  created_at?: string;      // Дата создания записи
+}
+
+export interface SurveyResponse {
+  success: boolean;
+  message?: string;
+  surveyId?: number;
+}
+
+export interface GetSurveysResponse {
+  success: boolean;
+  surveys: Survey[];
+  message?: string;
+}
+
+export interface PaginatedSurveysResponse {
+  success: boolean;
+  surveys: Survey[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+  message?: string;
 }
 
 // ==================== ИЗОБРАЖЕНИЯ ====================
 export interface UploadedImage {
   id: number;
-  fileName: string;
-  comment: string;
-  smallImage: string;
-  originIMG?: string;
+  fileUuid?: string;       // Уникальный идентификатор файла
+  fileName: string;        // Оригинальное имя файла
+  comment: string;         // Комментарий пользователя
+  smallImage?: string;     // Base64 превью для совместимости
+  originIMG?: string;      // Base64 оригинал для совместимости
+  imageUrl?: string;       // URL к файлу на диске
+  thumbnailUrl?: string;   // URL к превью на диске
+  isFileOnDisk?: boolean;  // Флаг наличия файла на диске
+  fileSize?: number;       // Размер файла в байтах
+  dimensions?: string;     // Размеры изображения (ширинаxвысота)
+  created_at?: string;     // Дата создания
+}
+
+export interface ImageUploadResponse {
+  success: boolean;
+  message: string;
+  fileUuid?: string;
+  imageId?: number;
+}
+
+export interface GetImageResponse {
+  success: boolean;
+  filename: string;
+  image?: string;          // Base64 для совместимости
+  imageUrl?: string;       // URL для файловой системы
+  isFileOnDisk?: boolean;
+  fileUuid?: string;
+  thumbnailUrl?: string;
+  fileSize?: number;
+  dimensions?: string;
+  message?: string;
+}
+
+export interface PaginatedImagesResponse {
+  success: boolean;
+  images: UploadedImage[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+  message?: string;
 }
 
 // ==================== РЕЗУЛЬТАТЫ ОПРОСА ====================
@@ -68,6 +136,29 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
   message?: string;
+}
+
+export interface PaginatedDataResponse<T> {
+  success: boolean;
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  type?: 'surveys' | 'images' | 'all';
+  message?: string;
+}
+
+// ==================== СТАТИСТИКА ====================
+export interface UsageStats {
+  totalSurveys: number;
+  totalImages?: number;
+  lastActivity: string;
+  storageUsed?: number; // в байтах
+  surveysByMonth?: Array<{
+    month: string;
+    count: number;
+  }>;
 }
 
 // ==================== ФОРМЫ ДАННЫХ ====================
@@ -239,4 +330,110 @@ export interface AccountResponse extends APIResponse {
     images: UploadedImage[];
     stats?: AccountStats;
   };
+}
+
+// ==================== ТИПЫ ДЛЯ КОНТЕКСТА ====================
+export interface AccountContextType {
+  surveys: Survey[];
+  images: UploadedImage[];
+  selectedSurvey: Survey | null;
+  selectedImage: UploadedImage | null;
+  showImageModal: boolean;
+  isLoading: boolean;
+  error: string | null;
+  stats: AccountStats | null;
+  setSurveys: (surveys: Survey[]) => void;
+  setImages: (images: UploadedImage[]) => void;
+  setSelectedSurvey: (survey: Survey | null) => void;
+  setSelectedImage: (image: UploadedImage | null) => void;
+  setShowImageModal: (show: boolean) => void;
+  setIsLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  setStats: (stats: AccountStats | null) => void;
+  loadData: () => Promise<void>;
+}
+
+// ==================== ДИАГНОЗЫ ====================
+export interface DiagnosisResult {
+  titles: string[];
+  diagnostic: string[];
+  treatment: string[];
+}
+
+export interface SearchDiagnosesResponse {
+  success: boolean;
+  titles: string[];
+  diagnostic: string[];
+  treatment: string[];
+  message?: string;
+}
+
+// ==================== АУТЕНТИФИКАЦИЯ ====================
+export interface LoginCredentials {
+  login: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  login: string;
+  password: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  token?: string;
+  user?: {
+    login: string;
+    email: string;
+    createdAt?: string;
+  };
+  message?: string;
+  status?: number;
+}
+
+// ==================== ДОПОЛНИТЕЛЬНЫЕ ТИПЫ ====================
+export interface User {
+  id?: number;
+  login: string;
+  email: string;
+  createdAt?: string;
+  token?: string;
+}
+
+export interface Session {
+  id: number;
+  login: string;
+  token: string;
+  createdAt: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface AppEvent {
+  type: string;
+  data: any;
+  timestamp: number;
+  userId?: number;
+}
+
+export interface LogEntry {
+  id: number;
+  level: 'info' | 'warn' | 'error' | 'debug';
+  message: string;
+  timestamp: string;
+  source: string;
+  userId?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface HistoryItem {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number;
+  changes: Record<string, any>;
+  timestamp: string;
+  userId: number;
+  userName: string;
 }

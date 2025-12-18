@@ -1,5 +1,6 @@
 /**
- * Типы для API FastDiagnoses
+ * Базовые типы API для FastDiagnoses
+ * Все типы, связанные с аккаунтом (опросы, изображения, пагинация) вынесены в account.types.ts
  */
 
 // ==================== БАЗОВЫЕ ТИПЫ ====================
@@ -53,61 +54,6 @@ export interface JWTVerifyResponse {
   message?: string;
 }
 
-// ==================== ОПРОСЫ ====================
-export interface Survey {
-  id: number;
-  date: string;
-  nameSurname: string;
-  age: string;
-  temperature: string;
-  anamnesis: string;
-  title: string[];
-  diagnostic: string[];
-  treatment: string[];
-  otherGuidelines: string[];
-}
-
-export interface SurveyResponse {
-  success: boolean;
-  message?: string;
-  surveyId?: number;
-}
-
-export interface GetSurveysResponse {
-  success: boolean;
-  surveys: Survey[];
-  images: UploadedImage[];
-  message?: string;
-}
-
-// ==================== ИЗОБРАЖЕНИЯ ====================
-export interface UploadedImage {
-  id: number;
-  fileName: string;
-  comment: string;
-  smallImage: string;
-  originIMG?: string;
-}
-
-export interface ImageUploadRequest {
-  filename: string;
-  file: string; // base64
-  comment?: string;
-}
-
-export interface ImageUploadResponse {
-  success: boolean;
-  message: string;
-  imageId?: number;
-}
-
-export interface GetImageResponse {
-  success: boolean;
-  filename: string;
-  image: string; // base64
-  message?: string;
-}
-
 // ==================== ДИАГНОЗЫ ====================
 export interface DiagnosisResult {
   titles: string[];
@@ -153,30 +99,6 @@ export interface ApiError {
   message: string;
   status: number;
   code?: string;
-}
-
-// ==================== УНИВЕРСАЛЬНЫЕ ====================
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface PaginatedResponse<T> {
-  success: boolean;
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  message?: string;
-}
-
-export interface DeleteResponse {
-  success: boolean;
-  message: string;
-  deletedId?: number;
 }
 
 // ==================== HEALTH CHECK ====================
@@ -235,7 +157,7 @@ export interface Session {
   userAgent?: string;
 }
 
-// ==================== ФАЙЛЫ ====================
+// ==================== ФАЙЛЫ (ОБЩИЕ) ====================
 export interface FileMetadata {
   name: string;
   size: number;
@@ -317,7 +239,7 @@ export interface HistoryItem {
 // ==================== ЭКСПОРТ/ИМПОРТ ====================
 export interface ExportOptions {
   format: 'json' | 'csv' | 'pdf';
-  includeImages: boolean;
+  includeData: boolean;
   dateRange?: {
     start: string;
     end: string;
@@ -330,4 +252,60 @@ export interface ImportResult {
   failed: number;
   errors: string[];
   message?: string;
+}
+
+// ==================== ПОИСК И ФИЛЬТРЫ ====================
+export interface SearchParams {
+  query?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  type?: 'survey' | 'image' | 'all';
+  limit?: number;
+  offset?: number;
+}
+
+export interface SearchResult<T> {
+  success: boolean;
+  data: T[];
+  total: number;
+  query?: string;
+  filters?: Record<string, any>;
+}
+
+// ==================== УВЕДОМЛЕНИЯ ====================
+export interface Notification {
+  id: number;
+  type: 'info' | 'warning' | 'error' | 'success';
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  actionUrl?: string;
+}
+
+// ==================== КОНФИГУРАЦИЯ ====================
+export interface AppConfig {
+  apiUrl: string;
+  maxFileSize: number;
+  allowedFileTypes: string[];
+  maxUsersPerEmail: number;
+  sessionTimeout: number;
+  enableAnalytics: boolean;
+  version: string;
+}
+
+// ==================== СИСТЕМНАЯ ИНФОРМАЦИЯ ====================
+export interface SystemInfo {
+  version: string;
+  nodeVersion: string;
+  platform: string;
+  uptime: number;
+  memoryUsage: {
+    rss: number;
+    heapTotal: number;
+    heapUsed: number;
+    external: number;
+  };
+  databaseStatus: 'connected' | 'disconnected' | 'error';
+  lastBackup?: string;
 }

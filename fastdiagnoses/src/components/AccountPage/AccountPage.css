@@ -1182,3 +1182,164 @@
 .unvisible {
     display: none !important;
 }
+
+
+/* Добавьте в существующий CSS файл */
+
+/* Индикаторы хранения */
+.storage-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 10;
+}
+
+.badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-disk {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.badge-db {
+  background-color: #2196F3;
+  color: white;
+}
+
+/* Статистика */
+.stats-panel {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.stat-item {
+  background: white;
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.disk-stat {
+  color: #4CAF50;
+}
+
+.db-stat {
+  color: #2196F3;
+}
+
+/* Миграция */
+.migration-panel {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px dashed #ccc;
+}
+
+.migration-hint {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 14px;
+  color: #856404;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.migrate-button {
+  width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+}
+
+.migrate-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Информация в модальном окне */
+.info-row {
+  display: flex;
+  margin-bottom: 8px;
+  align-items: flex-start;
+}
+
+.info-label {
+  min-width: 120px;
+  font-weight: bold;
+  color: #555;
+}
+
+.info-value {
+  flex: 1;
+  word-break: break-word;
+}
+
+.storage-disk {
+  color: #4CAF50;
+}
+
+.storage-db {
+  color: #2196F3;
+}
+
+.uuid-value {
+  font-family: monospace;
+  font-size: 12px;
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: inline-block;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .info-row {
+    flex-direction: column;
+  }
+  
+  .info-label {
+    margin-bottom: 4px;
+  }
+}

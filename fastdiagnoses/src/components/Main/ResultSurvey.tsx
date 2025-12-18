@@ -1,5 +1,5 @@
 import React from 'react';
-import { Survey } from '../../types/api.types';
+import { Survey } from '../../components/AccountPage/types/account.types';
 import { saveSurveyToDB } from '../../api/surveys.api';
 
 interface ResultSurveyProps {

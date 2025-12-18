@@ -1,7 +1,7 @@
 import React, { useState, FormEvent } from 'react';
 import { titleStates } from '../../constants/allConstants';
 import { getDiagnosisRecommendations } from '../../api/surveys.api';
-import { Survey } from '../../types/api.types';
+import { Survey } from '../../components/AccountPage/types/account.types';
 import { historyTaking, formatedSymbolInName } from '../../utils/formatters';
 
 interface RespiratoryFormProps {

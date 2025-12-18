@@ -8,6 +8,8 @@ const sharp = require("sharp");
 const nodemailer = require("nodemailer");
 const validator = require("validator");
 const cron = require("node-cron");
+const fs = require("fs").promises;
+const crypto = require("crypto");
 require("dotenv").config();
 
 const app = express();
@@ -27,6 +29,11 @@ const JWT_SECRET = process.env.JWT_SECRET || "registration-secret-key";
 const JWT_SECRET_TWO = process.env.JWT_SECRET_TWO || "session-secret-key";
 const MAX_USERS_PER_EMAIL = 4;
 
+// Пути для файлов
+const UPLOAD_DIR = path.join(__dirname, "UploadIMG");
+const THUMBNAIL_WIDTH = 100;
+const THUMBNAIL_HEIGHT = 100;
+
 const transporter = nodemailer.createTransport({
   service: "Gmail",
   host: "smtp.gmail.com",
@@ -37,6 +44,85 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS || "xbhu rhhb eysz emtc",
   },
 });
+
+// ==================== УТИЛИТЫ ФАЙЛОВОЙ СИСТЕМЫ ====================
+async function ensureUploadDirs() {
+  try {
+    await fs.access(UPLOAD_DIR);
+  } catch {
+    await fs.mkdir(UPLOAD_DIR, { recursive: true });
+  }
+}
+
+async function getUserUploadDirs(login) {
+  const userDir = path.join(UPLOAD_DIR, login);
+  const originalsDir = path.join(userDir, "originals");
+  const thumbnailsDir = path.join(userDir, "thumbnails");
+
+  return { userDir, originalsDir, thumbnailsDir };
+}
+
+async function ensureUserUploadDirs(login) {
+  const { originalsDir, thumbnailsDir } = await getUserUploadDirs(login);
+
+  await fs.mkdir(originalsDir, { recursive: true });
+  await fs.mkdir(thumbnailsDir, { recursive: true });
+
+  return { originalsDir, thumbnailsDir };
+}
+
+async function saveImageToDisk(base64Data, originalFilename, login) {
+  const fileUuid = crypto.randomUUID();
+  const extension = path.extname(originalFilename).toLowerCase() || ".jpg";
+  const filename = `${fileUuid}${extension}`;
+
+  const { originalsDir, thumbnailsDir } = await ensureUserUploadDirs(login);
+
+  // Сохраняем оригинальное изображение
+  const originalPath = path.join(originalsDir, filename);
+  const buffer = Buffer.from(base64Data, "base64");
+  await fs.writeFile(originalPath, buffer);
+
+  // Создаем и сохраняем превью
+  const thumbnailPath = path.join(thumbnailsDir, filename);
+  const thumbnailBuffer = await sharp(buffer)
+    .resize(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT)
+    .toBuffer();
+  await fs.writeFile(thumbnailPath, thumbnailBuffer);
+
+  // Получаем метаданные
+  const metadata = await sharp(buffer).metadata();
+  const fileStats = await fs.stat(originalPath);
+
+  return {
+    fileUuid,
+    originalPath,
+    thumbnailPath,
+    fileSize: fileStats.size,
+    width: metadata.width,
+    height: metadata.height,
+    mimeType: `image/${metadata.format || "jpeg"}`,
+    fileHash: crypto.createHash("sha256").update(buffer).digest("hex"),
+  };
+}
+
+async function deleteImageFromDisk(fileUuid, login) {
+  try {
+    const { originalsDir, thumbnailsDir } = await getUserUploadDirs(login);
+    const files = await fs.readdir(originalsDir);
+
+    const fileToDelete = files.find((f) => f.startsWith(fileUuid));
+    if (fileToDelete) {
+      await fs.unlink(path.join(originalsDir, fileToDelete));
+      await fs.unlink(path.join(thumbnailsDir, fileToDelete));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Ошибка удаления файла:", error);
+    return false;
+  }
+}
 
 // ==================== БАЗА ДАННЫХ ====================
 const pool = mysql.createPool(poolConfig);
@@ -339,6 +425,9 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Обслуживание загруженных изображений
+app.use("/uploads", express.static(UPLOAD_DIR));
+
 const buildPath = path.join(__dirname, "..", "build");
 app.use(express.static(buildPath));
 
@@ -407,6 +496,53 @@ const authenticateToken = async (req, res, next) => {
     });
   }
 };
+
+// ==================== СОЗДАНИЕ ТАБЛИЦЫ ПОЛЬЗОВАТЕЛЯ ====================
+async function createUserTable(login) {
+  try {
+    // Создаем таблицу с новой структурой
+    await query(
+      `CREATE TABLE IF NOT EXISTS \`${login}\` (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        file_uuid VARCHAR(36) NULL,
+        fileNameOriginIMG LONGTEXT NULL,
+        file_path LONGTEXT NULL,
+        thumbnail_path LONGTEXT NULL,
+        originIMG LONGTEXT NULL,
+        comment LONGTEXT NULL,
+        smallIMG LONGTEXT NULL,
+        file_size BIGINT NULL,
+        mime_type VARCHAR(100) NULL,
+        file_hash VARCHAR(64) NULL,
+        width INT NULL,
+        height INT NULL,
+        survey LONGTEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        type ENUM('survey', 'image') DEFAULT 'survey'
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    );
+
+    // Создаем индексы для производительности
+    await query(
+      `CREATE INDEX IF NOT EXISTS idx_${login}_created_at ON \`${login}\` (created_at DESC)`
+    );
+    await query(
+      `CREATE INDEX IF NOT EXISTS idx_${login}_type ON \`${login}\` (type)`
+    );
+    await query(
+      `CREATE INDEX IF NOT EXISTS idx_${login}_file_uuid ON \`${login}\` (file_uuid)`
+    );
+
+    // Создаем директории для пользователя
+    await ensureUserUploadDirs(login);
+
+    console.log(`✅ Таблица и директории созданы для пользователя: ${login}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Ошибка создания таблицы для ${login}:`, error);
+    throw error;
+  }
+}
 
 // ==================== API ENDPOINTS ====================
 
@@ -610,16 +746,8 @@ app.get("/api/auth/confirm/:token", async (req, res) => {
       `);
     }
 
-    await query(
-      `CREATE TABLE IF NOT EXISTS \`${decoded.login}\` (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        survey LONGTEXT NULL,
-        fileNameOriginIMG LONGTEXT NULL,
-        originIMG LONGTEXT NULL,
-        comment LONGTEXT NULL,
-        smallIMG LONGTEXT NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
-    );
+    // Создаем таблицу с новой структурой
+    await createUserTable(decoded.login);
 
     res.send(`
       <!DOCTYPE html>
@@ -811,7 +939,7 @@ app.post("/api/auth/logout", authenticateToken, async (req, res) => {
 app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   try {
     const survey = validateSurvey(req.body.survey);
-    const login = req.user.login; // Используем только логин из токена
+    const login = req.user.login;
 
     console.log(`💾 Сохранение опроса для пользователя: ${login}`);
 
@@ -822,27 +950,22 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
       });
     }
 
+    // Проверяем существование таблицы
     const tableExists = await query(
       "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
       [process.env.DB_DATABASE || "diagnoses", login]
     );
 
     if (tableExists[0].count === 0) {
-      await query(
-        `CREATE TABLE IF NOT EXISTS \`${login}\` (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          survey LONGTEXT NULL,
-          fileNameOriginIMG LONGTEXT NULL,
-          originIMG LONGTEXT NULL,
-          comment LONGTEXT NULL,
-          smallIMG LONGTEXT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
-      );
+      // Создаем таблицу, если не существует
+      await createUserTable(login);
     }
 
-    await query(`INSERT INTO \`${login}\` (survey) VALUES (?)`, [
-      JSON.stringify(survey),
-    ]);
+    // Сохраняем опрос
+    await query(
+      `INSERT INTO \`${login}\` (survey, type) VALUES (?, 'survey')`,
+      [JSON.stringify(survey)]
+    );
 
     console.log(`✅ Опрос успешно сохранен для ${login}`);
 
@@ -859,9 +982,9 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   }
 });
 
-// 7. Загрузка изображения
+// 7. Загрузка изображения (НОВАЯ ВЕРСИЯ С ФАЙЛОВОЙ СИСТЕМОЙ)
 app.post("/api/images/upload", authenticateToken, async (req, res) => {
-  const login = req.user.login; // Используем только логин из токена
+  const login = req.user.login;
   try {
     console.log("📤 Начало загрузки изображения...");
     const { filename, file, comment } = req.body;
@@ -874,24 +997,66 @@ app.post("/api/images/upload", authenticateToken, async (req, res) => {
     const validated = validateImageBase64(file, filename);
     console.log("✅ Валидация пройдена");
 
-    console.log("🖼️  Создание превью...");
+    // Проверяем существование таблицы
+    const tableExists = await query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+      [process.env.DB_DATABASE || "diagnoses", login]
+    );
+
+    if (tableExists[0].count === 0) {
+      // Создаем таблицу, если не существует
+      await createUserTable(login);
+    }
+
+    // Сохраняем файл на диск и получаем метаданные
+    console.log("💾 Сохранение файла на диск...");
+    const fileInfo = await saveImageToDisk(
+      validated.base64Data,
+      validated.filename,
+      login
+    );
+    console.log("✅ Файл сохранен на диск");
+
+    // Получаем Base64 превью для обратной совместимости
+    console.log("🖼️ Создание Base64 превью для совместимости...");
     const buffer = Buffer.from(validated.base64Data, "base64");
     const resizedBuffer = await sharp(buffer).resize(100, 100).toBuffer();
     const smallImage = resizedBuffer.toString("base64");
     console.log("✅ Превью создано");
 
-    console.log(`💾 Сохранение в БД для пользователя ${login}...`);
+    // Сохраняем информацию в БД
+    console.log(`💾 Сохранение метаданных в БД для пользователя ${login}...`);
     await query(
-      `INSERT INTO \`${login}\` (fileNameOriginIMG, originIMG, comment, smallIMG) 
-       VALUES (?, ?, ?, ?)`,
-      [validated.filename, validated.base64Data, comment || "", smallImage]
+      `INSERT INTO \`${login}\` (
+        file_uuid, fileNameOriginIMG, file_path, thumbnail_path, 
+        originIMG, comment, smallIMG, file_size, mime_type, 
+        file_hash, width, height, type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'image')`,
+      [
+        fileInfo.fileUuid,
+        validated.filename,
+        fileInfo.originalPath,
+        fileInfo.thumbnailPath,
+        validated.base64Data, // Сохраняем Base64 для обратной совместимости
+        comment || "",
+        smallImage, // Base64 превью для совместимости
+        fileInfo.fileSize,
+        fileInfo.mimeType,
+        fileInfo.fileHash,
+        fileInfo.width,
+        fileInfo.height,
+      ]
     );
 
     console.log(`✅ Изображение успешно сохранено для ${login}`);
+    console.log(
+      `📊 Метаданные: ${fileInfo.fileSize} байт, ${fileInfo.width}x${fileInfo.height}`
+    );
 
     res.json({
       success: true,
       message: "Изображение загружено успешно",
+      fileUuid: fileInfo.fileUuid,
     });
   } catch (error) {
     console.error("❌ Upload image error:", error);
@@ -1002,7 +1167,7 @@ app.post("/api/diagnoses/search", async (req, res) => {
 // 9. Получение ТОЛЬКО опросов пользователя
 app.post("/api/surveys", authenticateToken, async (req, res) => {
   try {
-    const login = req.user.login; // Используем только логин из токена
+    const login = req.user.login;
     console.log(`📥 Запрос ОПРОСОВ пользователя: ${login}`);
 
     const tableExists = await query(
@@ -1019,14 +1184,27 @@ app.post("/api/surveys", authenticateToken, async (req, res) => {
     }
 
     const surveys = await query(
-      `SELECT id, survey FROM \`${login}\` WHERE survey IS NOT NULL ORDER BY id DESC`
+      `SELECT id, survey, created_at FROM \`${login}\` 
+       WHERE survey IS NOT NULL 
+       ORDER BY created_at DESC, id DESC`
     );
 
-    const parsedSurveys = surveys.map((row) => ({
-      id: row.id,
-      date: JSON.parse(row.survey).date,
-      survey: JSON.parse(row.survey),
-    }));
+    const parsedSurveys = surveys.map((row) => {
+      try {
+        const surveyData = JSON.parse(row.survey);
+        return {
+          id: row.id,
+          date: row.created_at,
+          survey: surveyData,
+        };
+      } catch {
+        return {
+          id: row.id,
+          date: row.created_at,
+          survey: { date: row.created_at },
+        };
+      }
+    });
 
     console.log(`✅ Найдено опросов: ${parsedSurveys.length}`);
 
@@ -1052,10 +1230,10 @@ app.post("/api/surveys", authenticateToken, async (req, res) => {
   }
 });
 
-// 10. Получение ТОЛЬКО изображений пользователя
+// 10. Получение ТОЛЬКО изображений пользователя (ОБНОВЛЕННАЯ ВЕРСИЯ)
 app.post("/api/images", authenticateToken, async (req, res) => {
   try {
-    const login = req.user.login; // Используем только логин из токена
+    const login = req.user.login;
     console.log(`🖼️ Запрос ИЗОБРАЖЕНИЙ пользователя: ${login}`);
 
     const tableExists = await query(
@@ -1071,17 +1249,59 @@ app.post("/api/images", authenticateToken, async (req, res) => {
       });
     }
 
+    // Получаем изображения, отдавая приоритет файлам на диске
     const images = await query(
-      `SELECT id, fileNameOriginIMG, originIMG, comment, smallIMG FROM \`${login}\` WHERE fileNameOriginIMG IS NOT NULL ORDER BY id DESC`
+      `SELECT 
+        id, 
+        file_uuid,
+        fileNameOriginIMG, 
+        file_path, 
+        thumbnail_path,
+        originIMG, 
+        comment, 
+        smallIMG, 
+        file_size,
+        width,
+        height,
+        created_at 
+       FROM \`${login}\` 
+       WHERE fileNameOriginIMG IS NOT NULL 
+       ORDER BY created_at DESC, id DESC`
     );
 
-    const parsedImages = images.map((row) => ({
-      id: row.id,
-      fileName: row.fileNameOriginIMG,
-      originIMG: row.originIMG,
-      comment: row.comment,
-      smallImage: row.smallIMG,
-    }));
+    const parsedImages = images.map((row) => {
+      // Формируем URL для доступа к файлам
+      const imageUrl = row.file_path
+        ? `/uploads/${login}/originals/${row.file_uuid}${path.extname(
+            row.fileNameOriginIMG
+          )}`
+        : null;
+
+      const thumbnailUrl = row.thumbnail_path
+        ? `/uploads/${login}/thumbnails/${row.file_uuid}${path.extname(
+            row.fileNameOriginIMG
+          )}`
+        : null;
+
+      return {
+        id: row.id,
+        fileUuid: row.file_uuid,
+        fileName: row.fileNameOriginIMG,
+        // Для обратной совместимости оставляем Base64
+        originIMG: row.originIMG,
+        // Но также добавляем URL если файл есть на диске
+        imageUrl: imageUrl,
+        thumbnailUrl: thumbnailUrl,
+        comment: row.comment,
+        // Превью тоже для совместимости
+        smallImage: row.smallIMG,
+        fileSize: row.file_size,
+        dimensions:
+          row.width && row.height ? `${row.width}x${row.height}` : null,
+        created_at: row.created_at,
+        isFileOnDisk: !!row.file_path,
+      };
+    });
 
     console.log(`✅ Найдено изображений: ${parsedImages.length}`);
 
@@ -1110,7 +1330,7 @@ app.post("/api/images", authenticateToken, async (req, res) => {
 // 11. Получение конкретного опроса
 app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   try {
-    const login = req.user.login; // Используем только логин из токена
+    const login = req.user.login;
     const { id } = req.params;
 
     if (!id || isNaN(parseInt(id))) {
@@ -1145,10 +1365,10 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 12. Получение конкретного изображения
+// 12. Получение конкретного изображения (ОБНОВЛЕННАЯ ВЕРСИЯ)
 app.get("/api/images/:id", authenticateToken, async (req, res) => {
   try {
-    const login = req.user.login; // Используем только логин из токена
+    const login = req.user.login;
     const { id } = req.params;
 
     if (!id || isNaN(parseInt(id))) {
@@ -1159,21 +1379,46 @@ app.get("/api/images/:id", authenticateToken, async (req, res) => {
     }
 
     const results = await query(
-      "SELECT fileNameOriginIMG, originIMG FROM ?? WHERE id = ? AND fileNameOriginIMG IS NOT NULL",
+      `SELECT 
+        fileNameOriginIMG, 
+        file_path,
+        originIMG,
+        file_uuid
+       FROM ?? WHERE id = ? AND fileNameOriginIMG IS NOT NULL`,
       [login, id]
     );
 
     if (results.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Изображение не найдено",
+        message: "Изображение не найдена",
       });
     }
 
+    const row = results[0];
+
+    // Если файл есть на диске, перенаправляем на него
+    if (row.file_path) {
+      const filename = `${row.file_uuid}${path.extname(row.fileNameOriginIMG)}`;
+      const imageUrl = `/uploads/${login}/originals/${filename}`;
+
+      // Можно либо перенаправить, либо отдать URL
+      return res.json({
+        success: true,
+        filename: row.fileNameOriginIMG,
+        imageUrl: imageUrl,
+        isFileOnDisk: true,
+        // Для обратной совместимости оставляем Base64
+        image: row.originIMG,
+      });
+    }
+
+    // Иначе возвращаем Base64
     res.json({
       success: true,
-      filename: results[0].fileNameOriginIMG,
-      image: results[0].originIMG,
+      filename: row.fileNameOriginIMG,
+      image: row.originIMG,
+      isFileOnDisk: false,
     });
   } catch (error) {
     console.error("❌ Ошибка получения изображения:", error);
@@ -1184,10 +1429,10 @@ app.get("/api/images/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 13. Удаление записи
+// 13. Удаление записи (ОБНОВЛЕННАЯ ВЕРСИЯ)
 app.delete("/api/data/:id", authenticateToken, async (req, res) => {
   try {
-    const login = req.user.login; // Используем только логин из токена
+    const login = req.user.login;
     const { id } = req.params;
 
     if (!id || isNaN(parseInt(id))) {
@@ -1197,6 +1442,25 @@ app.delete("/api/data/:id", authenticateToken, async (req, res) => {
       });
     }
 
+    // Сначала получаем информацию о файле
+    const fileInfo = await query(
+      `SELECT file_uuid, type FROM \`${login}\` WHERE id = ?`,
+      [id]
+    );
+
+    if (fileInfo.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Запись не найдена",
+      });
+    }
+
+    // Если это изображение с файлом на диске, удаляем файл
+    if (fileInfo[0].type === "image" && fileInfo[0].file_uuid) {
+      await deleteImageFromDisk(fileInfo[0].file_uuid, login);
+    }
+
+    // Удаляем запись из БД
     const result = await query(`DELETE FROM \`${login}\` WHERE id = ?`, [id]);
 
     if (result.affectedRows === 0) {
@@ -1222,7 +1486,7 @@ app.delete("/api/data/:id", authenticateToken, async (req, res) => {
 // 14. Получение всех данных (опросы + изображения) для обратной совместимости
 app.post("/api/surveys/old", authenticateToken, async (req, res) => {
   try {
-    const login = req.user.login; // Используем только логин из токена
+    const login = req.user.login;
     console.log(`📊 Запрос ВСЕХ данных пользователя: ${login}`);
 
     const tableExists = await query(
@@ -1241,25 +1505,52 @@ app.post("/api/surveys/old", authenticateToken, async (req, res) => {
 
     const [surveys, images] = await Promise.all([
       query(
-        `SELECT id, survey FROM \`${login}\` WHERE survey IS NOT NULL ORDER BY id DESC`
+        `SELECT id, survey, created_at FROM \`${login}\` 
+         WHERE survey IS NOT NULL 
+         ORDER BY created_at DESC, id DESC`
       ),
       query(
-        `SELECT id, fileNameOriginIMG, originIMG, comment, smallIMG FROM \`${login}\` WHERE fileNameOriginIMG IS NOT NULL ORDER BY id DESC`
+        `SELECT 
+          id, 
+          file_uuid,
+          fileNameOriginIMG, 
+          originIMG, 
+          comment, 
+          smallIMG, 
+          file_size,
+          created_at 
+         FROM \`${login}\` 
+         WHERE fileNameOriginIMG IS NOT NULL 
+         ORDER BY created_at DESC, id DESC`
       ),
     ]);
 
-    const parsedSurveys = surveys.map((row) => ({
-      id: row.id,
-      date: JSON.parse(row.survey).date,
-      survey: JSON.parse(row.survey),
-    }));
+    const parsedSurveys = surveys.map((row) => {
+      try {
+        const surveyData = JSON.parse(row.survey);
+        return {
+          id: row.id,
+          date: row.created_at,
+          survey: surveyData,
+        };
+      } catch {
+        return {
+          id: row.id,
+          date: row.created_at,
+          survey: { date: row.created_at },
+        };
+      }
+    });
 
     const parsedImages = images.map((row) => ({
       id: row.id,
+      fileUuid: row.file_uuid,
       fileName: row.fileNameOriginIMG,
       originIMG: row.originIMG,
       comment: row.comment,
       smallImage: row.smallIMG,
+      fileSize: row.file_size,
+      created_at: row.created_at,
     }));
 
     res.json({
@@ -1282,6 +1573,367 @@ app.post("/api/surveys/old", authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Ошибка получения данных",
+    });
+  }
+});
+
+// ==================== НОВЫЕ ЭНДПОИНТЫ С ПАГИНАЦИЕЙ ====================
+
+// 15. Получение опросов с пагинацией
+app.post("/api/surveys/paginated", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login;
+    const { page = 1, limit = 5 } = req.body;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+
+    if (isNaN(pageNum) || pageNum < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Некорректный номер страницы",
+      });
+    }
+
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Некорректный лимит (максимум 50 записей на страницу)",
+      });
+    }
+
+    console.log(
+      `📥 Запрос ОПРОСОВ с пагинацией для: ${login}, страница: ${pageNum}, лимит: ${limitNum}`
+    );
+
+    const offset = (pageNum - 1) * limitNum;
+
+    const tableExists = await query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+      [process.env.DB_DATABASE || "diagnoses", login]
+    );
+
+    if (tableExists[0].count === 0) {
+      return res.json({
+        success: true,
+        surveys: [],
+        pagination: {
+          currentPage: pageNum,
+          totalPages: 0,
+          totalItems: 0,
+          itemsPerPage: limitNum,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      });
+    }
+
+    const countResult = await query(
+      `SELECT COUNT(*) as total FROM \`${login}\` WHERE survey IS NOT NULL`
+    );
+    const totalItems = countResult[0].total || 0;
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const sqlQuery = `
+      SELECT id, survey, created_at FROM \`${login}\` 
+      WHERE survey IS NOT NULL 
+      ORDER BY created_at DESC, id DESC 
+      LIMIT ${limitNum} OFFSET ${offset}
+    `;
+
+    const surveys = await query(sqlQuery);
+
+    const parsedSurveys = surveys.map((row) => {
+      try {
+        const surveyData = JSON.parse(row.survey);
+        return {
+          id: row.id,
+          date: row.created_at,
+          survey: surveyData,
+        };
+      } catch {
+        return {
+          id: row.id,
+          date: row.created_at,
+          survey: { date: row.created_at },
+        };
+      }
+    });
+
+    res.json({
+      success: true,
+      surveys: parsedSurveys,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: totalPages,
+        totalItems: totalItems,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Ошибка получения опросов с пагинацией:", error);
+
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      return res.json({
+        success: true,
+        surveys: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 0,
+          totalItems: 0,
+          itemsPerPage: parseInt(req.body.limit) || 5,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Ошибка получения опросов",
+    });
+  }
+});
+
+// 16. Получение изображений с пагинацией (ОБНОВЛЕННАЯ ВЕРСИЯ)
+app.post("/api/images/paginated", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login;
+    const { page = 1, limit = 5 } = req.body;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+
+    if (isNaN(pageNum) || pageNum < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Некорректный номер страницы",
+      });
+    }
+
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Некорректный лимит (максимум 50 записей на страницу)",
+      });
+    }
+
+    console.log(
+      `🖼️ Запрос ИЗОБРАЖЕНИЙ с пагинацией для: ${login}, страница: ${pageNum}, лимит: ${limitNum}`
+    );
+
+    const offset = (pageNum - 1) * limitNum;
+
+    const tableExists = await query(
+      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+      [process.env.DB_DATABASE || "diagnoses", login]
+    );
+
+    if (tableExists[0].count === 0) {
+      return res.json({
+        success: true,
+        images: [],
+        pagination: {
+          currentPage: pageNum,
+          totalPages: 0,
+          totalItems: 0,
+          itemsPerPage: limitNum,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      });
+    }
+
+    const countResult = await query(
+      `SELECT COUNT(*) as total FROM \`${login}\` WHERE fileNameOriginIMG IS NOT NULL`
+    );
+    const totalItems = countResult[0].total || 0;
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const sqlQuery = `
+      SELECT 
+        id, 
+        file_uuid,
+        fileNameOriginIMG, 
+        file_path, 
+        thumbnail_path,
+        originIMG, 
+        comment, 
+        smallIMG, 
+        file_size,
+        width,
+        height,
+        created_at 
+      FROM \`${login}\` 
+      WHERE fileNameOriginIMG IS NOT NULL 
+      ORDER BY created_at DESC, id DESC 
+      LIMIT ${limitNum} OFFSET ${offset}
+    `;
+
+    const images = await query(sqlQuery);
+
+    const parsedImages = images.map((row) => {
+      const imageUrl = row.file_path
+        ? `/uploads/${login}/originals/${row.file_uuid}${path.extname(
+            row.fileNameOriginIMG
+          )}`
+        : null;
+
+      const thumbnailUrl = row.thumbnail_path
+        ? `/uploads/${login}/thumbnails/${row.file_uuid}${path.extname(
+            row.fileNameOriginIMG
+          )}`
+        : null;
+
+      return {
+        id: row.id,
+        fileUuid: row.file_uuid,
+        fileName: row.fileNameOriginIMG,
+        imageUrl: imageUrl,
+        thumbnailUrl: thumbnailUrl,
+        originIMG: row.originIMG,
+        comment: row.comment,
+        smallImage: row.smallIMG,
+        fileSize: row.file_size,
+        dimensions:
+          row.width && row.height ? `${row.width}x${row.height}` : null,
+        created_at: row.created_at,
+        isFileOnDisk: !!row.file_path,
+      };
+    });
+
+    res.json({
+      success: true,
+      images: parsedImages,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: totalPages,
+        totalItems: totalItems,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Ошибка получения изображений с пагинацией:", error);
+
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      return res.json({
+        success: true,
+        images: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 0,
+          totalItems: 0,
+          itemsPerPage: parseInt(req.body.limit) || 5,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Ошибка получения изображений",
+    });
+  }
+});
+
+// ==================== ДОПОЛНИТЕЛЬНЫЕ ЭНДПОИНТЫ ====================
+
+// 17. Эндпоинт для получения файла изображения
+app.get("/uploads/:user/:type/:filename", async (req, res) => {
+  try {
+    const { user, type, filename } = req.params;
+
+    if (!["originals", "thumbnails"].includes(type)) {
+      return res.status(400).send("Invalid file type");
+    }
+
+    const filePath = path.join(UPLOAD_DIR, user, type, filename);
+
+    try {
+      await fs.access(filePath);
+      res.sendFile(filePath);
+    } catch {
+      res.status(404).send("File not found");
+    }
+  } catch (error) {
+    console.error("❌ Ошибка получения файла:", error);
+    res.status(500).send("Internal server error");
+  }
+});
+
+// 18. Эндпоинт для миграции существующих данных (опционально)
+app.post("/api/migrate/images", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login;
+    console.log(`🔄 Начало миграции изображений для пользователя: ${login}`);
+
+    const images = await query(
+      `SELECT id, fileNameOriginIMG, originIMG FROM \`${login}\` 
+       WHERE fileNameOriginIMG IS NOT NULL AND file_path IS NULL`
+    );
+
+    let migrated = 0;
+    let errors = 0;
+
+    for (const image of images) {
+      try {
+        const fileInfo = await saveImageToDisk(
+          image.originIMG,
+          image.fileNameOriginIMG,
+          login
+        );
+
+        await query(
+          `UPDATE \`${login}\` 
+           SET file_uuid = ?, file_path = ?, thumbnail_path = ?,
+               file_size = ?, mime_type = ?, file_hash = ?,
+               width = ?, height = ?
+           WHERE id = ?`,
+          [
+            fileInfo.fileUuid,
+            fileInfo.originalPath,
+            fileInfo.thumbnailPath,
+            fileInfo.fileSize,
+            fileInfo.mimeType,
+            fileInfo.fileHash,
+            fileInfo.width,
+            fileInfo.height,
+            image.id,
+          ]
+        );
+
+        migrated++;
+        console.log(
+          `✅ Мигрировано изображение ${migrated}/${images.length}: ${image.fileNameOriginIMG}`
+        );
+      } catch (error) {
+        errors++;
+        console.error(
+          `❌ Ошибка миграции изображения ${image.id}:`,
+          error.message
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Миграция завершена. Успешно: ${migrated}, Ошибок: ${errors}`,
+      stats: {
+        total: images.length,
+        migrated: migrated,
+        errors: errors,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Ошибка миграции:", error);
+    res.status(500).json({
+      success: false,
+      message: "Ошибка миграции изображений",
     });
   }
 });
@@ -1316,30 +1968,57 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
 
-// ==================== ЗАПУСК СЕРВЕРА ====================
-app.listen(PORT, () => {
-  console.log(`🚀 Secure API Server запущен на порту ${PORT}`);
-  console.log(`📁 Обслуживаю React из: ${buildPath}`);
-  console.log(`🌐 Откройте: http://localhost:${PORT}`);
-  console.log(`🔑 API Base: http://localhost:${PORT}/api`);
-  console.log(`🔒 Режим: ${process.env.NODE_ENV || "development"}`);
-  console.log(`👥 Максимум пользователей на email: ${MAX_USERS_PER_EMAIL}`);
-  console.log(
-    `📧 Ссылки подтверждения ведут на: http://localhost:5000/confirm/[token]`
-  );
+// ==================== ИНИЦИАЛИЗАЦИЯ И ЗАПУСК СЕРВЕРА ====================
+async function initializeServer() {
+  try {
+    // Создаем корневую директорию для загрузок
+    await ensureUploadDirs();
+    console.log(`📁 Директория загрузок: ${UPLOAD_DIR}`);
 
-  console.log("\n📊 Разделенные эндпоинты:");
-  console.log("   • POST   /api/surveys        - получение опросов (POST)");
-  console.log("   • POST   /api/images         - получение изображений (POST)");
-  console.log("   • DELETE /api/data/:id       - удаление данных");
-  console.log("   • GET    /api/surveys/:id    - получение конкретного опроса");
-  console.log(
-    "   • GET    /api/images/:id     - получение конкретного изображения"
-  );
-  console.log("\n📊 Старые эндпоинты для обратной совместимости:");
-  console.log(
-    "   • POST   /api/surveys/old    - получение всех данных (опросы + изображения)"
-  );
+    // Запускаем сервер
+    app.listen(PORT, () => {
+      console.log(`🚀 Secure API Server запущен на порту ${PORT}`);
+      console.log(`📁 Обслуживаю React из: ${buildPath}`);
+      console.log(`🌐 Откройте: http://localhost:${PORT}`);
+      console.log(`🔑 API Base: http://localhost:${PORT}/api`);
+      console.log(`📁 Uploads доступны по: http://localhost:${PORT}/uploads`);
+      console.log(`🔒 Режим: ${process.env.NODE_ENV || "development"}`);
+      console.log(`👥 Максимум пользователей на email: ${MAX_USERS_PER_EMAIL}`);
 
-  startCleanupSchedule();
-});
+      console.log("\n📊 Основные эндпоинты:");
+      console.log(
+        "   • POST   /api/images/upload      - загрузка изображений (с файловой системой)"
+      );
+      console.log(
+        "   • POST   /api/surveys            - получение всех опросов"
+      );
+      console.log(
+        "   • POST   /api/images             - получение всех изображений"
+      );
+      console.log(
+        "   • DELETE /api/data/:id           - удаление данных (с удалением файлов)"
+      );
+      console.log(
+        "   • GET    /uploads/:user/:type/:filename - доступ к файлам"
+      );
+
+      console.log("\n📊 Дополнительные эндпоинты:");
+      console.log(
+        "   • POST   /api/migrate/images     - миграция существующих изображений в файловую систему"
+      );
+
+      console.log("\n📊 Эндпоинты с пагинацией:");
+      console.log("   • POST   /api/surveys/paginated  - опросы с пагинацией");
+      console.log(
+        "   • POST   /api/images/paginated   - изображения с пагинацией"
+      );
+
+      startCleanupSchedule();
+    });
+  } catch (error) {
+    console.error("❌ Ошибка инициализации сервера:", error);
+    process.exit(1);
+  }
+}
+
+initializeServer();

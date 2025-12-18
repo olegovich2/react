@@ -458,6 +458,105 @@ class FetchClient {
     }>('/diagnoses/search', { titles });
   }
 
+  // ==================== ПАГИНАЦИЯ ====================
+
+  /**
+   * Получение опросов с пагинацией
+   */
+  async getPaginatedSurveys(params?: {
+    page?: number;
+    limit?: number;
+  }) {
+    return this.post<{
+      surveys: Array<{
+        id: number;
+        date: string;
+        survey: any;
+      }>;
+      pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalItems: number;
+        itemsPerPage: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+      }
+    }>('/surveys/paginated', {
+      page: params?.page || 1,
+      limit: params?.limit || 5  // 5 записей на страницу по умолчанию
+    });
+  }
+
+  /**
+   * Получение изображений с пагинацией
+   */
+  async getPaginatedImages(params?: {
+    page?: number;
+    limit?: number;
+  }) {
+    return this.post<{
+      images: Array<{
+        id: number;
+        fileName: string;
+        originIMG: string;
+        comment: string;
+        smallImage: string;
+        created_at: string;
+      }>;
+      pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalItems: number;
+        itemsPerPage: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+      }
+    }>('/images/paginated', {
+      page: params?.page || 1,
+      limit: params?.limit || 5
+    });
+  }
+
+  /**
+   * Получение всех данных с пагинацией и поиском
+   */
+  async getPaginatedData(params?: {
+    page?: number;
+    limit?: number;
+    type?: 'surveys' | 'images' | 'all';
+    searchQuery?: string;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+  }) {
+    return this.post<{
+      data: Array<{
+        id: number;
+        type: 'survey' | 'image';
+        date?: string;
+        survey?: any;
+        fileName?: string;
+        originIMG?: string;
+        comment?: string;
+        smallImage?: string;
+      }>;
+      pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalItems: number;
+        itemsPerPage: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+      }
+    }>('/data/search', {
+      page: params?.page || 1,
+      limit: params?.limit || 5,
+      type: params?.type || 'all',
+      searchQuery: params?.searchQuery || '',
+      dateFrom: params?.dateFrom || null,
+      dateTo: params?.dateTo || null
+    });
+  }
+
   // ==================== УТИЛИТЫ ====================
 
   /**

@@ -6,7 +6,7 @@ import RespiratoryForm from '../components/Main/RespiratoryForm';
 import ResultSurvey from '../components/Main/ResultSurvey';
 import { checkJWT } from '../api/auth.api';
 import { useNavigate } from 'react-router-dom';
-import { Survey } from '../types/api.types';
+import { Survey } from '../components/AccountPage/types/account.types';
 
 const MainPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('');
