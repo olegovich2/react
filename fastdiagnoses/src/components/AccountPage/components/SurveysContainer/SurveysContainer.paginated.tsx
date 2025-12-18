@@ -1,19 +1,12 @@
 // AccountPage/components/SurveysContainer/SurveysContainer.paginated.tsx
 import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
 import { useAccountContext } from '../../context/AccountContext';
-import { fetchClient } from '../../../../api/fetchClient';
+import { surveysApi } from '../../../../api/surveys.api';
 import SurveyList from '../SurveyList/SurveyList';
 import SurveyModal from './SurveyModal';
 import Pagination from '../Pagination/Pagination';
 import { Survey as SurveyType } from '../../types/account.types';
 import './SurveyContainer.css';
-
-// Тип для сырых данных из API
-interface RawSurveyData {
-  id: number;
-  date?: string;
-  survey?: string | object;
-}
 
 const SurveysContainerPaginated: React.FC = React.memo(() => {
   const { 
@@ -70,63 +63,34 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     setCurrentPage(page);
     
     try {
-      console.log(`📥 Загрузка опросов, страница ${page}...`);
+      console.log(`📥 Загрузка опросов через surveysApi, страница ${page}...`);
       
-      const response = await fetchClient.getPaginatedSurveys({
+      const response = await surveysApi.getPaginatedSurveys({
         page,
         limit: itemsPerPage
       });
       
       if (response.success && response.data) {
-        console.log('📥 Данные от API с пагинацией:', response.data);
-        
-        // Преобразуем данные из JSON с правильной типизацией
-        const processedSurveys: SurveyType[] = response.data.surveys.map((row: RawSurveyData) => {
-          try {
-            let parsedSurvey;
-            if (typeof row.survey === 'string') {
-              console.log('📄 Парсим JSON строку');
-              parsedSurvey = JSON.parse(row.survey);
-              console.log('✅ Распарсено:', parsedSurvey);
-            } else if (row.survey && typeof row.survey === 'object') {
-              console.log('📄 Survey уже объект:', row.survey);
-              parsedSurvey = row.survey;
-            } else {
-              console.log('⚠️ Survey отсутствует или null');
-              parsedSurvey = {};
-            }
-            
-            return {
-              id: row.id,
-              date: row.date || parsedSurvey.date || 'Не указано',
-              nameSurname: parsedSurvey.nameSurname || parsedSurvey.name || parsedSurvey.fio || 'Не указано',
-              age: parsedSurvey.age || '',
-              temperature: parsedSurvey.temperature || '',
-              anamnesis: parsedSurvey.anamnesis || parsedSurvey.symptoms || parsedSurvey.description || '',
-              title: parsedSurvey.title || parsedSurvey.diagnosis || [],
-              diagnostic: parsedSurvey.diagnostic || parsedSurvey.examinations || [],
-              treatment: parsedSurvey.treatment || [],
-              otherGuidelines: parsedSurvey.otherGuidelines || []
-            };
-            
-          } catch (parseError) {
-            console.error('❌ Ошибка парсинга опроса ID:', row.id, parseError);
-            return {
-              id: row.id,
-              date: row.date || 'Не указано',
-              nameSurname: 'Ошибка загрузки данных',
-              age: '',
-              temperature: '',
-              anamnesis: '',
-              title: [],
-              diagnostic: [],
-              treatment: [],
-              otherGuidelines: []
-            };
-          }
+        console.log('📥 Данные от surveysApi с пагинацией:', {
+          surveysCount: response.data.surveys.length,
+          pagination: response.data.pagination
         });
         
+        // ✅ surveysApi уже возвращает готовые Survey объекты
+        const processedSurveys: SurveyType[] = response.data.surveys;
+        
         console.log(`✅ Загружено опросов: ${processedSurveys.length}`);
+        
+        // Логируем первый опрос для проверки структуры
+        if (processedSurveys.length > 0) {
+          console.log('📄 Пример первого опроса:', {
+            id: processedSurveys[0].id,
+            date: processedSurveys[0].date,
+            nameSurname: processedSurveys[0].nameSurname,
+            hasTitleArray: Array.isArray(processedSurveys[0].title),
+            hasDiagnosticArray: Array.isArray(processedSurveys[0].diagnostic)
+          });
+        }
         
         setLocalSurveys(processedSurveys);
         
@@ -165,7 +129,7 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
 
   // Обработчик смены страницы
   const handlePageChange = useCallback((page: number) => {
-    console.log(`🔄 Переход на страницу ${page}`);
+    console.log(`🔄 Переход на страницу ${page} через surveysApi`);
     loadPaginatedSurveys(page);
     // Обновляем страницу в контексте отдельно
     updateSurveysPage(page);
@@ -173,24 +137,35 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
 
   // Удаление опроса
   const handleDeleteSurvey = useCallback(async (id: number) => {
+    if (!window.confirm('Вы уверены, что хотите удалить этот опрос?')) {
+      return;
+    }
+
     try {
-      const result = await fetchClient.deleteSurveyOrImage(id);
+      // Используем surveysApi для удаления
+      const result = await surveysApi.deleteSurvey(id);
       
       if (result.success) {
         console.log(`✅ Опрос ${id} удален, страница перезагружена`);
         // Перезагружаем текущую страницу после удаления
         await loadPaginatedSurveys(currentPage);
       } else {
-        console.error('Ошибка удаления опроса:', result.message);
+        console.error('Ошибка удаления опроса через surveysApi:', result.message);
+        setError(result.message || 'Ошибка удаления опроса');
       }
-    } catch (deleteError) {
+    } catch (deleteError: any) {
       console.error('Ошибка удаления опроса:', deleteError);
+      setError(deleteError.message || 'Ошибка удаления опроса');
     }
   }, [currentPage, loadPaginatedSurveys]);
 
   // Просмотр опроса
   const handleViewSurvey = useCallback((survey: SurveyType) => {
-    console.log('📄 Просмотр опроса:', survey);
+    console.log('📄 Просмотр опроса через surveysApi:', {
+      id: survey.id,
+      date: survey.date,
+      name: survey.nameSurname
+    });
     setSelectedSurvey(survey);
     setShowSurveyModal(true);
     // Сохраняем текущую страницу перед показом модального окна
@@ -199,6 +174,7 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
 
   // Закрытие модального окна
   const handleCloseModal = useCallback(() => {
+    console.log('🔒 Закрытие модального окна опроса');
     setShowSurveyModal(false);
     setSelectedSurvey(null);
   }, [setShowSurveyModal, setSelectedSurvey]);
@@ -206,7 +182,7 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
   // Первоначальная загрузка - используем сохраненную страницу из контекста
   useEffect(() => {
     const initialPage = surveysPagination.currentPage;
-    console.log(`🔄 Начальная загрузка опросов с пагинацией. Страница из контекста: ${initialPage}...`);
+    console.log(`🔄 Начальная загрузка опросов через surveysApi. Страница из контекста: ${initialPage}...`);
     setCurrentPage(initialPage);
     loadPaginatedSurveys(initialPage);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,49 +204,92 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     );
   }, [surveysPagination, handlePageChange, scrollToSurveys]);
 
+  // Отображение статуса загрузки
+  const renderLoading = useMemo(() => {
+    if (!loading) return null;
+    
+    return (
+      <div className="loading-message">
+        <i className="fas fa-spinner fa-spin"></i>
+        <p>Загрузка опросов...</p>
+      </div>
+    );
+  }, [loading]);
+
+  // Отображение ошибки
+  const renderError = useMemo(() => {
+    if (!error) return null;
+    
+    return (
+      <div className="error-message">
+        <i className="fas fa-exclamation-triangle"></i>
+        <p>{error}</p>
+        <button 
+          onClick={() => loadPaginatedSurveys(currentPage)}
+          className="retry-button"
+        >
+          <i className="fas fa-redo"></i> Попробовать снова
+        </button>
+      </div>
+    );
+  }, [error, currentPage, loadPaginatedSurveys]);
+
+  // Отображение сообщения об отсутствии опросов
+  const renderEmptyMessage = useMemo(() => {
+    if (loading || error || localSurveys.length > 0) return null;
+    
+    return (
+      <div className="empty-message">
+        <i className="fas fa-clipboard-list"></i>
+        <p>У вас пока нет опросов</p>
+        <p style={{ fontSize: '14px', color: '#666', marginTop: '10px' }}>
+          Создайте первый опрос на главной странице
+        </p>
+      </div>
+    );
+  }, [loading, error, localSurveys.length]);
+
+  // Отображение заголовка с пагинацией
+  const renderSurveysHeader = useMemo(() => {
+    if (localSurveys.length === 0) return null;
+    
+    return (
+      <div className="surveys-header">
+        <p>Найдено опросов: <strong>{surveysPagination.totalItems || 0}</strong></p>
+        {surveysPagination && (
+          <p className="page-info">
+            Страница <strong>{currentPage}</strong> из <strong>{surveysPagination.totalPages}</strong>
+          </p>
+        )}
+      </div>
+    );
+  }, [localSurveys.length, surveysPagination, currentPage]);
+
+  // Отображение списка опросов
+  const renderSurveyList = useMemo(() => {
+    if (localSurveys.length === 0) return null;
+    
+    return (
+      <SurveyList
+        surveys={localSurveys}
+        onView={handleViewSurvey}
+        onDelete={handleDeleteSurvey}
+      />
+    );
+  }, [localSurveys, handleViewSurvey, handleDeleteSurvey]);
+
   return (
     <div className="area_inspection_list" ref={surveysContainerRef}>
       <h2>Все осмотры</h2>
       
-      {loading ? (
-        <div className="loading-message">
-          <i className="fas fa-spinner fa-spin"></i>
-          <p>Загрузка опросов...</p>
-        </div>
-      ) : error ? (
-        <div className="error-message">
-          <i className="fas fa-exclamation-triangle"></i>
-          <p>{error}</p>
-          <button 
-            onClick={() => loadPaginatedSurveys(currentPage)}
-            className="retry-button"
-          >
-            Попробовать снова
-          </button>
-        </div>
-      ) : localSurveys.length === 0 ? (
-        <div className="empty-message">
-          <i className="fas fa-clipboard-list"></i>
-          <p>У вас пока нет опросов</p>
-        </div>
-      ) : (
+      {renderLoading}
+      {renderError}
+      {renderEmptyMessage}
+      
+      {localSurveys.length > 0 && (
         <>
-          <div className="surveys-header">
-            <p>Найдено опросов: <strong>{surveysPagination.totalItems || 0}</strong></p>
-            {surveysPagination && (
-              <p className="page-info">
-                Страница <strong>{currentPage}</strong> из <strong>{surveysPagination.totalPages}</strong>
-              </p>
-            )}
-          </div>
-          
-          <SurveyList
-            surveys={localSurveys}
-            onView={handleViewSurvey}
-            onDelete={handleDeleteSurvey}
-          />
-          
-          {/* Компонент пагинации */}
+          {renderSurveysHeader}
+          {renderSurveyList}
           {paginationComponent}
         </>
       )}
