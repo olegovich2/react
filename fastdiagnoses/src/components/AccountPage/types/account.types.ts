@@ -10,6 +10,151 @@ export interface APIResponse {
   data?: any;
 }
 
+// ==================== СЫРЫЕ ДАННЫЕ С СЕРВЕРА ====================
+export interface RawSurveyFromServer {
+  id?: number;
+  date?: string;
+  nameSurname?: string;
+  age?: string;
+  temperature?: string;
+  anamnesis?: string;
+  title?: string[] | string;
+  diagnostic?: string[] | string;
+  treatment?: string[] | string;
+  otherGuidelines?: string[] | string;
+  survey?: string | object;
+  user?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RawImageFromServer {
+  id?: number;
+  fileUuid?: string;
+  fileName?: string;
+  comment?: string;
+  smallImage?: string;
+  originIMG?: string;
+  imageUrl?: string;
+  thumbnailUrl?: string;
+  storedFilename?: string;
+  isFileOnDisk?: boolean;
+  fileSize?: number;
+  dimensions?: string;
+  user?: string;
+  created_at?: string;
+}
+
+// Типы для ответов API
+export interface SurveysResponseData {
+  surveys: RawSurveyFromServer[];
+}
+
+export interface PaginatedSurveysResponseData {
+  surveys: RawSurveyFromServer[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export interface SingleSurveyResponseData {
+  survey: Survey;
+}
+
+export interface ImagesResponseData {
+  images: UploadedImage[];
+}
+
+export interface PaginatedImagesResponseData {
+  images: UploadedImage[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    itemsPerPage: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export interface SingleImageResponseData {
+  filename: string;
+  image?: string;
+  imageUrl?: string;
+  isFileOnDisk?: boolean;
+  fileUuid?: string;
+  thumbnailUrl?: string;
+  fileSize?: number;
+  dimensions?: string;
+  comment?: string;
+}
+
+export interface DeleteResponseData {
+  message: string;
+}
+
+export interface AuthLoginResponseData {
+  token: string;
+  user: {
+    login: string;
+    email: string;
+    createdAt?: string;
+  };
+}
+
+export interface AuthVerifyResponseData {
+  user: {
+    login: string;
+    sessionId: number;
+  };
+}
+
+export interface AllUserDataResponseData {
+  surveys: RawSurveyFromServer[];
+  images: any[];
+}
+
+export interface DiagnosisSearchResponseData {
+  titles: string[];
+  diagnostic: string[];
+  treatment: string[];
+}
+
+// Типы для параметров запросов
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface SearchParams {
+  page?: number;
+  limit?: number;
+  type?: 'surveys' | 'images' | 'all';
+  searchQuery?: string;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
+// Типы для body запросов
+export interface SaveSurveyBody {
+  survey: Survey;
+}
+
+export interface UploadImageBody {
+  filename: string;
+  file: string; // Base64
+  comment?: string;
+}
+
+export interface SearchDiagnosesBody {
+  titles: string[];
+}
+
 // ==================== ОПРОСЫ ====================
 export interface Survey {
   id: number;
@@ -75,6 +220,8 @@ export interface ImageUploadResponse {
   message: string;
   fileUuid?: string;
   imageId?: number;
+  thumbnailUrl?: string;
+  originalUrl?: string;
 }
 
 export interface GetImageResponse {
@@ -87,6 +234,7 @@ export interface GetImageResponse {
   thumbnailUrl?: string;
   fileSize?: number;
   dimensions?: string;
+  comment?: string;
   message?: string;
 }
 
@@ -438,4 +586,47 @@ export interface HistoryItem {
   timestamp: string;
   userId: number;
   userName: string;
+}
+
+// ==================== УТИЛИТЫ ДЛЯ ТИПОВ ====================
+/**
+ * Конвертирует сырой опрос с сервера в нормализованный Survey
+ */
+export function normalizeSurvey(raw: RawSurveyFromServer): Survey {
+  return {
+    id: raw.id || 0,
+    date: raw.date || '',
+    nameSurname: raw.nameSurname || '',
+    age: raw.age || '',
+    temperature: raw.temperature || '',
+    anamnesis: raw.anamnesis || '',
+    title: Array.isArray(raw.title) ? raw.title : (raw.title ? [raw.title] : []),
+    diagnostic: Array.isArray(raw.diagnostic) ? raw.diagnostic : (raw.diagnostic ? [raw.diagnostic] : []),
+    treatment: Array.isArray(raw.treatment) ? raw.treatment : (raw.treatment ? [raw.treatment] : []),
+    otherGuidelines: Array.isArray(raw.otherGuidelines) ? raw.otherGuidelines : (raw.otherGuidelines ? [raw.otherGuidelines] : []),
+    survey: raw.survey,
+    created_at: raw.created_at
+  };
+}
+
+/**
+ * Конвертирует сырое изображение с сервера в нормализованное UploadedImage
+ */
+export function normalizeImage(raw: RawImageFromServer): UploadedImage {
+  return {
+    id: raw.id || 0,
+    fileUuid: raw.fileUuid,
+    fileName: raw.fileName || '',
+    comment: raw.comment || '',
+    smallImage: raw.smallImage,
+    originIMG: raw.originIMG,
+    imageUrl: raw.imageUrl,
+    thumbnailUrl: raw.thumbnailUrl,
+    originalUrl: raw.originIMG,
+    storedFilename: raw.storedFilename,
+    isFileOnDisk: raw.isFileOnDisk,
+    fileSize: raw.fileSize,
+    dimensions: raw.dimensions,
+    created_at: raw.created_at
+  };
 }

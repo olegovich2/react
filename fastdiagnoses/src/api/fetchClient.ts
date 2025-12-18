@@ -1,4 +1,23 @@
-import { APIResponse } from '../types/api.types';
+import { 
+  APIResponse,
+  SurveysResponseData,
+  ImageUploadResponse,
+  PaginatedSurveysResponseData,
+  SingleSurveyResponseData,
+  ImagesResponseData,
+  PaginatedImagesResponseData,
+  SingleImageResponseData,
+  DeleteResponseData,
+  AuthLoginResponseData,
+  AuthVerifyResponseData,
+  AllUserDataResponseData,
+  DiagnosisSearchResponseData,
+  SaveSurveyBody,
+  UploadImageBody,
+  SearchDiagnosesBody,
+  PaginationParams,
+  SearchParams,
+} from '../components/AccountPage/types/account.types'; 
 
 /**
  * Безопасный HTTP клиент для работы с API
@@ -222,7 +241,7 @@ class FetchClient {
     }
   }
 
-  // ==================== HTTP МЕТОДЫ ====================
+  // ==================== HTTP МЕТОДЫ (БЕЗ ИЗМЕНЕНИЙ) ====================
 
   async get<T = any>(url: string): Promise<APIResponse & { data?: T }> {
     return this.request<T>(url, { method: 'GET' });
@@ -249,20 +268,13 @@ class FetchClient {
     });
   }
 
-  // ==================== АУТЕНТИФИКАЦИЯ ====================
+  // ==================== АУТЕНТИФИКАЦИЯ (С ТИПАМИ) ====================
 
   /**
    * Вход пользователя
    */
   async login(login: string, password: string) {
-    const response = await this.post<{
-      token: string;
-      user: {
-        login: string;
-        email: string;
-        createdAt: string;
-      }
-    }>('/auth/login', { login, password });
+    const response = await this.post<AuthLoginResponseData>('/auth/login', { login, password });
     
     if (response.success && response.data) {
       this.setToken(response.data.token);
@@ -294,12 +306,7 @@ class FetchClient {
    * Проверка JWT токена
    */
   async verifyToken() {
-    return this.post<{ 
-      user: { 
-        login: string; 
-        sessionId: number;
-      } 
-    }>('/auth/verify', {});
+    return this.post<AuthVerifyResponseData>('/auth/verify', {});
   }
 
   /**
@@ -345,87 +352,72 @@ class FetchClient {
    * Получение логина текущего пользователя
    */
   getCurrentLogin(): string | null {
-  try {
-    const userStr = localStorage.getItem('user');
-    if (!userStr) return null;
-    const user = JSON.parse(userStr);
-    return user.login || null;
-  } catch {
-    return null;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return null;
+      const user = JSON.parse(userStr);
+      return user.login || null;
+    } catch {
+      return null;
+    }
   }
-}
 
-  // ==================== ОПРОСЫ ====================
+  // ==================== ОПРОСЫ (С ПРАВИЛЬНЫМИ ТИПАМИ) ====================
 
   /**
    * Сохранение опроса (БЕЗ логина в body - сервер берет из токена)
    */
-  async saveSurvey(surveyData: any) {
-    return this.post<{ message: string }>('/surveys/save', {
-      survey: surveyData
-    });
+  async saveSurvey(surveyData: SaveSurveyBody) {
+    return this.post<{ message: string }>('/surveys/save', surveyData);
   }
 
   /**
    * Получение опросов пользователя (БЕЗ логина в body - сервер берет из токена)
    */
   async getSurveys() {
-    return this.post<{
-      surveys: Array<{
-        id: number;
-        date: string;
-        survey: any;
-      }>;
-    }>('/surveys', {});
+    return this.post<SurveysResponseData>('/surveys', {});
   }
 
   /**
    * Получение конкретного опроса (БЕЗ логина в query - сервер берет из токена)
    */
   async getSurveyById(id: number) {
-    return this.get<{ survey: any }>(`/surveys/${id}`);
+    return this.get<SingleSurveyResponseData>(`/surveys/${id}`);
   }
 
   /**
    * Удаление опроса или изображения
    */
   async deleteSurveyOrImage(id: number) {
-    return this.delete<{ message: string }>(`/data/${id}`);
+    return this.delete<DeleteResponseData>(`/data/${id}`);
   }
 
-  // ==================== ИЗОБРАЖЕНИЯ ====================
+  // ==================== ИЗОБРАЖЕНИЯ (С ПРАВИЛЬНЫМИ ТИПАМИ) ====================
 
   /**
    * Получение изображений пользователя (БЕЗ логина в body - сервер берет из токена)
    */
   async getImages() {
-    return this.post<{
-      images: Array<{
-        id: number;
-        fileName: string;
-        originIMG: string;
-        comment: string;
-        smallImage: string;
-      }>;
-    }>('/images', {});
+    return this.post<ImagesResponseData>('/images', {});
   }
 
   /**
    * Получение конкретного изображения (БЕЗ логина в query - сервер берет из токена)
    */
   async getImageById(id: number) {
-    return this.get<{ filename: string; image: string }>(`/images/${id}`);
+    return this.get<SingleImageResponseData>(`/images/${id}`);
   }
 
   /**
    * Загрузка изображения (Base64) БЕЗ логина в body - сервер берет из токена
    */
   async uploadImageBase64(filename: string, base64Data: string, comment?: string) {
-    return this.post<{ message: string }>('/images/upload', {
+    const body: UploadImageBody = {
       filename,
       file: base64Data,
       comment: comment || ''
-    });
+    };
+    return this.post<ImageUploadResponse>('/images/upload', body);
   }
 
   // ==================== СТАРЫЕ ЭНДПОИНТЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
@@ -435,105 +427,39 @@ class FetchClient {
    * Старый эндпоинт для обратной совместимости (БЕЗ логина в body)
    */
   async getAllUserData() {
-    return this.post<{
-      surveys: Array<{
-        id: number;
-        date: string;
-        survey: any;
-      }>;
-      images: Array<{
-        id: number;
-        fileName: string;
-        originIMG: string;
-        comment: string;
-        smallImage: string;
-      }>;
-    }>('/surveys/old', {});
+    return this.post<AllUserDataResponseData>('/surveys/old', {});
   }
 
-  // ==================== ДИАГНОЗЫ ====================
+  // ==================== ДИАГНОЗЫ (С ТИПАМИ) ====================
 
   /**
    * Поиск диагнозов и рекомендаций (публичный эндпоинт, без аутентификации)
    */
   async searchDiagnoses(titles: string[]) {
-    return this.post<{
-      titles: string[];
-      diagnostic: string[];
-      treatment: string[];
-    }>('/diagnoses/search', { titles });
+    const body: SearchDiagnosesBody = { titles };
+    return this.post<DiagnosisSearchResponseData>('/diagnoses/search', body);
   }
 
-  // ==================== ПАГИНАЦИЯ ====================
+  // ==================== ПАГИНАЦИЯ (С ПРАВИЛЬНЫМИ ТИПАМИ) ====================
 
   /**
    * Получение опросов с пагинацией
    */
-  async getPaginatedSurveys(params?: {
-    page?: number;
-    limit?: number;
-  }) {
-    return this.post<{
-      surveys: Array<{
-        id: number;
-        date: string;
-        survey: any;
-      }>;
-      pagination: {
-        currentPage: number;
-        totalPages: number;
-        totalItems: number;
-        itemsPerPage: number;
-        hasNextPage: boolean;
-        hasPrevPage: boolean;
-      }
-    }>('/surveys/paginated', {
-      page: params?.page || 1,
-      limit: params?.limit || 5  // 5 записей на страницу по умолчанию
-    });
+  async getPaginatedSurveys(params?: PaginationParams) {
+    return this.post<PaginatedSurveysResponseData>('/surveys/paginated', params || {});
   }
 
   /**
    * Получение изображений с пагинацией
    */
-  async getPaginatedImages(params?: {
-    page?: number;
-    limit?: number;
-  }) {
-    return this.post<{
-      images: Array<{
-        id: number;
-        fileName: string;
-        originIMG: string;
-        comment: string;
-        smallImage: string;
-        created_at: string;
-      }>;
-      pagination: {
-        currentPage: number;
-        totalPages: number;
-        totalItems: number;
-        itemsPerPage: number;
-        hasNextPage: boolean;
-        hasPrevPage: boolean;
-      }
-    }>('/images/paginated', {
-      page: params?.page || 1,
-      limit: params?.limit || 5
-    });
+  async getPaginatedImages(params?: PaginationParams) {
+    return this.post<PaginatedImagesResponseData>('/images/paginated', params || {});
   }
 
   /**
    * Получение всех данных с пагинацией и поиском
    */
-  async getPaginatedData(params?: {
-    page?: number;
-    limit?: number;
-    type?: 'surveys' | 'images' | 'all';
-    searchQuery?: string;
-    dateFrom?: string | null;
-    dateTo?: string | null;
-  }) {
+  async getPaginatedData(params?: SearchParams) {
     return this.post<{
       data: Array<{
         id: number;
@@ -553,17 +479,10 @@ class FetchClient {
         hasNextPage: boolean;
         hasPrevPage: boolean;
       }
-    }>('/data/search', {
-      page: params?.page || 1,
-      limit: params?.limit || 5,
-      type: params?.type || 'all',
-      searchQuery: params?.searchQuery || '',
-      dateFrom: params?.dateFrom || null,
-      dateTo: params?.dateTo || null
-    });
+    }>('/data/search', params || {});
   }
 
-  // ==================== УТИЛИТЫ ====================
+  // ==================== УТИЛИТЫ (БЕЗ ИЗМЕНЕНИЙ) ====================
 
   /**
    * Проверка соединения с сервером
