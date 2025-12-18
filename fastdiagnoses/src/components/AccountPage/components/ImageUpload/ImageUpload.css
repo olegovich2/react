@@ -1,0 +1,344 @@
+/* ImageUpload.css */
+
+/* ==================== ЗАГРУЗКА ФАЙЛОВ ==================== */
+.formForUploadOnServer {
+    display: grid;
+    grid-template-rows: auto;
+    gap: 20px;
+    padding: 25px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    border: 2px solid rgb(88, 96, 98);
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.formForUploadOnServer h3 {
+    margin: 0;
+    padding: 0 0 10px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: rgb(88, 96, 98);
+    border-bottom: 2px solid rgb(88, 96, 98);
+}
+
+.formForUploadOnServer p {
+    margin: 0;
+    padding: 5px 0;
+    font-size: 14px;
+    color: rgb(88, 96, 98);
+}
+
+.upload-section {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.upload-button {
+    color: white;
+    background-color: rgb(88, 96, 98);
+    padding: 12px 24px;
+    margin: 15px 0;
+    border: 2px solid rgb(88, 96, 98);
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Montserrat', sans-serif;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.green-upload-button {
+    background-color: rgb(76, 175, 80);
+    border-color: rgb(56, 142, 60);
+    color: white;
+}
+
+.green-upload-button:hover {
+    background-color: rgb(56, 142, 60);
+    border-color: rgb(56, 142, 60);
+    color: white !important;
+}
+
+.green-upload-button:disabled {
+    background-color: rgb(144, 238, 144);
+    border-color: rgb(144, 238, 144);
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.green-upload-button:disabled:hover {
+    background-color: rgb(144, 238, 144);
+    color: white;
+}
+
+.selected-file-info {
+    background-color: rgba(183, 222, 234, 0.3);
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid rgb(76, 175, 80);
+}
+
+.selected-file-info p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.selected-file-info strong {
+    color: rgb(60, 65, 70);
+    min-width: 100px;
+    display: inline-block;
+}
+
+.comment-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.comment-section label {
+    font-weight: 900;
+    color: rgb(88, 96, 98);
+    font-size: 16px;
+}
+
+.comment-input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid rgb(88, 96, 98);
+    border-radius: 6px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 60px;
+    background-color: white;
+}
+
+.comment-input:focus {
+    outline: none;
+    border-color: rgb(76, 175, 80);
+    background-color: rgba(144, 238, 144, 0.1);
+}
+
+.comment-input:disabled {
+    background-color: rgb(240, 240, 240);
+    cursor: not-allowed;
+}
+
+.upload-progress-container {
+    width: 100%;
+    height: 30px;
+    background-color: rgb(184, 198, 202);
+    position: relative;
+    border-radius: 4px;
+    border: 2px solid rgb(88, 96, 98);
+    overflow: hidden;
+    margin: 15px 0;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: rgb(88, 96, 98);
+    transition: width 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.upload-progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: rgb(183, 222, 234);
+    font-weight: 900;
+    font-size: 14px;
+    z-index: 1;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.upload-message {
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 6px;
+    font-weight: 900;
+    font-size: 14px;
+    text-align: center;
+}
+
+.upload-error {
+    border: 2px solid red;
+    background-color: rgba(255, 0, 0, 0.1);
+    color: red;
+}
+
+.upload-success {
+    border: 2px solid rgb(76, 175, 80);
+    background-color: rgba(76, 175, 80, 0.1);
+    color: rgb(56, 142, 60);
+}
+
+.upload-warning {
+    border: 2px solid orange;
+    background-color: rgba(255, 165, 0, 0.1);
+    color: orange;
+}
+
+.upload-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.buttonFromTemplateTwo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: 2px solid;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Montserrat', sans-serif;
+    min-width: 200px;
+}
+
+.green-submit-button {
+    background-color: rgb(76, 175, 80);
+    border-color: rgb(56, 142, 60);
+    color: white;
+}
+
+.green-submit-button:hover {
+    background-color: rgb(56, 142, 60);
+    border-color: rgb(56, 142, 60);
+    color: white !important;
+}
+
+.green-submit-button:disabled {
+    background-color: rgb(144, 238, 144);
+    border-color: rgb(144, 238, 144);
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.green-submit-button:disabled:hover {
+    background-color: rgb(144, 238, 144);
+    color: white;
+}
+
+.cancel-button {
+    background-color: rgb(220, 53, 69);
+    border-color: rgb(200, 35, 51);
+    color: white;
+}
+
+.cancel-button:hover {
+    background-color: rgb(200, 35, 51);
+    border-color: rgb(180, 25, 41);
+    color: white !important;
+}
+
+.cancel-button:disabled {
+    background-color: rgb(255, 182, 193);
+    border-color: rgb(255, 182, 193);
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.cancel-button:disabled:hover {
+    background-color: rgb(255, 182, 193);
+    color: white;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+    .formForUploadOnServer {
+        padding: 15px;
+        gap: 15px;
+    }
+    
+    .upload-actions {
+        flex-direction: column;
+    }
+    
+    .green-submit-button,
+    .cancel-button {
+        width: 100%;
+        min-width: auto;
+        padding: 10px 20px;
+    }
+    
+    .upload-button {
+        padding: 10px 20px;
+        font-size: 15px;
+    }
+    
+    .comment-input {
+        padding: 10px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .formForUploadOnServer {
+        padding: 12px;
+    }
+    
+    .formForUploadOnServer h3 {
+        font-size: 18px;
+        padding-bottom: 8px;
+    }
+    
+    .upload-button {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+    
+    .buttonFromTemplateTwo {
+        padding: 10px 16px;
+        font-size: 14px;
+        min-width: 150px;
+    }
+    
+    .selected-file-info {
+        padding: 12px;
+    }
+    
+    .selected-file-info p {
+        font-size: 13px;
+    }
+    
+    .selected-file-info strong {
+        min-width: 80px;
+        font-size: 13px;
+    }
+    
+    .comment-section label {
+        font-size: 14px;
+    }
+    
+    .upload-progress-container {
+        height: 25px;
+        margin: 10px 0;
+    }
+    
+    .upload-progress-text {
+        font-size: 12px;
+    }
+    
+    .upload-message {
+        padding: 10px;
+        font-size: 13px;
+    }
+}

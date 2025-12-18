@@ -1,0 +1,280 @@
+/* SurveysContainer.css */
+
+/* ==================== КОНТЕЙНЕР ОПРОСОВ ==================== */
+.area_inspection_list {
+    overflow-y: visible !important;
+    background-color: rgb(255, 255, 255);
+    padding: 25px;
+    border: 2px solid black;
+    border-radius: 10px;
+    max-height: none !important;
+    min-height: auto;
+    margin: 0;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.area_inspection_list h2 {
+    margin: 0 0 20px 0;
+    font-size: 24px;
+    font-weight: bold;
+    color: rgb(88, 96, 98);
+    text-align: center;
+    border-bottom: 2px solid rgb(88, 96, 98);
+    padding-bottom: 10px;
+}
+
+/* Заголовок со статистикой */
+.surveys-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: rgba(183, 222, 234, 0.2);
+    border-radius: 8px;
+    border: 2px solid rgb(88, 96, 98);
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.surveys-header p {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: rgb(88, 96, 98);
+}
+
+.surveys-header strong {
+    color: rgb(60, 65, 70);
+    font-weight: 700;
+}
+
+.page-info {
+    background-color: rgb(255, 255, 255);
+    padding: 8px 15px;
+    border-radius: 6px;
+    border: 1px solid rgb(88, 96, 98);
+    font-weight: 700;
+    color: rgb(88, 96, 98);
+    font-size: 14px;
+}
+
+/* Загрузка */
+.loading-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgb(88, 96, 98);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.loading-message i {
+    margin-right: 15px;
+    color: rgb(88, 96, 98);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Ошибка */
+.error-message {
+    text-align: center;
+    padding: 30px 20px;
+    background-color: rgba(249, 144, 144, 0.1);
+    border: 2px solid rgb(249, 144, 144);
+    border-radius: 10px;
+    color: rgb(90, 30, 30);
+    margin: 20px 0;
+}
+
+.error-message i {
+    font-size: 32px;
+    margin-bottom: 15px;
+    color: rgb(249, 144, 144);
+}
+
+.error-message p {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 15px 0;
+}
+
+.retry-button {
+    background-color: rgb(88, 96, 98);
+    color: white;
+    border: 2px solid rgb(88, 96, 98);
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.retry-button:hover {
+    background-color: rgb(60, 65, 70);
+    border-color: rgb(60, 65, 70);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Сообщение об отсутствии опросов */
+.empty-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgb(88, 96, 98);
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    border: 2px dashed rgb(88, 96, 98);
+    margin: 20px 0;
+}
+
+.empty-message i {
+    font-size: 48px;
+    margin-bottom: 20px;
+    color: rgb(183, 222, 234);
+    opacity: 0.7;
+}
+
+.empty-message p {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+}
+
+/* Контейнер для списка опросов */
+.survey-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-height: none;
+}
+
+/* ==================== SCROLLBAR CUSTOM ==================== */
+.area_inspection_list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.area_inspection_list::-webkit-scrollbar-track {
+    background: rgb(184, 198, 202);
+    border-radius: 4px;
+}
+
+.area_inspection_list::-webkit-scrollbar-thumb {
+    background: rgb(88, 96, 98);
+    border-radius: 4px;
+}
+
+.area_inspection_list::-webkit-scrollbar-thumb:hover {
+    background: rgb(60, 65, 70);
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+    .area_inspection_list {
+        padding: 15px;
+        max-height: none;
+    }
+    
+    .area_inspection_list h2 {
+        font-size: 20px;
+    }
+    
+    .surveys-header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+        padding: 12px;
+    }
+    
+    .surveys-header p {
+        font-size: 14px;
+    }
+    
+    .page-info {
+        width: 100%;
+        font-size: 13px;
+        padding: 6px 12px;
+    }
+    
+    .loading-message {
+        padding: 30px 15px;
+        font-size: 16px;
+    }
+    
+    .error-message {
+        padding: 20px 15px;
+    }
+    
+    .error-message i {
+        font-size: 24px;
+    }
+    
+    .error-message p {
+        font-size: 14px;
+    }
+    
+    .retry-button {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+    
+    .empty-message {
+        padding: 30px 15px;
+    }
+    
+    .empty-message i {
+        font-size: 36px;
+    }
+    
+    .empty-message p {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .area_inspection_list {
+        padding: 12px;
+        border-width: 1px;
+    }
+    
+    .area_inspection_list h2 {
+        font-size: 18px;
+        padding-bottom: 8px;
+    }
+    
+    .page-info {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+    
+    .loading-message {
+        padding: 25px 10px;
+        font-size: 15px;
+    }
+    
+    .error-message {
+        padding: 15px 10px;
+    }
+    
+    .error-message p {
+        font-size: 13px;
+    }
+    
+    .empty-message {
+        padding: 25px 10px;
+    }
+    
+    .empty-message i {
+        font-size: 32px;
+    }
+    
+    .empty-message p {
+        font-size: 15px;
+    }
+}

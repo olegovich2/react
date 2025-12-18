@@ -1,0 +1,186 @@
+/* SurveyList.css */
+
+/* ==================== СТИЛИ ДЛЯ СПИСКА ОПРОСОВ ==================== */
+.survey-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.survey-item {
+    background-color: rgb(183, 222, 234);
+    border: 3px solid rgb(88, 96, 98);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 10px 0;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.survey-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background-color: rgb(173, 212, 224);
+}
+
+.survey-info {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px dashed rgb(88, 96, 98);
+}
+
+.survey-date {
+    font-size: 18px;
+    font-weight: 900;
+    color: rgb(88, 96, 98);
+    margin: 0 0 10px 0;
+    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 6px;
+    display: inline-block;
+}
+
+.survey-name,
+.survey-age,
+.survey-temperature,
+.survey-diagnosis {
+    font-size: 16px;
+    color: rgb(60, 65, 70);
+    margin: 8px 0;
+    padding-left: 10px;
+}
+
+.survey-name strong,
+.survey-age strong,
+.survey-temperature strong,
+.survey-diagnosis strong {
+    color: rgb(88, 96, 98);
+    min-width: 120px;
+    display: inline-block;
+}
+
+.survey-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.buttonFromTemplate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 150px;
+    padding: 12px 20px;
+    border: 2px solid;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.view-button {
+    background-color: rgb(144, 202, 249);
+    color: rgb(30, 60, 90);
+    border-color: rgb(100, 170, 220);
+}
+
+.delete-button {
+    background-color: rgb(249, 144, 144);
+    color: rgb(90, 30, 30);
+    border-color: rgb(220, 100, 100);
+}
+
+.view-button:hover {
+    background-color: rgb(30, 60, 90);
+    color: rgb(144, 202, 249);
+}
+
+.delete-button:hover {
+    background-color: rgb(90, 30, 30);
+    color: rgb(249, 144, 144);
+}
+
+/* Сообщение об отсутствии опросов */
+.survey-list-container > div:first-child:not(.survey-item) {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgb(88, 96, 98);
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    border: 2px dashed rgb(88, 96, 98);
+    margin: 20px 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+    .survey-item {
+        padding: 15px;
+    }
+    
+    .survey-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .view-button,
+    .delete-button {
+        width: 100%;
+        min-width: auto;
+        padding: 10px 15px;
+    }
+    
+    .survey-date {
+        font-size: 16px;
+    }
+    
+    .survey-name,
+    .survey-age,
+    .survey-temperature,
+    .survey-diagnosis {
+        font-size: 14px;
+    }
+    
+    .survey-name strong,
+    .survey-age strong,
+    .survey-temperature strong,
+    .survey-diagnosis strong {
+        min-width: 100px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .survey-item {
+        padding: 12px;
+    }
+    
+    .survey-info {
+        padding-bottom: 10px;
+    }
+    
+    .survey-date {
+        font-size: 15px;
+        padding: 8px;
+    }
+    
+    .survey-name strong,
+    .survey-age strong,
+    .survey-temperature strong,
+    .survey-diagnosis strong {
+        min-width: 80px;
+        font-size: 13px;
+    }
+    
+    .view-button,
+    .delete-button {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+}

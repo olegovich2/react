@@ -6,6 +6,7 @@ import SurveyList from '../SurveyList/SurveyList';
 import SurveyModal from './SurveyModal';
 import Pagination from '../Pagination/Pagination';
 import { Survey as SurveyType } from '../../types/account.types';
+import './SurveyContainer.css';
 
 // Тип для сырых данных из API
 interface RawSurveyData {

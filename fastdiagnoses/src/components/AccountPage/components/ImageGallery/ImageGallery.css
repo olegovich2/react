@@ -1,0 +1,270 @@
+/* ImageGallery.css */
+
+/* ==================== ГАЛЕРЕЯ ИЗОБРАЖЕНИЙ ==================== */
+.image-gallery-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.image-item {
+    background-color: rgb(183, 222, 234);
+    border: 3px solid rgb(88, 96, 98);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 10px 0;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    gap: 20px;
+    align-items: center;
+}
+
+.image-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    background-color: rgb(173, 212, 224);
+}
+
+.image-preview {
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 2px solid rgb(88, 96, 98);
+    background-color: white;
+    cursor: pointer;
+    position: relative;
+}
+
+.thumbnail {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.thumbnail:hover {
+    transform: scale(1.05);
+}
+
+.thumbnail-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: rgb(88, 96, 98);
+    font-size: 12px;
+}
+
+.thumbnail-placeholder i {
+    font-size: 32px;
+    color: rgb(184, 198, 202);
+}
+
+.filesystem-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: rgb(76, 175, 80);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    z-index: 2;
+}
+
+.image-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.image-filename,
+.image-comment,
+.image-size,
+.image-dimensions,
+.image-date,
+.image-url {
+    margin: 0;
+    font-size: 14px;
+    color: rgb(60, 65, 70);
+    word-break: break-word;
+}
+
+.image-filename strong,
+.image-comment strong,
+.image-size strong,
+.image-dimensions strong,
+.image-date strong,
+.image-url strong {
+    color: rgb(88, 96, 98);
+    min-width: 120px;
+    display: inline-block;
+}
+
+.image-url small {
+    font-family: monospace;
+    background-color: rgba(255, 255, 255, 0.5);
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 12px;
+}
+
+.image-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 180px;
+}
+
+.buttonFromTemplate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: 2px solid;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Montserrat', sans-serif;
+    width: 100%;
+}
+
+.view-image-button {
+    background-color: rgb(144, 202, 249);
+    color: rgb(30, 60, 90);
+    border-color: rgb(100, 170, 220);
+}
+
+.delete-image-button {
+    background-color: rgb(249, 144, 144);
+    color: rgb(90, 30, 30);
+    border-color: rgb(220, 100, 100);
+}
+
+.view-image-button:hover {
+    background-color: rgb(30, 60, 90);
+    color: rgb(144, 202, 249);
+}
+
+.delete-image-button:hover {
+    background-color: rgb(90, 30, 30);
+    color: rgb(249, 144, 144);
+}
+
+/* Сообщение об отсутствии изображений */
+.empty-images-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgb(88, 96, 98);
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    border: 2px dashed rgb(88, 96, 98);
+    margin: 20px 0;
+}
+
+.empty-images-message i {
+    font-size: 48px;
+    margin-bottom: 20px;
+    color: rgb(183, 222, 234);
+    opacity: 0.7;
+}
+
+.empty-images-message p {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+    .image-item {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: 15px;
+    }
+    
+    .image-preview {
+        width: 150px;
+        height: 150px;
+        margin: 0 auto;
+    }
+    
+    .image-actions {
+        min-width: 100%;
+        flex-direction: row;
+        justify-content: center;
+    }
+    
+    .view-image-button,
+    .delete-image-button {
+        width: auto;
+        min-width: 140px;
+    }
+    
+    .image-filename strong,
+    .image-comment strong,
+    .image-size strong,
+    .image-dimensions strong,
+    .image-date strong,
+    .image-url strong {
+        min-width: 100px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .image-item {
+        padding: 15px;
+    }
+    
+    .image-preview {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .image-actions {
+        flex-direction: column;
+    }
+    
+    .view-image-button,
+    .delete-image-button {
+        width: 100%;
+        min-width: auto;
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+    
+    .image-filename strong,
+    .image-comment strong,
+    .image-size strong,
+    .image-dimensions strong,
+    .image-date strong,
+    .image-url strong {
+        min-width: 80px;
+        font-size: 12px;
+    }
+    
+    .empty-images-message {
+        padding: 30px 15px;
+    }
+    
+    .empty-images-message i {
+        font-size: 36px;
+    }
+    
+    .empty-images-message p {
+        font-size: 16px;
+    }
+}

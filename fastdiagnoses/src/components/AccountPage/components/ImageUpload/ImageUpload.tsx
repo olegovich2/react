@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { uploadImage } from '../../../../api/images.api';
 import { ImageUploadProps } from '../../types/account.types';
+import './ImageUpload.css';
 
 const ImageUpload: React.FC<ImageUploadProps> = ({ 
   onUploadSuccess,

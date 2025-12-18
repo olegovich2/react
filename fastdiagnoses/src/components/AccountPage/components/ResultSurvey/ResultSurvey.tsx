@@ -1,5 +1,6 @@
 import React from 'react';
 import { Survey } from '../../types/account.types';
+import './ResultSurvey.css'
 
 interface ResultSurveyProps {
   survey: Survey;

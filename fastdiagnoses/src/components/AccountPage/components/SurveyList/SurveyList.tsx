@@ -1,5 +1,6 @@
 import React from 'react';
 import { Survey } from '../../types/account.types';
+import './SurveyList.css';
 
 interface SurveyListProps {
   surveys: Survey[];

@@ -1,6 +1,7 @@
 import React from 'react';
 import { UploadedImage } from '../../types/account.types';
 import { getThumbnailUrl, getReadableFileSize } from '../../../../api/images.api';
+import './ImageGallery.css';
 
 interface ImageGalleryProps {
   images: UploadedImage[];
