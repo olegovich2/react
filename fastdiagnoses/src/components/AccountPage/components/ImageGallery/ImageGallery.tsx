@@ -1,13 +1,7 @@
 import React from 'react';
-import { UploadedImage } from '../../types/account.types';
+import { UploadedImage, ImageGalleryProps } from '../../types/account.types';
 import { getThumbnailUrl, getReadableFileSize } from '../../../../api/images.api';
 import './ImageGallery.css';
-
-interface ImageGalleryProps {
-  images: UploadedImage[];
-  onView: (imageId: number) => void;
-  onDelete: (imageId: number) => void;
-}
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete }) => {
   if (images.length === 0) {
@@ -49,7 +43,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
                   src={thumbnailUrl} 
                   alt={image.fileName || 'Изображение'}
                   className="thumbnail"
-                  onClick={() => onView(image.id)}
+                  onClick={() => onView(image)}
                   onError={(e) => {
                     console.log(`Ошибка загрузки ${thumbnailUrl}, пробуем fallback`);
                     e.currentTarget.src = fallbackUrl;
@@ -109,7 +103,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, onView, onDelete })
               <button 
                 className="buttonFromTemplate view-image-button" 
                 type="button"
-                onClick={() => onView(image.id)}
+                onClick={() => onView(image)}
                 title="Просмотреть изображение"
               >
                 <i className="fas fa-eye"></i> Просмотреть

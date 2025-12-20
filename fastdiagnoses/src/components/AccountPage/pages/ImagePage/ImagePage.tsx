@@ -12,7 +12,7 @@ import { UploadedImage } from '../../types/account.types';
 import './ImagePage.css';
 
 const ImagePage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+ const { uuid } = useParams<{ uuid: string }>();
   const navigate = useNavigate();
   
   const [image, setImage] = useState<UploadedImage | null>(null);
@@ -23,56 +23,57 @@ const ImagePage: React.FC = () => {
 
   // Загрузка изображения
   const loadImage = useCallback(async () => {
-    if (!id || isNaN(parseInt(id))) {
-      setError('Некорректный ID изображения');
-      setIsLoading(false);
-      return;
-    }
+  if (!uuid) {
+    setError('Некорректный UUID изображения');
+    setIsLoading(false);
+    return;
+  }
 
-    setIsLoading(true);
-    setError(null);
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      console.log(`🔍 Загрузка изображения ID: ${id}`);
-      
-      // Используем новый комбинированный метод
-      const result = await getImageForViewPage(parseInt(id));
-      
-      if (result.success && result.data) {
-        setImage(result.data);
-        console.log(`✅ Изображение загружено: ${result.data.fileName}`);
-      } else {
-        setError(result.message || 'Изображение не найдено');
-        console.error('❌ Ошибка загрузки изображения:', result.message);
-      }
-    } catch (error: any) {
-      setError(error.message || 'Ошибка загрузки изображения');
-      console.error('❌ Ошибка загрузки изображения:', error);
-    } finally {
-      setIsLoading(false);
+  try {
+    console.log(`🔍 Загрузка изображения по UUID: ${uuid}`);
+    
+    // Нужен новый метод для получения по UUID
+    const result = await getImageForViewPage(uuid);
+    
+    if (result.success && result.data) {
+      setImage(result.data);
+      console.log(`✅ Изображение загружено: ${result.data.fileName}`);
+    } else {
+      setError(result.message || 'Изображение не найдено');
+      console.error('❌ Ошибка загрузки изображения:', result.message);
     }
-  }, [id]);
+  } catch (error: any) {
+    setError(error.message || 'Ошибка загрузки изображения');
+    console.error('❌ Ошибка загрузки изображения:', error);
+  } finally {
+    setIsLoading(false);
+  }
+}, [uuid]); 
 
   // Удаление изображения
   const handleDelete = useCallback(async () => {
-    if (!id || !image) return;
-    
-    if (!window.confirm(`Вы уверены, что хотите удалить изображение "${image.fileName}"?`)) {
-      return;
-    }
+  if (!image || !image.id) return;
+  
+  if (!window.confirm(`Вы уверены, что хотите удалить изображение "${image.fileName}"?`)) {
+    return;
+  }
 
-    try {
-      const result = await deleteImage(parseInt(id));
-      if (result.success) {
-        console.log(`✅ Изображение ${id} удалено`);
-        navigate('/account');
-      } else {
-        setError(result.message || 'Ошибка удаления изображения');
-      }
-    } catch (error: any) {
-      setError(error.message || 'Ошибка удаления изображения');
+  try {
+    // Удаляем по ID (а не по uuid)
+    const result = await deleteImage(image.id);
+    if (result.success) {
+      console.log(`✅ Изображение ${image.id} удалено`);
+      navigate('/account');
+    } else {
+      setError(result.message || 'Ошибка удаления изображения');
     }
-  }, [id, image, navigate]);
+  } catch (error: any) {
+    setError(error.message || 'Ошибка удаления изображения');
+  }
+}, [image, navigate]);  // ← image содержит ID
 
   // Скачивание изображения
   const handleDownload = useCallback(() => {

@@ -198,7 +198,7 @@ const App: React.FC = () => {
               <Route path="survey/:id" element={<SurveyPage />} />
               
               {/* Просмотр изображения */}
-              <Route path="images/:id" element={<ImagePage />} />
+              <Route path="images/original/:uuid" element={<ImagePage />} />
             </Route>
 
             {/* Маршрут по умолчанию (404) */}

@@ -1,6 +1,5 @@
-// src/components/AccountPage/components/ImagesContainer/ImagesContainer.paginated.tsx
 import React, { useEffect, useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // <-- ДОБАВЛЯЕМ
+import { useNavigate } from 'react-router-dom';
 import { useAccountContext } from '../../context/AccountContext';
 import { 
   getPaginatedImages,
@@ -22,7 +21,7 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     updateImagesPage
   } = useAccountContext();
 
-  const navigate = useNavigate(); // <-- ДОБАВЛЯЕМ навигацию
+  const navigate = useNavigate();
 
   const [localImages, setLocalImages] = useState<UploadedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -120,10 +119,12 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     }
   }, [setIsLoading, loadImages, currentPage]);
 
-  // Просмотр изображения - ИСПРАВЛЯЕМ!
-  const handleViewImage = useCallback((imageId: number) => {
-    console.log('🖼️ Переход к просмотру изображения (сохраняем страницу)...', {
-      imageId,
+  // Просмотр изображения - ИСПРАВЛЕНО: передаем UUID вместо ID
+  const handleViewImage = useCallback((image: UploadedImage) => {
+    console.log('🖼️ Переход к просмотру изображения...', {
+      id: image.id,
+      uuid: image.fileUuid,
+      fileName: image.fileName,
       currentPage,
       from: 'ImagesContainer'
     });
@@ -131,8 +132,14 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     // Сохраняем текущую страницу перед переходом
     updateImagesPage(currentPage);
     
-    // Используем navigate вместо window.location.href (чтобы не было перезагрузки)
-    navigate(`/account/images/${imageId}`);
+    // ✅ Передаем UUID в URL вместо ID
+    if (!image.fileUuid) {
+      console.error('❌ У изображения нет UUID:', image);
+      alert('Ошибка: у изображения нет UUID');
+      return;
+    }
+    
+    navigate(`/account/images/original/${image.fileUuid}`);
   }, [currentPage, updateImagesPage, navigate]);
 
   // Загрузка нового изображения

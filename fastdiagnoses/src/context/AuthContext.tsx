@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types/api.types';
-import { login as apiLogin, register as apiRegister } from '../api/auth.api';
+import { fetchClient } from '../api/fetchClient';
 
 interface AuthContextType {
   user: User | null;
@@ -45,7 +45,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (login: string, password: string) => {
     try {
-      const response = await apiLogin(login, password); // Передаем два аргумента
+      // Используем fetchClient.login() вместо apiLogin
+      const response = await fetchClient.login(login, password);
       
       if (response.success && response.data) {
         const userData: User = {
@@ -68,7 +69,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (login: string, password: string, email: string) => {
     try {
-      const response = await apiRegister(login, password, email); // Три аргумента
+      // Используем fetchClient.register() вместо apiRegister
+      const response = await fetchClient.register(login, password, email);
       return response;
     } catch (error: any) {
       return { 
@@ -78,10 +80,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    setUser(null);
+  const logout = async () => {
+    try {
+      // Вызываем API логаута, если нужно
+      await fetchClient.logout();
+    } catch (error) {
+      console.error('Ошибка при выходе:', error);
+    } finally {
+      // Всегда очищаем локальное хранилище
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      setUser(null);
+    }
   };
 
   const value: AuthContextType = {

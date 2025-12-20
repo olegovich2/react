@@ -4,9 +4,9 @@ import Footer from '../components/Layout/Footer';
 import Navbar from '../components/Layout/Navbar';
 import RespiratoryForm from '../components/Main/RespiratoryForm';
 import ResultSurvey from '../components/Main/ResultSurvey';
-import { checkJWT } from '../api/auth.api';
 import { useNavigate } from 'react-router-dom';
 import { Survey } from '../components/AccountPage/types/account.types';
+import { fetchClient } from '../api/fetchClient';
 
 const MainPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('');
@@ -23,8 +23,14 @@ const MainPage: React.FC = () => {
         return;
       }
 
-      const result = await checkJWT();
-      if (!result.success) {
+      try {
+        // Используем fetchClient.verifyToken() вместо checkJWT()
+        const result = await fetchClient.verifyToken();
+        if (!result.success) {
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error('Ошибка проверки токена:', error);
         navigate('/login');
       }
     };

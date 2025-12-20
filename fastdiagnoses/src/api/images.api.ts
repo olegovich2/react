@@ -2,46 +2,13 @@ import { fetchClient } from './fetchClient';
 import { 
   APIResponse, 
   UploadedImage,
-  ImagesResponseData,
   PaginatedImagesResponseData,
   ImageUploadResponse,
   DeleteResponseData
 } from '../components/AccountPage/types/account.types';
 
 export const imagesApi = {
-  /**
-   * Получение изображений пользователя
-   */
-  async getUserImages(): Promise<APIResponse & { data?: UploadedImage[] }> {
-    try {
-      console.log('📥 Запрос изображений пользователя...');
-      
-      // Сервер возвращает { images: UploadedImage[] }
-      const response = await fetchClient.post<ImagesResponseData>('/images', {});
-      
-      if (response.success && response.data) {
-        const images = response.data.images || [];
-        console.log(`✅ Получено ${images.length} изображений`);
-        return {
-          success: true,
-          data: images, // Прямой массив
-        };
-      }
-      
-      return {
-        success: false,
-        message: response.message || 'Ошибка получения изображений',
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка получения изображений:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка получения изображений',
-      };
-    }
-  },
-
+  
   /**
    * Получение изображений с пагинацией
    */
@@ -167,41 +134,74 @@ export const imagesApi = {
   },
 
   /**
-   * Получение изображения для страницы просмотра
-   */
-  async getImageForViewPage(id: number): Promise<APIResponse & {
-    data?: UploadedImage
-  }> {
-    try {
-      console.log(`🔍 Получение изображения ID: ${id}`);
+ * Получение изображения для страницы просмотра по UUID
+ */
+async getImageForViewPage(uuid: string): Promise<APIResponse & {
+  data?: UploadedImage
+}> {
+  try {
+    console.log(`🔍 Получение изображения по UUID: ${uuid}`);
+    
+    // Получаем оригинальное изображение через серверный эндпоинт
+    const originalResponse = await fetchClient.get<{
+      success: boolean;
+      originalUrl?: string;
+      filename?: string;
+      message?: string;
+    }>(`/images/original/${uuid}`);
+    
+    if (originalResponse.success && originalResponse.data) {
+      // Пытаемся найти это изображение в списке (чтобы получить полную информацию)
+      const paginatedResponse = await getPaginatedImages({ page: 1, limit: 1000 });
       
-      // Получаем все изображения
-      const imagesResponse = await imagesApi.getUserImages();
-      
-      if (imagesResponse.success && imagesResponse.data) {
-        const image = imagesResponse.data.find((img: UploadedImage) => img.id === id);
+      if (paginatedResponse.success && paginatedResponse.data) {
+        // Ищем изображение по UUID или по имени файла
+        const foundImage = paginatedResponse.data.images.find((img: UploadedImage) => 
+  img.fileUuid === uuid || 
+  (img.fileName && originalResponse.data?.filename && 
+   img.fileName.includes(originalResponse.data.filename))
+);
         
-        if (image) {
+        if (foundImage) {
+          // Обновляем URL с оригинальным
+          foundImage.originalUrl = originalResponse.data.originalUrl || foundImage.originalUrl;
+          
           return {
             success: true,
-            data: image,
+            data: foundImage,
           };
         }
       }
       
+      // Если не нашли в списке, создаем минимальный объект
       return {
-        success: false,
-        message: 'Изображение не найдено',
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка получения изображения:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка получения изображения',
+        success: true,
+        data: {
+          id: 0, // временно 0, пока не найдем в БД
+          fileUuid: uuid,
+          fileName: originalResponse.data.filename || 'Изображение',
+          originalUrl: originalResponse.data.originalUrl,
+          thumbnailUrl: originalResponse.data.originalUrl,
+          comment: '',
+          isFileOnDisk: true,
+          storedFilename: originalResponse.data.filename
+        }
       };
     }
-  },
+    
+    return {
+      success: false,
+      message: originalResponse.message || 'Изображение не найдено',
+    };
+    
+  } catch (error: any) {
+    console.error('❌ Ошибка получения изображения:', error);
+    return {
+      success: false,
+      message: error.message || 'Ошибка получения изображения',
+    };
+  }
+},
 
   /**
    * Формирование URL для доступа к файлу на сервере
@@ -331,7 +331,7 @@ const convertFileToBase64 = (file: File): Promise<string> => {
 };
 
 // Экспорт отдельных функций
-export const getUserImages = imagesApi.getUserImages;
+// export const getUserImages = imagesApi.getUserImages;
 export const uploadImage = imagesApi.uploadImage;
 export const deleteImage = imagesApi.deleteImage;
 export const getPaginatedImages = imagesApi.getPaginatedImages;

@@ -423,7 +423,7 @@ export interface SurveyListProps {
 
 export interface ImageGalleryProps {
   images: UploadedImage[];
-  onView: (imageId: number) => void;
+  onView: (image: UploadedImage) => void;
   onDelete: (imageId: number) => void;
   isLoading?: boolean;
   filters?: ImageFilters;

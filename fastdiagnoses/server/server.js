@@ -1299,11 +1299,15 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 11. Получение оригинального изображения
+// 11. Получение оригинального изображения (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
+  const login = req.user.login;
   try {
-    const login = req.user.login;
     const { uuid } = req.params;
+
+    console.log(
+      `🔍 Запрос оригинального изображения: login=${login}, uuid=${uuid}`
+    );
 
     if (!uuid) {
       return res.status(400).json({
@@ -1312,15 +1316,23 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
       });
     }
 
-    const results = await query(
-      `SELECT 
-        fileNameOriginIMG, 
-        file_path
-       FROM ?? WHERE file_uuid = ? AND fileNameOriginIMG IS NOT NULL`,
-      [login, uuid]
-    );
+    // ВАЖНО: заменяем ?? на прямое имя таблицы
+    const sql = `SELECT 
+      fileNameOriginIMG, 
+      file_path,
+      file_uuid
+     FROM \`${login}\` WHERE file_uuid = ? AND fileNameOriginIMG IS NOT NULL`;
+
+    console.log(`📋 SQL: ${sql}`);
+    console.log(`📋 Параметр: ${uuid}`);
+
+    // Только один параметр - uuid
+    const results = await query(sql, [uuid]);
 
     if (results.length === 0) {
+      console.log(
+        `❌ Изображение с UUID ${uuid} не найдено в таблице ${login}`
+      );
       return res.status(404).json({
         success: false,
         message: "Изображение не найдено",
@@ -1328,17 +1340,53 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
     }
 
     const row = results[0];
-    const filename = path.basename(row.file_path);
+    console.log(
+      `✅ Найдено изображение: ${row.fileNameOriginIMG}, путь: ${row.file_path}`
+    );
+
+    // Извлекаем имя файла из пути
+    let filename = row.file_path || "";
+
+    // Если путь содержит слеши, берем только имя файла
+    if (filename.includes("/") || filename.includes("\\")) {
+      filename = path.basename(filename);
+    }
+
     const filePath = path.join(UPLOAD_DIR, login, "originals", filename);
 
     try {
       await fs.access(filePath);
+      console.log(`✅ Файл существует на диске: ${filePath}`);
+
       return res.json({
         success: true,
         originalUrl: `/uploads/${login}/originals/${filename}`,
         filename: row.fileNameOriginIMG,
+        fileUuid: row.file_uuid || uuid,
       });
-    } catch {
+    } catch (fsError) {
+      console.error(`❌ Файл не найден на диске: ${filePath}`, fsError);
+
+      // Пробуем найти файл по UUID в имени
+      try {
+        const files = await fs.readdir(
+          path.join(UPLOAD_DIR, login, "originals")
+        );
+        const matchingFile = files.find((file) => file.includes(uuid));
+
+        if (matchingFile) {
+          console.log(`🔄 Найден файл по UUID в имени: ${matchingFile}`);
+          return res.json({
+            success: true,
+            originalUrl: `/uploads/${login}/originals/${matchingFile}`,
+            filename: row.fileNameOriginIMG,
+            fileUuid: uuid,
+          });
+        }
+      } catch (readError) {
+        console.error("Ошибка чтения директории:", readError);
+      }
+
       res.status(404).json({
         success: false,
         message: "Файл не найден на диске",
@@ -1346,9 +1394,24 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error("Ошибка получения оригинального изображения:", error);
+
+    // Подробная информация об ошибке
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      return res.status(404).json({
+        success: false,
+        message: `Таблица пользователя '${login}' не найдена`,
+      });
+    }
+
+    if (error.code === "ER_PARSE_ERROR") {
+      console.error("СИНТАКСИЧЕСКАЯ ОШИБКА SQL! Проверь SQL запрос");
+    }
+
     res.status(500).json({
       success: false,
       message: "Ошибка получения изображения",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
