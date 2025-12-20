@@ -1139,70 +1139,7 @@ app.post("/api/diagnoses/search", async (req, res) => {
   }
 });
 
-// 9. Получение опросов пользователя
-app.post("/api/surveys", authenticateToken, async (req, res) => {
-  try {
-    const login = req.user.login;
-
-    const tableExists = await query(
-      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
-      [process.env.DB_DATABASE || "diagnoses", login]
-    );
-
-    if (tableExists[0].count === 0) {
-      return res.json({
-        success: true,
-        surveys: [],
-        message: "У вас пока нет сохраненных опросов",
-      });
-    }
-
-    const surveys = await query(
-      `SELECT id, survey, created_at FROM \`${login}\` 
-       WHERE survey IS NOT NULL 
-       ORDER BY created_at DESC, id DESC`
-    );
-
-    const parsedSurveys = surveys.map((row) => {
-      try {
-        const surveyData = JSON.parse(row.survey);
-        return {
-          id: row.id,
-          date: row.created_at,
-          survey: surveyData,
-        };
-      } catch {
-        return {
-          id: row.id,
-          date: row.created_at,
-          survey: { date: row.created_at },
-        };
-      }
-    });
-
-    res.json({
-      success: true,
-      surveys: parsedSurveys,
-    });
-  } catch (error) {
-    console.error("Ошибка получения опросов:", error);
-
-    if (error.code === "ER_NO_SUCH_TABLE") {
-      return res.json({
-        success: true,
-        surveys: [],
-        message: "У вас пока нет сохраненных опросов",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Ошибка получения опросов",
-    });
-  }
-});
-
-// 10. Получение опросов с пагинацией
+// 9. Получение опросов с пагинацией
 app.post("/api/surveys/paginated", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1316,112 +1253,7 @@ app.post("/api/surveys/paginated", authenticateToken, async (req, res) => {
   }
 });
 
-// 11. Получение изображений пользователя
-app.post("/api/images", authenticateToken, async (req, res) => {
-  try {
-    const login = req.user.login;
-
-    const tableExists = await query(
-      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
-      [process.env.DB_DATABASE || "diagnoses", login]
-    );
-
-    if (tableExists[0].count === 0) {
-      return res.json({
-        success: true,
-        images: [],
-        message: "У вас пока нет сохраненных изображений",
-      });
-    }
-
-    // Получаем изображения
-    const images = await query(
-      `SELECT 
-        id, 
-        file_uuid,
-        fileNameOriginIMG, 
-        file_path, 
-        thumbnail_path,
-        comment, 
-        file_size,
-        width,
-        height,
-        created_at 
-       FROM \`${login}\` 
-       WHERE fileNameOriginIMG IS NOT NULL 
-       ORDER BY created_at DESC, id DESC`
-    );
-
-    const parsedImages = images.map((row) => {
-      let storedFilename = row.file_path;
-
-      // Если это полный путь, извлекаем имя файла
-      if (storedFilename && storedFilename.includes(path.sep)) {
-        storedFilename = path.basename(storedFilename);
-      }
-
-      // Если storedFilename не определен, используем fileNameOriginIMG с добавлением UUID
-      if (!storedFilename && row.fileNameOriginIMG && row.file_uuid) {
-        const extension = path.extname(row.fileNameOriginIMG) || ".jpg";
-        const baseName = path.basename(row.fileNameOriginIMG, extension);
-        storedFilename = `${row.file_uuid}_${baseName}${extension}`;
-      }
-
-      // То же самое для thumbnail
-      let thumbnailFilename = row.thumbnail_path;
-      if (thumbnailFilename && thumbnailFilename.includes(path.sep)) {
-        thumbnailFilename = path.basename(thumbnailFilename);
-      }
-      if (!thumbnailFilename && storedFilename) {
-        thumbnailFilename = storedFilename;
-      }
-
-      // Формируем URL
-      const originalUrl = storedFilename
-        ? `/uploads/${login}/originals/${storedFilename}`
-        : null;
-      const thumbnailUrl = thumbnailFilename
-        ? `/uploads/${login}/thumbnails/${thumbnailFilename}`
-        : originalUrl;
-
-      return {
-        id: row.id,
-        fileUuid: row.file_uuid,
-        fileName: row.fileNameOriginIMG,
-        storedFilename: storedFilename,
-        originalUrl: originalUrl,
-        thumbnailUrl: thumbnailUrl,
-        comment: row.comment,
-        fileSize: row.file_size,
-        dimensions:
-          row.width && row.height ? `${row.width}x${row.height}` : null,
-        created_at: row.created_at,
-      };
-    });
-
-    res.json({
-      success: true,
-      images: parsedImages,
-    });
-  } catch (error) {
-    console.error("Ошибка получения изображений:", error);
-
-    if (error.code === "ER_NO_SUCH_TABLE") {
-      return res.json({
-        success: true,
-        images: [],
-        message: "У вас пока нет сохраненных изображений",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Ошибка получения изображений",
-    });
-  }
-});
-
-// 12. Получение конкретного опроса (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// 10. Получение конкретного опроса (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1467,7 +1299,7 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 13. Получение оригинального изображения
+// 11. Получение оригинального изображения
 app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1521,7 +1353,7 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
   }
 });
 
-// 14. Удаление записи
+// 12. Удаление записи
 app.delete("/api/data/:id", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1575,7 +1407,7 @@ app.delete("/api/data/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 15. Получение изображений с пагинацией (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// 13. Получение изображений с пагинацией (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.post("/api/images/paginated", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1757,7 +1589,7 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
   }
 });
 
-// 16. Получение превью изображения
+// 14. Получение превью изображения
 app.get("/api/images/thumbnail/:uuid", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;

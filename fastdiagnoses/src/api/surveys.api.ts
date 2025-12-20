@@ -36,43 +36,6 @@ interface ServerSingleSurveyData {
 
 export const surveysApi = {
   /**
-   * Получение ВСЕХ опросов пользователя (старый endpoint, без пагинации)
-   * Используется только для обратной совместимости
-   */
-  async getUserSurveys(): Promise<APIResponse & { data?: Survey[] }> {
-    try {
-      console.log('📥 [DEPRECATED] Запрос ВСЕХ опросов пользователя...');
-      
-      const response = await fetchClient.post<{ surveys: ServerSurveyData[] }>(
-        '/surveys', 
-        {}
-      );
-      
-      if (response.success && response.data) {
-        // Извлекаем Survey объекты из ответа сервера
-        const surveys = response.data.surveys.map((row: ServerSurveyData) => row.survey);
-        
-        return {
-          success: true,
-          data: surveys,
-        };
-      }
-      
-      return {
-        success: false,
-        message: response.message || 'Ошибка получения опросов',
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка получения опросов:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка получения опросов',
-      };
-    }
-  },
-
-  /**
  * Получение опросов с пагинацией (ОСНОВНОЙ МЕТОД)
  */
 async getPaginatedSurveys(params?: {
@@ -287,47 +250,6 @@ async getPaginatedSurveys(params?: {
     }
   },
 
-  /**
-   * Получение всех данных пользователя (опросы + изображения)
-   * Старый метод для обратной совместимости
-   */
-  async getAllUserData(): Promise<APIResponse & { 
-    data?: { surveys: Survey[], images: any[] } 
-  }> {
-    try {
-      console.log('📊 [DEPRECATED] Запрос всех данных пользователя...');
-      
-      const response = await fetchClient.post<{ 
-        surveys: ServerSurveyData[], 
-        images: any[] 
-      }>('/surveys/old', {});
-      
-      if (response.success && response.data) {
-        const surveys = response.data.surveys.map((row: ServerSurveyData) => row.survey);
-        
-        return {
-          success: true,
-          data: {
-            surveys: surveys,
-            images: response.data.images || []
-          }
-        };
-      }
-      
-      return {
-        success: false,
-        message: response.message || 'Ошибка получения данных',
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка получения всех данных:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка получения данных',
-      };
-    }
-  },
-
   // ==================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ====================
 
   /**
@@ -374,13 +296,11 @@ async getPaginatedSurveys(params?: {
 // ==================== ЭКСПОРТ ====================
 
 // Экспорт отдельных функций
-export const getUserSurveys = surveysApi.getUserSurveys;
 export const getPaginatedSurveys = surveysApi.getPaginatedSurveys;
 export const saveSurveyToDB = surveysApi.saveSurveyToDB;
 export const deleteSurvey = surveysApi.deleteSurvey;
 export const getSurveyById = surveysApi.getSurveyById;
 export const getDiagnosisRecommendations = surveysApi.getDiagnosisRecommendations;
-export const getAllUserData = surveysApi.getAllUserData;
 
 // Экспорт вспомогательных методов (для тестирования)
 export const ensureStringArray = surveysApi.ensureStringArray;

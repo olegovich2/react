@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  Outlet,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ConfirmEmailPage from "../src/pages/ConfirmEmailPage";
@@ -88,6 +89,11 @@ const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({
   return <>{children}</>;
 };
 
+// Компонент-обертка для страниц аккаунта
+const AccountLayout: React.FC = () => {
+  return <Outlet />;
+};
+
 // Основной компонент приложения
 const App: React.FC = () => {
   // Инициализация приложения
@@ -142,7 +148,7 @@ const App: React.FC = () => {
       <Router>
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
-            {/* Публичные маршруты (только для неаутентифицированных) */}
+            {/* Публичные маршруты */}
             <Route
               path="/login"
               element={
@@ -161,7 +167,10 @@ const App: React.FC = () => {
               }
             />
 
-            {/* Защищенные маршруты (только для аутентифицированных) */}
+            {/* Подтверждение email */}
+            <Route path="/confirm/:token" element={<ConfirmEmailPage />} />
+
+            {/* Главная страница */}
             <Route
               path="/"
               element={
@@ -171,109 +180,26 @@ const App: React.FC = () => {
               }
             />
 
+            {/* =================================================== */}
+            {/* МАРШРУТЫ АККАУНТА */}
+            {/* =================================================== */}
             <Route
               path="/account"
               element={
                 <ProtectedRoute>
-                  <AccountPage />
+                  <AccountLayout />
                 </ProtectedRoute>
               }
-            />
-
-            {/* Страница просмотра изображения */}
-            <Route
-              path="/account/images/:id"
-              element={
-                <ProtectedRoute>
-                  <ImagePage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Страница просмотра осмотра */}
-            <Route
-              path="/account/survey/:id"
-              element={
-                <ProtectedRoute>
-                  <SurveyPage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Страница аккаунта с другим портом (для совместимости) */}
-            <Route
-              path="/account7680"
-              element={
-                <ProtectedRoute>
-                  <AccountPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/account7681"
-              element={
-                <ProtectedRoute>
-                  <AccountPage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Статические маршруты для совместимости со старыми URL */}
-            <Route
-              path="/main"
-              element={
-                <ProtectedRoute>
-                  <Navigate to="/" replace />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/main/account"
-              element={
-                <ProtectedRoute>
-                  <Navigate to="/account" replace />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/main/auth"
-              element={<Navigate to="/register" replace />}
-            />
-
-            <Route
-              path="/main/entry"
-              element={<Navigate to="/login" replace />}
-            />
-
-            {/* Подтверждение email */}
-            <Route path="/confirm/:token" element={<ConfirmEmailPage />} />
-
-            {/* Старые маршруты для совместимости с изображениями */}
-            <Route
-              path="/image/:id"
-              element={
-                <ProtectedRoute>
-                  <Navigate to="/account/images/:id" replace />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/images/:id"
-              element={
-                <ProtectedRoute>
-                  <Navigate to="/account/images/:id" replace />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Страницы ошибок (можно добавить позже) */}
-            {/* <Route path="/error" element={<ErrorPage />} />
-            <Route path="/main/auth/error" element={<AuthErrorPage />} />
-            <Route path="/main/entry/error" element={<LoginErrorPage />} /> */}
+            >
+              {/* Главная страница аккаунта */}
+              <Route index element={<AccountPage />} />
+              
+              {/* Просмотр опроса */}
+              <Route path="survey/:id" element={<SurveyPage />} />
+              
+              {/* Просмотр изображения */}
+              <Route path="images/:id" element={<ImagePage />} />
+            </Route>
 
             {/* Маршрут по умолчанию (404) */}
             <Route

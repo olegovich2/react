@@ -1,16 +1,13 @@
 import { 
   APIResponse,
-  SurveysResponseData,
   ImageUploadResponse,
   PaginatedSurveysResponseData,
   SingleSurveyResponseData,
-  ImagesResponseData,
   PaginatedImagesResponseData,
   SingleImageResponseData,
   DeleteResponseData,
   AuthLoginResponseData,
   AuthVerifyResponseData,
-  AllUserDataResponseData,
   DiagnosisSearchResponseData,
   SaveSurveyBody,
   UploadImageBody,
@@ -372,13 +369,6 @@ class FetchClient {
   }
 
   /**
-   * Получение опросов пользователя (БЕЗ логина в body - сервер берет из токена)
-   */
-  async getSurveys() {
-    return this.post<SurveysResponseData>('/surveys', {});
-  }
-
-  /**
    * Получение конкретного опроса (БЕЗ логина в query - сервер берет из токена)
    */
   async getSurveyById(id: number) {
@@ -393,13 +383,6 @@ class FetchClient {
   }
 
   // ==================== ИЗОБРАЖЕНИЯ (С ПРАВИЛЬНЫМИ ТИПАМИ) ====================
-
-  /**
-   * Получение изображений пользователя (БЕЗ логина в body - сервер берет из токена)
-   */
-  async getImages() {
-    return this.post<ImagesResponseData>('/images', {});
-  }
 
   /**
    * Получение конкретного изображения (БЕЗ логина в query - сервер берет из токена)
@@ -420,17 +403,7 @@ class FetchClient {
     return this.post<ImageUploadResponse>('/images/upload', body);
   }
 
-  // ==================== СТАРЫЕ ЭНДПОИНТЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
-
-  /**
-   * Получение всех данных пользователя (опросы + изображения)
-   * Старый эндпоинт для обратной совместимости (БЕЗ логина в body)
-   */
-  async getAllUserData() {
-    return this.post<AllUserDataResponseData>('/surveys/old', {});
-  }
-
-  // ==================== ДИАГНОЗЫ (С ТИПАМИ) ====================
+    // ==================== ДИАГНОЗЫ (С ТИПАМИ) ====================
 
   /**
    * Поиск диагнозов и рекомендаций (публичный эндпоинт, без аутентификации)

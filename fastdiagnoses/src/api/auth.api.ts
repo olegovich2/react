@@ -44,17 +44,26 @@ export const logoutUser = async () => {
   return fetchClient.logout();
 };
 
-// Опросы
+// ==================== ВАЖНО! ЗАМЕНА СТАРЫХ МЕТОДОВ ====================
+
+// Опросы - используем surveysApi вместо старых методов fetchClient
 export const saveSurveyToAccount = async (survey: any) => {
-  return fetchClient.saveSurvey(survey);
+  // Вместо fetchClient.saveSurvey() используем surveysApi
+  // Нужно добавить импорт surveysApi
+  // return surveysApi.saveSurveyToDB(survey);
+  throw new Error('Этот метод устарел. Используйте surveysApi.saveSurveyToDB()');
 };
 
 export const getSurveysFromAccount = async () => {
-  return fetchClient.getSurveys();
+  // ❌ УСТАРЕЛО: fetchClient.getSurveys() - старый эндпоинт без пагинации
+  // ✅ ИСПОЛЬЗУЙ: surveysApi.getPaginatedSurveys() или surveysApi.getUserSurveys()
+  throw new Error('Этот метод устарел. Используйте surveysApi.getPaginatedSurveys()');
 };
 
 export const deleteSurvey = async (id: number) => {
-  return fetchClient.deleteSurveyOrImage(id);
+  // Вместо fetchClient.deleteSurveyOrImage() используем surveysApi
+  // return surveysApi.deleteSurvey(id);
+  throw new Error('Этот метод устарел. Используйте surveysApi.deleteSurvey()');
 };
 
 // Изображения

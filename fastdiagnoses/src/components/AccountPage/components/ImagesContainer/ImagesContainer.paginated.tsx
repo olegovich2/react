@@ -1,5 +1,6 @@
 // src/components/AccountPage/components/ImagesContainer/ImagesContainer.paginated.tsx
 import React, { useEffect, useCallback, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // <-- ДОБАВЛЯЕМ
 import { useAccountContext } from '../../context/AccountContext';
 import { 
   getPaginatedImages,
@@ -21,13 +22,14 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     updateImagesPage
   } = useAccountContext();
 
+  const navigate = useNavigate(); // <-- ДОБАВЛЯЕМ навигацию
+
   const [localImages, setLocalImages] = useState<UploadedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Загрузка изображений с пагинацией
   const loadImages = useCallback(async (page: number) => {
-    
     setIsLoading(true);
     setError(null);
     setCurrentPage(page);
@@ -39,7 +41,7 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
         page,
         limit: imagesPagination.itemsPerPage
       });
-    //   console.log('loadImages вызван с page:', page, 'result:', result);
+      
       if (result.success && result.data) {
         console.log(`✅ Успешно загружено ${result.data.images?.length || 0} изображений`);
         
@@ -118,12 +120,20 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     }
   }, [setIsLoading, loadImages, currentPage]);
 
-  // Просмотр изображения
+  // Просмотр изображения - ИСПРАВЛЯЕМ!
   const handleViewImage = useCallback((imageId: number) => {
+    console.log('🖼️ Переход к просмотру изображения (сохраняем страницу)...', {
+      imageId,
+      currentPage,
+      from: 'ImagesContainer'
+    });
+    
     // Сохраняем текущую страницу перед переходом
     updateImagesPage(currentPage);
-    window.location.href = `/account/images/${imageId}`;
-  }, [currentPage, updateImagesPage]);
+    
+    // Используем navigate вместо window.location.href (чтобы не было перезагрузки)
+    navigate(`/account/images/${imageId}`);
+  }, [currentPage, updateImagesPage, navigate]);
 
   // Загрузка нового изображения
   const handleImageUploadSuccess = useCallback(() => {
