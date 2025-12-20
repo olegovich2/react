@@ -1,3 +1,4 @@
+// SurveyList.tsx (упрощаем, так как уже всё есть)
 import React from 'react';
 import { Survey } from '../../types/account.types';
 import './SurveyList.css';
@@ -45,7 +46,7 @@ const SurveyList: React.FC<SurveyListProps> = ({ surveys, onView, onDelete }) =>
               type="button" 
               data-container="lookButton"
               data-id={survey.id}
-              onClick={() => onView(survey)}
+              onClick={() => onView(survey)} // <-- Вызываем переданную функцию
             >
               <i className="fas fa-eye"></i> Посмотреть
             </button>

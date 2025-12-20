@@ -1,0 +1,433 @@
+/* src/components/AccountPage/pages/SurveyPage/SurveyPage.css */
+
+/* ==================== ОСНОВНОЙ КОНТЕЙНЕР ==================== */
+.survey-page-container {
+  min-height: 100vh;
+  background-color: rgb(184, 198, 202);
+  padding: 20px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Шапка */
+.survey-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: rgb(255, 255, 255);
+  padding: 20px;
+  border-radius: 12px;
+  border: 3px solid rgb(88, 96, 98);
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background-color: rgb(183, 222, 234);
+  color: rgb(88, 96, 98);
+  border: 2px solid rgb(88, 96, 98);
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.back-button:hover {
+  background-color: rgb(88, 96, 98);
+  color: rgb(183, 222, 234);
+  transform: translateY(-2px);
+}
+
+.survey-title {
+  margin: 0;
+  font-size: 24px;
+  color: rgb(88, 96, 98);
+  text-align: center;
+  flex-grow: 1;
+}
+
+.survey-title i {
+  margin-right: 10px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.print-button {
+  background-color: rgb(144, 202, 249);
+  color: rgb(30, 60, 90);
+  border-color: rgb(100, 170, 220);
+}
+
+.save-button {
+  background-color: rgb(144, 249, 202);
+  color: rgb(30, 90, 60);
+  border-color: rgb(100, 220, 170);
+}
+
+.delete-button {
+  background-color: rgb(249, 144, 144);
+  color: rgb(90, 30, 30);
+  border-color: rgb(220, 100, 100);
+}
+
+.action-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.print-button:hover {
+  background-color: rgb(30, 60, 90);
+  color: rgb(144, 202, 249);
+}
+
+.save-button:hover {
+  background-color: rgb(30, 90, 60);
+  color: rgb(144, 249, 202);
+}
+
+.delete-button:hover {
+  background-color: rgb(90, 30, 30);
+  color: rgb(249, 144, 144);
+}
+
+/* Основной контент */
+.survey-page-content {
+  background-color: rgb(255, 255, 255);
+  border-radius: 12px;
+  padding: 25px;
+  border: 2px solid rgb(88, 96, 98);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Панель информации */
+.survey-info-panel {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: rgba(183, 222, 234, 0.2);
+  border-radius: 8px;
+  border: 2px solid rgb(88, 96, 98);
+}
+
+.info-section h3 {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  color: rgb(88, 96, 98);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+}
+
+.info-item {
+  padding: 12px;
+  background-color: white;
+  border-radius: 6px;
+  border-left: 4px solid rgb(88, 96, 98);
+  font-size: 15px;
+}
+
+.info-item strong {
+  color: rgb(88, 96, 98);
+  margin-right: 8px;
+}
+
+/* Секции с данными */
+.survey-data-container {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.survey-section {
+  padding: 20px;
+  background-color: rgba(183, 222, 234, 0.1);
+  border-radius: 8px;
+  border: 2px solid rgb(88, 96, 98);
+  transition: all 0.3s ease;
+}
+
+.survey-section:hover {
+  background-color: rgba(183, 222, 234, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.survey-section h3 {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  color: rgb(88, 96, 98);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(88, 96, 98, 0.3);
+}
+
+.section-content {
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgb(60, 65, 70);
+}
+
+.section-content ul {
+  margin: 10px 0 0 0;
+  padding-left: 20px;
+}
+
+.section-content li {
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  border-left: 3px solid rgb(88, 96, 98);
+}
+
+/* Горячие клавиши */
+.hotkeys-info {
+  margin-top: 30px;
+  padding: 15px;
+  background-color: rgba(88, 96, 98, 0.1);
+  border-radius: 8px;
+  text-align: center;
+  border: 1px dashed rgb(88, 96, 98);
+}
+
+.hotkeys-info p {
+  margin: 0;
+  font-size: 14px;
+  color: rgb(88, 96, 98);
+}
+
+.hotkeys-info kbd {
+  background-color: rgb(88, 96, 98);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+  margin: 0 2px;
+}
+
+/* Загрузка */
+.survey-page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: rgb(184, 198, 202);
+  color: rgb(88, 96, 98);
+}
+
+.survey-page-loading .spinner {
+  margin-bottom: 20px;
+}
+
+.survey-page-loading p {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* Ошибка */
+.survey-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 40px;
+  background-color: rgb(255, 255, 255);
+  border-radius: 12px;
+  border: 3px solid rgb(249, 144, 144);
+  margin: 20px;
+  text-align: center;
+}
+
+.survey-page-error .error-icon {
+  color: rgb(249, 144, 144);
+  margin-bottom: 20px;
+}
+
+.survey-page-error h2 {
+  color: rgb(90, 30, 30);
+  margin-bottom: 15px;
+}
+
+.survey-page-error p {
+  color: rgb(120, 50, 50);
+  margin-bottom: 30px;
+  max-width: 600px;
+}
+
+.error-actions {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.error-actions .buttonFromTemplate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background-color: rgb(88, 96, 98);
+  color: white;
+  border: 2px solid rgb(88, 96, 98);
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.error-actions .buttonFromTemplate:hover {
+  background-color: rgb(60, 65, 70);
+  transform: translateY(-2px);
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+  .survey-page-container {
+    padding: 15px;
+  }
+  
+  .survey-page-header {
+    flex-direction: column;
+    text-align: center;
+    padding: 15px;
+  }
+  
+  .survey-title {
+    font-size: 20px;
+    order: -1;
+    width: 100%;
+  }
+  
+  .back-button {
+    align-self: flex-start;
+  }
+  
+  .header-actions {
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .action-button {
+    flex: 1;
+    min-width: auto;
+    padding: 10px 15px;
+  }
+  
+  .survey-page-content {
+    padding: 20px;
+  }
+  
+  .survey-info-panel {
+    padding: 15px;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .survey-section {
+    padding: 15px;
+  }
+  
+  .survey-section h3 {
+    font-size: 16px;
+  }
+  
+  .section-content {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .survey-page-container {
+    padding: 10px;
+  }
+  
+  .survey-page-header {
+    padding: 12px;
+  }
+  
+  .survey-title {
+    font-size: 18px;
+  }
+  
+  .back-button,
+  .action-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .survey-page-content {
+    padding: 15px;
+  }
+  
+  .survey-info-panel {
+    padding: 12px;
+  }
+  
+  .info-item {
+    padding: 10px;
+    font-size: 14px;
+  }
+  
+  .survey-section {
+    padding: 12px;
+  }
+  
+  .survey-section h3 {
+    font-size: 15px;
+  }
+  
+  .section-content {
+    font-size: 14px;
+  }
+  
+  .hotkeys-info p {
+    font-size: 12px;
+  }
+  
+  .error-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .error-actions .buttonFromTemplate {
+    width: 100%;
+  }
+}

@@ -73,56 +73,81 @@ export const surveysApi = {
   },
 
   /**
-   * Получение опросов с пагинацией (ОСНОВНОЙ МЕТОД)
-   */
-  async getPaginatedSurveys(params?: {
-    page?: number;
-    limit?: number;
-  }): Promise<APIResponse & { 
-    data?: {
-      surveys: Survey[];
-      pagination: ServerPaginatedSurveysData['pagination'];
-    }
-  }> {
-    try {
-      const page = params?.page || 1;
-      const limit = params?.limit || 5;
+ * Получение опросов с пагинацией (ОСНОВНОЙ МЕТОД)
+ */
+async getPaginatedSurveys(params?: {
+  page?: number;
+  limit?: number;
+}): Promise<APIResponse & { 
+  data?: {
+    surveys: Survey[];
+    pagination: ServerPaginatedSurveysData['pagination'];
+  }
+}> {
+  try {
+    const page = params?.page || 1;
+    const limit = params?.limit || 5;
+    
+    console.log(`📥 Запрос опросов с пагинацией: страница ${page}, лимит ${limit}`);
+    
+    const response = await fetchClient.post<ServerPaginatedSurveysData>(
+      '/surveys/paginated', 
+      { page, limit }
+    );
+    
+    if (response.success && response.data) {
+      console.log(`✅ Получено ${response.data.surveys?.length || 0} опросов с пагинацией`);
       
-      console.log(`📥 Запрос опросов с пагинацией: страница ${page}, лимит ${limit}`);
-      
-      const response = await fetchClient.post<ServerPaginatedSurveysData>(
-        '/surveys/paginated', 
-        { page, limit }
-      );
-      
-      if (response.success && response.data) {
-        console.log(`✅ Получено ${response.data.surveys?.length || 0} опросов с пагинацией`);
-        
-        // Извлекаем Survey объекты из ответа сервера
-        const surveys = response.data.surveys.map((row: ServerSurveyData) => row.survey);
-        
-        return {
-          success: true,
-          data: {
-            surveys,
-            pagination: response.data.pagination
-          },
+      // ВАЖНО: Объединяем ID из БД с данными опроса
+      const surveys = response.data.surveys.map((row: ServerSurveyData) => {
+        // Сервер возвращает {id, date, survey}, но survey не содержит ID из БД
+        const surveyWithId = {
+          ...row.survey,              // Данные опроса
+          id: row.id,                // ID записи из БД (ВАЖНО!)
+          created_at: row.date,      // created_at из БД
         };
+        
+        // Если в survey уже есть date, используем его, иначе используем row.date
+        if (!surveyWithId.date) {
+          surveyWithId.date = row.date;
+        }
+        
+        return surveyWithId;
+      });
+      
+      // Добавим логирование для отладки
+      if (surveys.length > 0) {
+        console.log('🔍 Пример обработанного опроса:', {
+          rowId: response.data.surveys[0].id,
+          surveyId: surveys[0].id,
+          hasId: !!surveys[0].id,
+          dateFromRow: response.data.surveys[0].date,
+          dateFromSurvey: surveys[0].date
+        });
       }
       
       return {
-        success: false,
-        message: response.message || 'Ошибка получения опросов с пагинацией',
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка получения опросов с пагинацией:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка получения опросов с пагинацией',
+        success: true,
+        data: {
+          surveys,
+          pagination: response.data.pagination
+        },
       };
     }
-  },
+    
+    return {
+      success: false,
+      message: response.message || 'Ошибка получения опросов с пагинацией',
+    };
+    
+  } catch (error: any) {
+    console.error('❌ Ошибка получения опросов с пагинацией:', error);
+    return {
+      success: false,
+      message: error.message || 'Ошибка получения опросов с пагинацией',
+    };
+  }
+},
 
   /**
    * Сохранение опроса в БД

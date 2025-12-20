@@ -1421,7 +1421,7 @@ app.post("/api/images", authenticateToken, async (req, res) => {
   }
 });
 
-// 12. Получение конкретного опроса
+// 12. Получение конкретного опроса (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1434,10 +1434,9 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
       });
     }
 
-    const results = await query(
-      "SELECT survey FROM ?? WHERE id = ? AND survey IS NOT NULL",
-      [login, id]
-    );
+    // ВАЖНО: Используем правильную подготовку запроса
+    const sql = `SELECT survey FROM \`${login}\` WHERE id = ? AND survey IS NOT NULL`;
+    const results = await query(sql, [parseInt(id)]);
 
     if (results.length === 0) {
       return res.status(404).json({
@@ -1452,6 +1451,15 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Ошибка получения опроса:", error);
+
+    // Обработка специфических ошибок
+    if (error.code === "ER_NO_SUCH_TABLE") {
+      return res.status(404).json({
+        success: false,
+        message: "Пользователь не найден или у вас нет опросов",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Ошибка получения опроса",

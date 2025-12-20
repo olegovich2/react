@@ -1,9 +1,9 @@
-// AccountPage/components/SurveysContainer/SurveysContainer.paginated.tsx
+// SurveysContainer.paginated.tsx (исправленная версия)
 import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom'; // <-- Добавляем
 import { useAccountContext } from '../../context/AccountContext';
 import { surveysApi } from '../../../../api/surveys.api';
 import SurveyList from '../SurveyList/SurveyList';
-import SurveyModal from './SurveyModal';
 import Pagination from '../Pagination/Pagination';
 import { Survey as SurveyType } from '../../types/account.types';
 import './SurveyContainer.css';
@@ -11,15 +11,13 @@ import './SurveyContainer.css';
 const SurveysContainerPaginated: React.FC = React.memo(() => {
   const { 
     setSurveys, 
-    selectedSurvey, 
-    setSelectedSurvey, 
-    showSurveyModal, 
-    setShowSurveyModal,
     setIsLoading,
     surveysPagination,
     setSurveysPagination,
     updateSurveysPage
   } = useAccountContext();
+
+  const navigate = useNavigate(); // <-- Добавляем навигацию
 
   const [localSurveys, setLocalSurveys] = useState<SurveyType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +36,6 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
         block: 'start'
       });
       
-      // Дополнительная прокрутка с учетом фиксированного хедера
       const headerHeight = 80;
       const elementPosition = surveysContainerRef.current.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerHeight;
@@ -48,7 +45,6 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
         behavior: 'smooth'
       });
     } else {
-      // Fallback
       window.scrollTo({
         top: 0,
         behavior: 'smooth'
@@ -76,21 +72,9 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
           pagination: response.data.pagination
         });
         
-        // ✅ surveysApi уже возвращает готовые Survey объекты
         const processedSurveys: SurveyType[] = response.data.surveys;
         
         console.log(`✅ Загружено опросов: ${processedSurveys.length}`);
-        
-        // Логируем первый опрос для проверки структуры
-        if (processedSurveys.length > 0) {
-          console.log('📄 Пример первого опроса:', {
-            id: processedSurveys[0].id,
-            date: processedSurveys[0].date,
-            nameSurname: processedSurveys[0].nameSurname,
-            hasTitleArray: Array.isArray(processedSurveys[0].title),
-            hasDiagnosticArray: Array.isArray(processedSurveys[0].diagnostic)
-          });
-        }
         
         setLocalSurveys(processedSurveys);
         
@@ -159,25 +143,15 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     }
   }, [currentPage, loadPaginatedSurveys]);
 
-  // Просмотр опроса
+  // Просмотр опроса - ПЕРЕХОД НА СТРАНИЦУ
   const handleViewSurvey = useCallback((survey: SurveyType) => {
-    console.log('📄 Просмотр опроса через surveysApi:', {
+    console.log('📄 Переход к просмотру опроса:', {
       id: survey.id,
       date: survey.date,
       name: survey.nameSurname
     });
-    setSelectedSurvey(survey);
-    setShowSurveyModal(true);
-    // Сохраняем текущую страницу перед показом модального окна
-    updateSurveysPage(currentPage);
-  }, [setSelectedSurvey, setShowSurveyModal, currentPage, updateSurveysPage]);
-
-  // Закрытие модального окна
-  const handleCloseModal = useCallback(() => {
-    console.log('🔒 Закрытие модального окна опроса');
-    setShowSurveyModal(false);
-    setSelectedSurvey(null);
-  }, [setShowSurveyModal, setSelectedSurvey]);
+    navigate(`/account/survey/${survey.id}`);
+  }, [navigate]);
 
   // Первоначальная загрузка - используем сохраненную страницу из контекста
   useEffect(() => {
@@ -185,8 +159,7 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     console.log(`🔄 Начальная загрузка опросов через surveysApi. Страница из контекста: ${initialPage}...`);
     setCurrentPage(initialPage);
     loadPaginatedSurveys(initialPage);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Загружаем только при монтировании
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Мемоизация компонента пагинации
   const paginationComponent = useMemo(() => {
@@ -272,7 +245,7 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     return (
       <SurveyList
         surveys={localSurveys}
-        onView={handleViewSurvey}
+        onView={handleViewSurvey} // <-- Используем новую функцию
         onDelete={handleDeleteSurvey}
       />
     );
@@ -292,14 +265,6 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
           {renderSurveyList}
           {paginationComponent}
         </>
-      )}
-
-      {/* Модальное окно с опросом */}
-      {showSurveyModal && selectedSurvey && (
-        <SurveyModal
-          survey={selectedSurvey}
-          onClose={handleCloseModal}
-        />
       )}
     </div>
   );

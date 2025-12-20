@@ -1,17 +1,53 @@
-// src/pages/AccountPage/components/SurveysContainer/SurveyModal.tsx
-import React, { useCallback } from 'react';
+// src/components/AccountPage/pages/SurveyPage/SurveyPage.tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate} from 'react-router-dom';
+import { surveysApi } from '../../../../api/surveys.api';
 import { Survey } from '../../types/account.types';
-import './SurveyModal.css';
+import './SurveyPage.css';
 
-interface SurveyModalProps {
-  survey: Survey;
-  onClose: () => void;
-}
-
-const SurveyModal: React.FC<SurveyModalProps> = React.memo(({ survey, onClose }) => {
+const SurveyPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   
-  // 🔧 Сохранение как Word
+  const [survey, setSurvey] = useState<Survey | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Загрузка опроса
+  const loadSurvey = useCallback(async () => {
+    if (!id || isNaN(parseInt(id))) {
+      setError('Некорректный ID опроса');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log(`🔍 Загрузка опроса ID: ${id}`);
+      
+      const result = await surveysApi.getSurveyById(parseInt(id));
+      
+      if (result.success && result.data) {
+        setSurvey(result.data);
+        console.log(`✅ Опрос загружен: ${result.data.nameSurname}`);
+      } else {
+        setError(result.message || 'Опрос не найден');
+        console.error('❌ Ошибка загрузки опроса:', result.message);
+      }
+    } catch (error: any) {
+      setError(error.message || 'Ошибка загрузки опроса');
+      console.error('❌ Ошибка загрузки опроса:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  // Сохранение как Word (копируем из SurveyModal)
   const handleSaveAsWord = useCallback(() => {
+    if (!survey) return;
+    
     let dateStr = "";
     try {
       if (survey.date) {
@@ -34,7 +70,6 @@ const SurveyModal: React.FC<SurveyModalProps> = React.memo(({ survey, onClose })
       return `<ul>${listItems}</ul>`;
     };
 
-    // Подготавливаем данные
     const titleArray = Array.isArray(survey.title) ? survey.title : (survey.title ? [survey.title] : []);
     const diagnosticArray = survey.diagnostic || [];
     const treatmentArray = survey.treatment || [];
@@ -157,23 +192,18 @@ const SurveyModal: React.FC<SurveyModalProps> = React.memo(({ survey, onClose })
     document.body.appendChild(fileDownload);
     fileDownload.click();
     document.body.removeChild(fileDownload);
-  }, [survey]); // Зависимость от survey
+  }, [survey]);
 
-  // 🔧 Печать
+  // Печать (копируем из SurveyModal)
   const handlePrint = useCallback(() => {
-    const printContent = document.getElementById("printFromAccount");
-    if (!printContent) {
-      console.error("Элемент для печати не найден");
-      return;
-    }
-
+    if (!survey) return;
+    
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Разрешите всплывающие окна для печати");
       return;
     }
 
-    // Подготавливаем данные
     const titleArray = Array.isArray(survey.title) ? survey.title : (survey.title ? [survey.title] : []);
     const diagnosticArray = survey.diagnostic || [];
     const treatmentArray = survey.treatment || [];
@@ -339,57 +369,180 @@ const SurveyModal: React.FC<SurveyModalProps> = React.memo(({ survey, onClose })
 
     printWindow.document.write(printHtml);
     printWindow.document.close();
-  }, [survey]); // Зависимость от survey
+  }, [survey]);
 
-  // Клик по фону для закрытия
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
+  // Удаление опроса
+  const handleDelete = useCallback(async () => {
+    if (!id || !survey) return;
+    
+    if (!window.confirm(`Вы уверены, что хотите удалить опрос "${survey.nameSurname || 'без имени'}"?`)) {
+      return;
     }
-  };
+
+    try {
+      const result = await surveysApi.deleteSurvey(parseInt(id));
+      if (result.success) {
+        console.log(`✅ Опрос ${id} удален`);
+        navigate('/account');
+      } else {
+        setError(result.message || 'Ошибка удаления опроса');
+      }
+    } catch (error: any) {
+      setError(error.message || 'Ошибка удаления опроса');
+    }
+  }, [id, survey, navigate]);
+
+  // Загрузка при монтировании
+  useEffect(() => {
+    loadSurvey();
+  }, [loadSurvey]);
+
+  // Обработка клавиш
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'Escape':
+          navigate('/account');
+          break;
+        case 'p':
+        case 'з':
+          if (e.ctrlKey) handlePrint();
+          break;
+        case 's':
+        case 'ы':
+          if (e.ctrlKey) handleSaveAsWord();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate, handlePrint, handleSaveAsWord]);
+
+  // Отображение загрузки
+  if (isLoading) {
+    return (
+      <div className="survey-page-loading">
+        <div className="spinner">
+          <i className="fas fa-spinner fa-spin fa-3x"></i>
+        </div>
+        <p>Загрузка опроса...</p>
+      </div>
+    );
+  }
+
+  // Отображение ошибки
+  if (error || !survey) {
+    return (
+      <div className="survey-page-error">
+        <div className="error-icon">
+          <i className="fas fa-exclamation-triangle fa-3x"></i>
+        </div>
+        <h2>Ошибка загрузки опроса</h2>
+        <p>{error || 'Опрос не найден'}</p>
+        <div className="error-actions">
+          <button className="buttonFromTemplate" onClick={() => navigate('/account')}>
+            <i className="fas fa-arrow-left"></i> Вернуться в аккаунт
+          </button>
+          <button className="buttonFromTemplate" onClick={loadSurvey}>
+            <i className="fas fa-redo"></i> Попробовать снова
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="survey-modal-overlay" onClick={handleBackdropClick}>
-      <div className="survey-modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="result" id="printFromAccount">
-          <h3>Результат медицинского опроса</h3>
-          
-          <div className="block">
-            <div className="field-label">Дата и время:</div>
-            <div className="field-value">{survey.date || "Не указано"}</div>
+    <div className="survey-page-container">
+      {/* Шапка страницы */}
+      <header className="survey-page-header">
+        <button 
+          className="back-button"
+          onClick={() => navigate('/account')}
+          title="Вернуться назад (Esc)"
+        >
+          <i className="fas fa-arrow-left"></i> Назад
+        </button>
+        
+        <h1 className="survey-title">
+          <i className="fas fa-clipboard-list"></i> Опрос пациента
+        </h1>
+        
+        <div className="header-actions">
+          <button 
+            className="action-button print-button"
+            onClick={handlePrint}
+            title="Печать (Ctrl + P)"
+          >
+            <i className="fas fa-print"></i> Печать
+          </button>
+          <button 
+            className="action-button save-button"
+            onClick={handleSaveAsWord}
+            title="Сохранить как Word (Ctrl + S)"
+          >
+            <i className="fas fa-file-word"></i> Word
+          </button>
+          <button 
+            className="action-button delete-button"
+            onClick={handleDelete}
+            title="Удалить опрос"
+          >
+            <i className="fas fa-trash"></i> Удалить
+          </button>
+        </div>
+      </header>
+
+      {/* Основной контент */}
+      <div className="survey-page-content">
+        <div className="survey-info-panel">
+          <div className="info-section">
+            <h3><i className="fas fa-info-circle"></i> Информация об опросе</h3>
+            <div className="info-grid">
+              <div className="info-item">
+                <strong>ID:</strong> {survey.id}
+              </div>
+              <div className="info-item">
+                <strong>Дата и время:</strong> {survey.date || 'Не указано'}
+              </div>
+              <div className="info-item">
+                <strong>Пациент:</strong> {survey.nameSurname || 'Не указано'}
+              </div>
+              <div className="info-item">
+                <strong>Возраст:</strong> {survey.age || 'Не указано'}
+              </div>
+              {survey.temperature && (
+                <div className="info-item">
+                  <strong>Температура:</strong> {survey.temperature}
+                </div>
+              )}
+            </div>
           </div>
-          
-          <div className="block">
-            <div className="field-label">ФИО:</div>
-            <div className="field-value">{survey.nameSurname || "Не указано"}</div>
+        </div>
+
+        {/* Данные опроса */}
+        <div className="survey-data-container">
+          {/* Симптомы */}
+          <div className="survey-section">
+            <h3><i className="fas fa-stethoscope"></i> Симптомы</h3>
+            <div className="section-content">
+              {survey.anamnesis || "Не указано"}
+            </div>
           </div>
-          
-          <div className="block">
-            <div className="field-label">Возраст:</div>
-            <div className="field-value">{survey.age || "Не указано"}</div>
-          </div>
-          
-          <div className="block">
-            <div className="field-label">Температура:</div>
-            <div className="field-value">{survey.temperature || "Не указано"}</div>
-          </div>
-          
-          <div className="block">
-            <div className="field-label">Симптомы:</div>
-            <div className="field-value">{survey.anamnesis || "Не указано"}</div>
-          </div>
-          
-          <div className="block">
-            <div className="field-label">Диагноз:</div>
-            <div className="field-value">
+
+          {/* Диагноз */}
+          <div className="survey-section">
+            <h3><i className="fas fa-diagnoses"></i> Диагноз</h3>
+            <div className="section-content">
               {Array.isArray(survey.title) ? survey.title.join(', ') : survey.title || "Не указано"}
             </div>
           </div>
-          
+
+          {/* Обследования */}
           {survey.diagnostic && survey.diagnostic.length > 0 && (
-            <div className="block">
-              <div className="field-label">Обследования:</div>
-              <div className="field-value">
+            <div className="survey-section">
+              <h3><i className="fas fa-search"></i> Рекомендуемые обследования</h3>
+              <div className="section-content">
                 <ul>
                   {survey.diagnostic.map((item, index) => (
                     <li key={index}>{item}</li>
@@ -398,11 +551,12 @@ const SurveyModal: React.FC<SurveyModalProps> = React.memo(({ survey, onClose })
               </div>
             </div>
           )}
-          
+
+          {/* Лечение */}
           {survey.treatment && survey.treatment.length > 0 && (
-            <div className="block">
-              <div className="field-label">Лечение:</div>
-              <div className="field-value">
+            <div className="survey-section">
+              <h3><i className="fas fa-pills"></i> Рекомендуемое лечение</h3>
+              <div className="section-content">
                 <ul>
                   {survey.treatment.map((item, index) => (
                     <li key={index}>{item}</li>
@@ -411,11 +565,12 @@ const SurveyModal: React.FC<SurveyModalProps> = React.memo(({ survey, onClose })
               </div>
             </div>
           )}
-          
+
+          {/* Дополнительные рекомендации */}
           {survey.otherGuidelines && survey.otherGuidelines.length > 0 && (
-            <div className="block">
-              <div className="field-label">Дополнительные рекомендации:</div>
-              <div className="field-value">
+            <div className="survey-section">
+              <h3><i className="fas fa-comment-medical"></i> Дополнительные рекомендации</h3>
+              <div className="section-content">
                 <ul>
                   {survey.otherGuidelines.map((item, index) => (
                     <li key={index}>{item}</li>
@@ -424,39 +579,20 @@ const SurveyModal: React.FC<SurveyModalProps> = React.memo(({ survey, onClose })
               </div>
             </div>
           )}
-          
-          <div className="blockButtonsTwo">
-            <button
-              className="buttonFromTemplateTwo"
-              type="button"
-              onClick={handleSaveAsWord}
-              title="Сохранить документ в формате Word"
-            >
-              <i className="fas fa-file-word"></i> Сохранить как Word
-            </button>
-            <button
-              className="buttonFromTemplateTwo"
-              type="button"
-              onClick={handlePrint}
-              title="Распечатать результат опроса"
-            >
-              <i className="fas fa-print"></i> Печатать
-            </button>
-            <button
-              className="buttonFromTemplateTwo"
-              type="button"
-              onClick={onClose}
-              title="Закрыть окно"
-            >
-              <i className="fas fa-times"></i> Закрыть
-            </button>
-          </div>
+        </div>
+
+        {/* Горячие клавиши */}
+        <div className="hotkeys-info">
+          <p>
+            <strong>Горячие клавиши:</strong>{' '}
+            <kbd>Ctrl + P</kbd> Печать •{' '}
+            <kbd>Ctrl + S</kbd> Сохранить Word •{' '}
+            <kbd>Esc</kbd> Назад
+          </p>
         </div>
       </div>
     </div>
   );
-});
+};
 
-SurveyModal.displayName = 'SurveyModal';
-
-export default SurveyModal;
+export default SurveyPage;
