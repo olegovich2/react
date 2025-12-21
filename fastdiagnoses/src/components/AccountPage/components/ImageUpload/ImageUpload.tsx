@@ -1,5 +1,5 @@
 // src/components/AccountPage/components/ImageUpload/ImageUpload.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { uploadImage } from '../../../../api/images.api';
 import { ImageUploadProps } from '../../types/account.types';
 import './ImageUpload.css';
@@ -10,11 +10,21 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp']
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | 'warning' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Очищаем preview URL при размонтировании
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -38,6 +48,15 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         return;
       }
       
+      // Очищаем старый preview
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      
+      // Создаем preview
+      const preview = URL.createObjectURL(file);
+      setPreviewUrl(preview);
+      
       setSelectedFile(file);
       setMessage(null);
     }
@@ -56,23 +75,19 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     setUploadProgress(0);
 
     try {
-      // Показываем прогресс
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      // Используем существующую функцию загрузки
-      console.log('📤 Вызов uploadImage API...');
-      const result = await uploadImage(selectedFile, comment);
+      console.log('📤 Вызов uploadImage API с FormData...');
       
-      clearInterval(progressInterval);
-      setUploadProgress(100);
+      // Используем новую версию uploadImage с поддержкой прогресса
+      const result = await uploadImage(
+        selectedFile, 
+        comment,
+        (progress) => {
+          // РЕАЛЬНЫЙ прогресс из XMLHttpRequest
+          setUploadProgress(progress);
+        }
+      );
+      
+      // Не нужно вручную ставить 100% - прогресс сам дойдет до 100
 
       if (result.success) {
         setMessage({
@@ -81,7 +96,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         });
         
         // Сброс формы
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+        }
         setSelectedFile(null);
+        setPreviewUrl(null);
         setComment('');
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
@@ -100,6 +119,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           type: 'error'
         });
         setIsUploading(false);
+        setUploadProgress(0);
       }
     } catch (error: any) {
       console.error('Ошибка загрузки:', error);
@@ -110,7 +130,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       let errorMessage = 'Ошибка соединения с сервером';
       
       if (error.message) {
-        errorMessage = error.message;
+        if (error.message.includes('Таймаут')) {
+          errorMessage = 'Таймаут загрузки. Попробуйте еще раз.';
+        } else if (error.message.includes('сети')) {
+          errorMessage = 'Проблема с подключением. Проверьте интернет.';
+        } else {
+          errorMessage = error.message;
+        }
       }
       
       setMessage({
@@ -121,13 +147,23 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   const handleCancel = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setSelectedFile(null);
+    setPreviewUrl(null);
     setComment('');
     setMessage(null);
     setUploadProgress(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
@@ -155,10 +191,31 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         </button>
         
         {selectedFile && (
-          <div className="selected-file-info">
-            <p><strong>Выбран файл:</strong> {selectedFile.name}</p>
-            <p><strong>Размер:</strong> {(selectedFile.size / 1024).toFixed(2)} KB</p>
-            <p><strong>Тип:</strong> {selectedFile.type}</p>
+          <div className="file-info-preview">
+            <div className="selected-file-info">
+              <p><strong>Файл:</strong> {selectedFile.name}</p>
+              <p><strong>Размер:</strong> {formatFileSize(selectedFile.size)}</p>
+              <p><strong>Тип:</strong> {selectedFile.type}</p>
+            </div>
+            
+            {previewUrl && (
+              <div className="image-preview-container">
+                <h4>Предпросмотр:</h4>
+                <div className="image-preview-wrapper">
+                  <img 
+                    src={previewUrl} 
+                    alt="Preview" 
+                    className="image-preview"
+                    onLoad={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      if (img.naturalWidth > 500) {
+                        img.style.maxWidth = '500px';
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -173,28 +230,63 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           placeholder="Введите комментарий (необязательно)"
           rows={3}
           disabled={isUploading}
+          maxLength={500}
         />
+        <div className="comment-counter">
+          {comment.length}/500 символов
+        </div>
       </div>
 
       {isUploading && (
         <div className="upload-progress-container">
-          <div 
-            className="upload-progress-bar" 
-            style={{ width: `${uploadProgress}%` }}
-          ></div>
-          <div className="upload-progress-text">
-            Загрузка: {uploadProgress}%
+          <div className="upload-progress-bar-wrapper">
+            <div 
+              className="upload-progress-bar" 
+              style={{ width: `${uploadProgress}%` }}
+              title={`${uploadProgress}%`}
+            >
+              {uploadProgress > 10 && `${uploadProgress}%`}
+            </div>
           </div>
+          <div className="upload-progress-details">
+            <span className="progress-text">
+              {uploadProgress < 100 ? 'Загрузка...' : 'Обработка на сервере...'}
+            </span>
+            <span className="file-size">
+              ({formatFileSize(selectedFile?.size || 0)})
+            </span>
+          </div>
+          
+          {uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="upload-speed">
+              <small>Пожалуйста, не закрывайте страницу</small>
+            </div>
+          )}
         </div>
       )}
 
       {message && (
         <div className={`upload-message upload-${message.type}`}>
-          <strong>
-            {message.type === 'error' ? '❌ Ошибка:' : 
-             message.type === 'success' ? '✅ Успех:' : 
-             '⚠️ Внимание:'}
-          </strong> {message.text}
+          <div className="message-icon">
+            {message.type === 'error' ? '❌' : 
+             message.type === 'success' ? '✅' : '⚠️'}
+          </div>
+          <div className="message-content">
+            <strong>
+              {message.type === 'error' ? 'Ошибка:' : 
+               message.type === 'success' ? 'Успех:' : 'Внимание:'}
+            </strong> 
+            <span>{message.text}</span>
+          </div>
+          {message.type !== 'success' && (
+            <button 
+              className="message-close"
+              onClick={() => setMessage(null)}
+              aria-label="Закрыть"
+            >
+              ×
+            </button>
+          )}
         </div>
       )}
 
@@ -204,10 +296,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           type="button"
           onClick={handleUpload}
           disabled={isUploading || !selectedFile}
+          title={!selectedFile ? "Выберите файл для загрузки" : ""}
         >
           {isUploading ? (
             <>
-              <i className="fas fa-spinner fa-spin"></i> Загрузка...
+              <i className="fas fa-spinner fa-spin"></i> 
+              {uploadProgress < 100 ? 'Загрузка...' : 'Обработка...'}
             </>
           ) : (
             <>

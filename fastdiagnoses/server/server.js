@@ -10,10 +10,44 @@ const validator = require("validator");
 const cron = require("node-cron");
 const fs = require("fs").promises;
 const crypto = require("crypto");
+const multer = require("multer"); // ДОБАВЛЕНО
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// ==================== КОНФИГУРАЦИЯ MULTER ====================
+const upload = multer({
+  storage: multer.memoryStorage(), // Храним в памяти перед сохранением на диск
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15MB максимум
+    files: 1, // Только один файл за раз
+  },
+  fileFilter: (req, file, cb) => {
+    // Валидация MIME-типов
+    const allowedMimes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/bmp",
+      "image/webp",
+      "image/tiff",
+      "image/svg+xml",
+    ];
+
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(
+        new ValidationError(
+          `Недопустимый тип файла: ${file.mimetype}. Разрешены: JPEG, PNG, GIF, BMP, WebP, TIFF, SVG`,
+          "file"
+        )
+      );
+    }
+  },
+});
 
 // ==================== КОНФИГУРАЦИЯ ====================
 const poolConfig = {
@@ -383,26 +417,37 @@ function validateSurvey(survey) {
   return survey;
 }
 
-function validateImageBase64(base64Data, filename) {
-  if (!base64Data || typeof base64Data !== "string") {
+// ДОБАВЛЕНА функция для валидации Buffer (для multer)
+function validateImageBuffer(buffer, filename) {
+  if (!buffer || !Buffer.isBuffer(buffer)) {
     throw new ValidationError("Некорректные данные изображения", "file");
   }
 
-  if (!filename || filename.length === 0) {
+  if (!filename || filename.trim().length === 0) {
     throw new ValidationError("Имя файла обязательно", "filename");
   }
 
-  if (base64Data.length > 15 * 1024 * 1024) {
-    throw new ValidationError("Файл слишком большой (максимум 10MB)", "file");
+  if (buffer.length > 15 * 1024 * 1024) {
+    throw new ValidationError("Файл слишком большой (максимум 15MB)", "file");
   }
 
-  const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/;
-  if (!base64Regex.test(base64Data.replace(/\s/g, ""))) {
-    throw new ValidationError("Некорректный формат Base64", "file");
+  if (buffer.length === 0) {
+    throw new ValidationError("Файл пустой", "file");
   }
 
-  const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"];
-  if (!allowedExtensions.some((ext) => filename.toLowerCase().endsWith(ext))) {
+  const allowedExtensions = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".tiff",
+    ".webp",
+    ".svg",
+  ];
+  const fileExtension = path.extname(filename).toLowerCase();
+
+  if (!allowedExtensions.includes(fileExtension)) {
     throw new ValidationError(
       `Недопустимый формат файла. Разрешенные форматы: ${allowedExtensions.join(
         ", "
@@ -411,7 +456,7 @@ function validateImageBase64(base64Data, filename) {
     );
   }
 
-  return { base64Data, filename };
+  return { buffer, filename };
 }
 
 // ==================== MIDDLEWARE ====================
@@ -981,95 +1026,183 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   }
 });
 
-// 7. Загрузка изображения
-app.post("/api/images/upload", authenticateToken, async (req, res) => {
-  const login = req.user.login;
-  try {
-    const { filename, file, comment } = req.body;
+// 7. Загрузка изображения (ОБНОВЛЕННАЯ версия с Multer)
+app.post(
+  "/api/images/upload",
+  authenticateToken,
+  upload.single("image"),
+  async (req, res) => {
+    const login = req.user.login;
 
-    const validated = validateImageBase64(file, filename);
+    try {
+      console.log(
+        `📥 Получен запрос на загрузку изображения от пользователя: ${login}`
+      );
 
-    // Проверяем существование таблицы
-    const tableExists = await query(
-      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
-      [process.env.DB_DATABASE || "diagnoses", login]
-    );
+      // Проверяем, что файл был загружен через multer
+      if (!req.file) {
+        console.error("❌ Multer не обработал файл");
+        return res.status(400).json({
+          success: false,
+          message: "Файл не предоставлен или превышен размер (максимум 15MB)",
+          field: "file",
+        });
+      }
 
-    if (tableExists[0].count === 0) {
-      await createUserTable(login);
-    }
+      const { filename, comment } = req.body;
+      const file = req.file;
 
-    // Сохраняем файл на диск и получаем метаданные
-    const fileInfo = await saveImageToDisk(
-      validated.base64Data,
-      validated.filename,
-      login
-    );
+      console.log(`📄 Данные файла:`, {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+        providedFilename: filename,
+      });
 
-    // Сохраняем информацию в БД (БЕЗ Base64!)
-    await query(
-      `INSERT INTO \`${login}\` (
-        file_uuid, fileNameOriginIMG, file_path, thumbnail_path, 
-        comment, file_size, mime_type, 
-        file_hash, width, height, type
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'image')`,
-      [
-        fileInfo.fileUuid,
-        fileInfo.originalFilename,
-        fileInfo.filename,
-        fileInfo.filename,
-        comment || "",
-        fileInfo.fileSize,
-        fileInfo.mimeType,
-        fileInfo.fileHash,
-        fileInfo.width,
-        fileInfo.height,
-      ]
-    );
+      // Валидация буфера
+      const validated = validateImageBuffer(
+        file.buffer,
+        filename || file.originalname
+      );
 
-    res.json({
-      success: true,
-      message: "Изображение загружено успешно",
-      fileUuid: fileInfo.fileUuid,
-      filename: fileInfo.filename,
-      thumbnailUrl: `/uploads/${login}/thumbnails/${fileInfo.filename}`,
-      originalUrl: `/uploads/${login}/originals/${fileInfo.filename}`,
-      dimensions: {
-        width: fileInfo.width,
-        height: fileInfo.height,
-      },
-    });
-  } catch (error) {
-    console.error("Upload image error:", error);
+      // Проверяем существование таблицы пользователя
+      const tableExists = await query(
+        "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+        [process.env.DB_DATABASE || "diagnoses", login]
+      );
 
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
+      if (tableExists[0].count === 0) {
+        console.log(`📊 Создаем таблицу для пользователя: ${login}`);
+        await createUserTable(login);
+      }
+
+      // Сохраняем файл на диск и получаем метаданные
+      // Конвертируем Buffer в base64 для совместимости с существующей функцией
+      const base64Data = file.buffer.toString("base64");
+      console.log(`💾 Сохранение файла на диск...`);
+
+      const fileInfo = await saveImageToDisk(
+        base64Data,
+        validated.filename,
+        login
+      );
+
+      console.log(
+        `✅ Файл сохранен: ${fileInfo.filename} (${fileInfo.fileSize} bytes)`
+      );
+
+      // Сохраняем информацию в БД (БЕЗ Base64!)
+      await query(
+        `INSERT INTO \`${login}\` (
+          file_uuid, fileNameOriginIMG, file_path, thumbnail_path, 
+          comment, file_size, mime_type, 
+          file_hash, width, height, type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          fileInfo.fileUuid,
+          fileInfo.originalFilename,
+          fileInfo.filename,
+          fileInfo.filename,
+          comment || "",
+          fileInfo.fileSize,
+          fileInfo.mimeType,
+          fileInfo.fileHash,
+          fileInfo.width,
+          fileInfo.height,
+          "image",
+        ]
+      );
+
+      console.log(`💾 Запись добавлена в БД для пользователя: ${login}`);
+
+      res.json({
+        success: true,
+        message: "Изображение загружено успешно",
+        fileUuid: fileInfo.fileUuid,
+        filename: fileInfo.filename,
+        thumbnailUrl: `/uploads/${login}/thumbnails/${fileInfo.filename}`,
+        originalUrl: `/uploads/${login}/originals/${fileInfo.filename}`,
+        dimensions: {
+          width: fileInfo.width,
+          height: fileInfo.height,
+        },
+        uploadStats: {
+          method: "formdata",
+          originalSize: file.size,
+          processedSize: fileInfo.fileSize,
+          compressionRatio:
+            file.size > 0
+              ? (((file.size - fileInfo.fileSize) / file.size) * 100).toFixed(1)
+              : 0,
+        },
+      });
+    } catch (error) {
+      console.error("❌ Ошибка загрузки изображения:", error);
+
+      // Удаляем файлы с диска, если они были частично сохранены
+      if (req.file && login) {
+        try {
+          const { originalsDir, thumbnailsDir } = await getUserUploadDirs(
+            login
+          );
+          const tempFilename = `${Date.now()}_${req.file.originalname}`;
+          const tempPaths = [
+            path.join(originalsDir, tempFilename),
+            path.join(thumbnailsDir, tempFilename),
+          ];
+
+          for (const filePath of tempPaths) {
+            try {
+              await fs.unlink(filePath);
+            } catch (unlinkError) {
+              // Игнорируем ошибки удаления
+            }
+          }
+        } catch (cleanupError) {
+          console.warn(
+            "⚠️ Не удалось очистить временные файлы:",
+            cleanupError.message
+          );
+        }
+      }
+
+      // Обработка конкретных ошибок валидации
+      if (error.name === "ValidationError") {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+          field: error.field,
+        });
+      }
+
+      if (error.message && error.message.includes("sharp")) {
+        console.error("🔧 Ошибка Sharp:", error);
+        return res.status(500).json({
+          success: false,
+          message:
+            "Ошибка обработки изображения. Пожалуйста, попробуйте другой файл.",
+          technical:
+            process.env.NODE_ENV === "development" ? error.message : undefined,
+        });
+      }
+
+      if (error.code === "ER_NO_SUCH_TABLE") {
+        return res.status(404).json({
+          success: false,
+          message: "Таблица пользователя не найдена",
+        });
+      }
+
+      // Общая ошибка
+      res.status(500).json({
         success: false,
-        message: error.message,
-        field: error.field,
+        message: "Ошибка загрузки изображения. Попробуйте позже.",
+        technical:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
-
-    if (error.message && error.message.includes("sharp")) {
-      return res.status(500).json({
-        success: false,
-        message: "Ошибка обработки изображения. Установите библиотеку sharp.",
-      });
-    }
-
-    if (error.code === "ER_NO_SUCH_TABLE") {
-      return res.status(404).json({
-        success: false,
-        message: "Таблица пользователя не найдена",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Ошибка загрузки изображения",
-    });
   }
-});
+);
 
 // 8. Поиск диагнозов
 app.post("/api/diagnoses/search", async (req, res) => {
