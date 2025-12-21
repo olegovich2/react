@@ -1305,10 +1305,6 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
   try {
     const { uuid } = req.params;
 
-    console.log(
-      `🔍 Запрос оригинального изображения: login=${login}, uuid=${uuid}`
-    );
-
     if (!uuid) {
       return res.status(400).json({
         success: false,
@@ -1316,23 +1312,17 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
       });
     }
 
-    // ВАЖНО: заменяем ?? на прямое имя таблицы
     const sql = `SELECT 
       fileNameOriginIMG, 
       file_path,
-      file_uuid
+      file_uuid,
+      id
      FROM \`${login}\` WHERE file_uuid = ? AND fileNameOriginIMG IS NOT NULL`;
-
-    console.log(`📋 SQL: ${sql}`);
-    console.log(`📋 Параметр: ${uuid}`);
 
     // Только один параметр - uuid
     const results = await query(sql, [uuid]);
 
     if (results.length === 0) {
-      console.log(
-        `❌ Изображение с UUID ${uuid} не найдено в таблице ${login}`
-      );
       return res.status(404).json({
         success: false,
         message: "Изображение не найдено",
@@ -1340,9 +1330,6 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
     }
 
     const row = results[0];
-    console.log(
-      `✅ Найдено изображение: ${row.fileNameOriginIMG}, путь: ${row.file_path}`
-    );
 
     // Извлекаем имя файла из пути
     let filename = row.file_path || "";
@@ -1356,13 +1343,13 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
 
     try {
       await fs.access(filePath);
-      console.log(`✅ Файл существует на диске: ${filePath}`);
 
       return res.json({
         success: true,
         originalUrl: `/uploads/${login}/originals/${filename}`,
         filename: row.fileNameOriginIMG,
         fileUuid: row.file_uuid || uuid,
+        id: row.id,
       });
     } catch (fsError) {
       console.error(`❌ Файл не найден на диске: ${filePath}`, fsError);
@@ -1372,10 +1359,10 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
         const files = await fs.readdir(
           path.join(UPLOAD_DIR, login, "originals")
         );
+
         const matchingFile = files.find((file) => file.includes(uuid));
 
         if (matchingFile) {
-          console.log(`🔄 Найден файл по UUID в имени: ${matchingFile}`);
           return res.json({
             success: true,
             originalUrl: `/uploads/${login}/originals/${matchingFile}`,

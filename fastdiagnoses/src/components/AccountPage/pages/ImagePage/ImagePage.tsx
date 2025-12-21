@@ -55,7 +55,18 @@ const ImagePage: React.FC = () => {
 
   // Удаление изображения
   const handleDelete = useCallback(async () => {
-  if (!image || !image.id) return;
+    // Проверяем image на null в самом начале
+  if (!image) {
+    console.error('❌ Нет данных изображения');
+    return;
+  }
+  
+  console.log('🆔 ID изображения для удаления:', image.id);
+  
+  if (!image.id) {
+    setError('Не найден ID изображения');
+    return;
+  }
   
   if (!window.confirm(`Вы уверены, что хотите удалить изображение "${image.fileName}"?`)) {
     return;

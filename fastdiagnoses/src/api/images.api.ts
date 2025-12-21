@@ -147,45 +147,35 @@ async getImageForViewPage(uuid: string): Promise<APIResponse & {
       success: boolean;
       originalUrl?: string;
       filename?: string;
-      message?: string;
+      fileUuid?: string;
+      id?: number;      
     }>(`/images/original/${uuid}`);
     
     if (originalResponse.success && originalResponse.data) {
-      // Пытаемся найти это изображение в списке (чтобы получить полную информацию)
-      const paginatedResponse = await getPaginatedImages({ page: 1, limit: 1000 });
+      const responseData = originalResponse.data;
+      console.log(responseData.id, originalResponse.data, '----------- originalResponse.data');
       
-      if (paginatedResponse.success && paginatedResponse.data) {
-        // Ищем изображение по UUID или по имени файла
-        const foundImage = paginatedResponse.data.images.find((img: UploadedImage) => 
-  img.fileUuid === uuid || 
-  (img.fileName && originalResponse.data?.filename && 
-   img.fileName.includes(originalResponse.data.filename))
-);
-        
-        if (foundImage) {
-          // Обновляем URL с оригинальным
-          foundImage.originalUrl = originalResponse.data.originalUrl || foundImage.originalUrl;
-          
-          return {
-            success: true,
-            data: foundImage,
-          };
-        }
-      }
       
-      // Если не нашли в списке, создаем минимальный объект
+      // Формируем объект UploadedImage на основе полученных данных
+      const imageData: UploadedImage = {
+        id: responseData.id || 0, // ID не возвращается в текущем эндпоинте
+        fileUuid: responseData.fileUuid || uuid,
+        fileName: responseData.filename || 'Изображение',
+        originalUrl: responseData.originalUrl || '',
+        thumbnailUrl: responseData.thumbnailUrl || responseData.originalUrl || '',
+        comment: responseData.comment || '',
+        fileSize: responseData.fileSize || 0,
+        dimensions: responseData.dimensions || 
+                   (responseData.width && responseData.height ? 
+                    `${responseData.width}x${responseData.height}` : null),
+        created_at: responseData.created_at || new Date().toISOString(),
+        isFileOnDisk: true,
+        storedFilename: responseData.storedFilename || responseData.filename || ''
+      };
+      
       return {
         success: true,
-        data: {
-          id: 0, // временно 0, пока не найдем в БД
-          fileUuid: uuid,
-          fileName: originalResponse.data.filename || 'Изображение',
-          originalUrl: originalResponse.data.originalUrl,
-          thumbnailUrl: originalResponse.data.originalUrl,
-          comment: '',
-          isFileOnDisk: true,
-          storedFilename: originalResponse.data.filename
-        }
+        data: imageData,
       };
     }
     
@@ -299,22 +289,55 @@ async getImageForViewPage(uuid: string): Promise<APIResponse & {
   /**
    * Скачивание изображения
    */
-  async downloadImage(image: UploadedImage): Promise<void> {
-    try {
-      const imageUrl = imagesApi.getImageUrl(image);
-      if (!imageUrl) {
-        throw new Error('Нет данных для скачивания изображения');
-      }
-
-      // Для файловых URL открываем в новой вкладке
-      window.open(imageUrl, '_blank');
-      
-      console.log(`✅ Изображение "${image.fileName}" скачивается`);
-    } catch (error) {
-      console.error('❌ Ошибка при скачивании изображения:', error);
-      throw error;
+  /**
+ * Скачивание изображения
+ */
+async downloadImage(image: UploadedImage): Promise<void> {
+  try {
+    if (!image || !image.originalUrl) {
+      throw new Error('Нет данных изображения или URL для скачивания');
     }
+
+    // Преобразуем относительный URL в абсолютный если нужно
+    let downloadUrl = image.originalUrl;
+    
+    if (downloadUrl.startsWith('/')) {
+      // Относительный путь → делаем абсолютным
+      downloadUrl = window.location.origin + downloadUrl;
+    }
+        
+    // Создаем временную ссылку с атрибутом download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    
+    // Устанавливаем имя файла для скачивания
+    const fileName = image.fileName || 
+                    (image.storedFilename ? 
+                     image.storedFilename.split('/').pop() : 'image.jpg') || 
+                    'image.jpg';
+    
+    // ВАЖНО: атрибут download заставляет браузер скачивать файл
+    link.download = fileName;
+    link.setAttribute('download', fileName);
+    
+    // Дополнительные атрибуты для безопасности
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    
+    // Добавляем в DOM и кликаем
+    document.body.appendChild(link);
+    link.click();
+    
+    // Убираем ссылку из DOM
+    setTimeout(() => {
+      document.body.removeChild(link);
+    }, 100);
+    
+  } catch (error) {
+    console.error('❌ Ошибка при скачивании изображения:', error);
+    throw error;
   }
+}
 };
 
 // Вспомогательная функция
