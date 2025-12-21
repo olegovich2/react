@@ -4,13 +4,12 @@ const cors = require("cors");
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const sharp = require("sharp");
 const nodemailer = require("nodemailer");
 const validator = require("validator");
 const cron = require("node-cron");
 const fs = require("fs").promises;
 const crypto = require("crypto");
-const multer = require("multer"); // ДОБАВЛЕНО
+const multer = require("multer");
 require("dotenv").config();
 
 const app = express();
@@ -49,6 +48,263 @@ const upload = multer({
   },
 });
 
+// ==================== КОНФИГУРАЦИЯ WORKER POOL ====================
+const { Worker } = require("worker_threads");
+const WORKER_COUNT = parseInt(process.env.IMAGE_WORKERS) || 2;
+
+class WorkerPool {
+  constructor() {
+    this.workers = [];
+    this.queue = [];
+    this.initialized = false;
+    this.taskCounter = 0;
+  }
+
+  async initWorkers() {
+    // Если уже инициализирован - не делаем снова
+    if (this.initialized) {
+      console.log("⚠️ Worker pool уже инициализирован");
+      return;
+    }
+
+    console.log(`🔄 Инициализация пула из ${WORKER_COUNT} воркеров...`);
+
+    // Абсолютный путь к worker файлу
+    const workerPath = path.join(__dirname, "workers", "image-worker.js");
+
+    // Проверяем существование worker файла
+    try {
+      await fs.access(workerPath);
+      console.log(`✅ Worker файл найден: ${workerPath}`);
+    } catch (error) {
+      console.error(`❌ Worker файл не найден: ${workerPath}`);
+      throw new Error(`Worker файл не найден: ${workerPath}`);
+    }
+
+    for (let i = 0; i < WORKER_COUNT; i++) {
+      try {
+        const worker = new Worker(workerPath, {
+          workerData: { workerId: i },
+        });
+
+        worker.on("message", (result) => {
+          // Находим worker по объекту
+          const workerIndex = this.workers.findIndex(
+            (w) => w.worker === worker
+          );
+          if (workerIndex !== -1) {
+            const workerObj = this.workers[workerIndex];
+            workerObj.busy = false;
+            workerObj.currentTask = null;
+
+            // Вызываем коллбек если есть
+            if (workerObj.currentCallback) {
+              workerObj.currentCallback(result);
+              workerObj.currentCallback = null;
+            }
+          }
+
+          // Обрабатываем очередь
+          this.processQueue();
+        });
+
+        worker.on("error", (error) => {
+          console.error(`❌ Worker ${i} ошибка:`, error.message);
+          const workerIndex = this.workers.findIndex(
+            (w) => w.worker === worker
+          );
+          if (workerIndex !== -1) {
+            const workerObj = this.workers[workerIndex];
+            workerObj.busy = false;
+            workerObj.currentTask = null;
+
+            if (workerObj.currentCallback) {
+              workerObj.currentCallback({
+                success: false,
+                error: `Worker ошибка: ${error.message}`,
+                workerId: i,
+              });
+              workerObj.currentCallback = null;
+            }
+          }
+          this.processQueue();
+        });
+
+        worker.on("exit", (code) => {
+          console.log(`ℹ️ Worker ${i} завершился с кодом ${code}`);
+          const workerIndex = this.workers.findIndex(
+            (w) => w.worker === worker
+          );
+          if (workerIndex !== -1) {
+            this.workers.splice(workerIndex, 1);
+          }
+        });
+
+        worker.on("online", () => {
+          console.log(`✅ Worker ${i} запущен и готов`);
+        });
+
+        this.workers.push({
+          id: i,
+          worker,
+          busy: false,
+          currentCallback: null,
+          currentTask: null,
+        });
+      } catch (workerError) {
+        console.error(
+          `❌ Не удалось создать worker ${i}:`,
+          workerError.message
+        );
+      }
+    }
+
+    this.initialized = true;
+    console.log(`✅ Пул из ${this.workers.length} воркеров готов`);
+    console.log(`📊 Доступно worker'ов: ${this.workers.length}`);
+  }
+
+  processQueue() {
+    if (this.queue.length === 0) return;
+
+    const freeWorkerIndex = this.workers.findIndex((w) => !w.busy);
+    if (freeWorkerIndex === -1) return;
+
+    const task = this.queue.shift();
+    const worker = this.workers[freeWorkerIndex];
+
+    worker.busy = true;
+    worker.currentCallback = task.callback;
+    worker.currentTask = task.data.fileUuid;
+
+    try {
+      // Добавляем timestamp для отслеживания времени обработки
+      const taskWithTimestamp = {
+        ...task.data,
+        timestamp: Date.now(),
+        taskId: ++this.taskCounter,
+      };
+
+      worker.worker.postMessage(taskWithTimestamp);
+      console.log(
+        `📤 Задача ${taskWithTimestamp.taskId} отправлена worker ${worker.id} (${taskWithTimestamp.fileUuid})`
+      );
+    } catch (error) {
+      console.error(`❌ Ошибка отправки задачи worker ${worker.id}:`, error);
+      worker.busy = false;
+      worker.currentCallback = null;
+      worker.currentTask = null;
+
+      // Возвращаем задачу в начало очереди
+      this.queue.unshift(task);
+    }
+  }
+
+  addTask(data) {
+    return new Promise((resolve) => {
+      const taskId = ++this.taskCounter;
+      const task = {
+        data: {
+          ...data,
+          taskId,
+          timestamp: Date.now(),
+        },
+        callback: resolve,
+      };
+
+      // Ищем свободного worker'а
+      const freeWorkerIndex = this.workers.findIndex((w) => !w.busy);
+
+      if (freeWorkerIndex !== -1) {
+        const worker = this.workers[freeWorkerIndex];
+        worker.busy = true;
+        worker.currentCallback = resolve;
+        worker.currentTask = data.fileUuid;
+
+        try {
+          worker.worker.postMessage(task.data);
+          console.log(
+            `📤 Задача ${taskId} отправлена напрямую worker ${worker.id} (${data.fileUuid})`
+          );
+        } catch (error) {
+          console.error(`❌ Ошибка отправки worker ${worker.id}:`, error);
+          worker.busy = false;
+          worker.currentCallback = null;
+          worker.currentTask = null;
+
+          // Добавляем в очередь
+          this.queue.push(task);
+          console.log(
+            `📝 Задача ${taskId} добавлена в очередь. Размер очереди: ${this.queue.length}`
+          );
+        }
+      } else {
+        // Все worker'ы заняты - добавляем в очередь
+        this.queue.push(task);
+        console.log(
+          `📝 Задача ${taskId} добавлена в очередь. Размер очереди: ${this.queue.length}`
+        );
+      }
+    });
+  }
+
+  getStats() {
+    const busyWorkers = this.workers.filter((w) => w.busy).length;
+    const currentTasks = this.workers.map((w) => w.currentTask).filter(Boolean);
+
+    return {
+      total: this.workers.length,
+      busy: busyWorkers,
+      available: this.workers.length - busyWorkers,
+      queue: this.queue.length,
+      currentTasks,
+      initialized: this.initialized,
+      totalProcessed: this.taskCounter,
+    };
+  }
+
+  async shutdown() {
+    console.log("🛑 Завершение работы пула worker'ов...");
+
+    // Отменяем все задачи в очереди
+    this.queue = [];
+
+    // Завершаем всех worker'ов
+    const terminationPromises = this.workers.map(async (workerObj) => {
+      try {
+        console.log(`🛑 Завершение worker ${workerObj.id}...`);
+        await workerObj.worker.terminate();
+        console.log(`✅ Worker ${workerObj.id} завершен`);
+      } catch (error) {
+        console.error(
+          `❌ Ошибка завершения worker ${workerObj.id}:`,
+          error.message
+        );
+      }
+    });
+
+    await Promise.allSettled(terminationPromises);
+
+    this.workers = [];
+    this.initialized = false;
+    console.log("✅ Пул worker'ов завершен");
+  }
+
+  // Метод для проверки состояния воркеров
+  healthCheck() {
+    const stats = this.getStats();
+    const healthStatus = {
+      status: stats.total > 0 ? "healthy" : "unhealthy",
+      ...stats,
+      timestamp: new Date().toISOString(),
+    };
+
+    return healthStatus;
+  }
+}
+
+const workerPool = new WorkerPool();
+
 // ==================== КОНФИГУРАЦИЯ ====================
 const poolConfig = {
   connectionLimit: 10,
@@ -65,8 +321,6 @@ const MAX_USERS_PER_EMAIL = 4;
 
 // Пути для файлов
 const UPLOAD_DIR = path.join(__dirname, "UploadIMG");
-const THUMBNAIL_WIDTH = 300;
-const THUMBNAIL_HEIGHT = 300;
 
 const transporter = nodemailer.createTransport({
   service: "Gmail",
@@ -103,59 +357,6 @@ async function ensureUserUploadDirs(login) {
   await fs.mkdir(thumbnailsDir, { recursive: true });
 
   return { originalsDir, thumbnailsDir };
-}
-
-async function saveImageToDisk(base64Data, originalFilename, login) {
-  const fileUuid = crypto.randomUUID();
-  const { originalsDir, thumbnailsDir } = await ensureUserUploadDirs(login);
-
-  // Генерируем уникальное имя с UUID
-  const extension = path.extname(originalFilename).toLowerCase() || ".jpg";
-  const baseName = path.basename(originalFilename, extension);
-
-  // Используем UUID в имени файла
-  const filename = `${fileUuid}_${baseName}${extension}`;
-
-  // Сохраняем оригинальное изображение
-  const originalPath = path.join(originalsDir, filename);
-  const buffer = Buffer.from(base64Data, "base64");
-  await fs.writeFile(originalPath, buffer);
-
-  // Создаем и сохраняем превью
-  const thumbnailPath = path.join(thumbnailsDir, filename);
-
-  try {
-    const thumbnailBuffer = await sharp(buffer)
-      .resize(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, {
-        fit: sharp.fit.inside,
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: 80 })
-      .toBuffer();
-
-    await fs.writeFile(thumbnailPath, thumbnailBuffer);
-  } catch (error) {
-    console.warn(
-      "Не удалось создать превью, используем оригинал:",
-      error.message
-    );
-    await fs.copyFile(originalPath, thumbnailPath);
-  }
-
-  // Получаем метаданные
-  const metadata = await sharp(buffer).metadata();
-  const fileStats = await fs.stat(originalPath);
-
-  return {
-    fileUuid,
-    filename,
-    originalFilename,
-    fileSize: fileStats.size,
-    width: metadata.width,
-    height: metadata.height,
-    mimeType: `image/${metadata.format || "jpeg"}`,
-    fileHash: crypto.createHash("sha256").update(buffer).digest("hex"),
-  };
 }
 
 async function deleteImageFromDisk(fileUuid, login) {
@@ -591,6 +792,24 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
     version: "2.0.0",
     features: ["file-system-storage", "uuid-filenames"],
+  });
+});
+
+// Добавляем мониторинг (опционально)
+app.get("/api/admin/workers-stats", async (req, res) => {
+  // Только для админа или разработки
+  if (
+    process.env.NODE_ENV !== "development" &&
+    req.headers["x-admin-key"] !== process.env.ADMIN_KEY
+  ) {
+    return res.status(403).json({ success: false, message: "Доступ запрещен" });
+  }
+
+  res.json({
+    success: true,
+    workers: workerPool.getStats(),
+    memory: process.memoryUsage(),
+    uptime: process.uptime(),
   });
 });
 
@@ -1033,15 +1252,15 @@ app.post(
   upload.single("image"),
   async (req, res) => {
     const login = req.user.login;
-
+    const startTime = Date.now();
+    let fileUuid = "";
     try {
-      console.log(
-        `📥 Получен запрос на загрузку изображения от пользователя: ${login}`
-      );
+      console.log(`📥 Загрузка изображения от ${login}`, {
+        filename: req.file?.originalname,
+        size: (req.file?.size / 1024 / 1024).toFixed(2) + " MB",
+      });
 
-      // Проверяем, что файл был загружен через multer
       if (!req.file) {
-        console.error("❌ Multer не обработал файл");
         return res.status(400).json({
           success: false,
           message: "Файл не предоставлен или превышен размер (максимум 15MB)",
@@ -1052,121 +1271,108 @@ app.post(
       const { filename, comment } = req.body;
       const file = req.file;
 
-      console.log(`📄 Данные файла:`, {
-        originalname: file.originalname,
-        mimetype: file.mimetype,
-        size: (file.size / 1024 / 1024).toFixed(2) + " MB",
-        providedFilename: filename,
-      });
-
-      // Валидация буфера
+      // Валидация
       const validated = validateImageBuffer(
         file.buffer,
         filename || file.originalname
       );
 
-      // Проверяем существование таблицы пользователя
+      // Проверяем/создаем таблицу пользователя
       const tableExists = await query(
         "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
         [process.env.DB_DATABASE || "diagnoses", login]
       );
 
       if (tableExists[0].count === 0) {
-        console.log(`📊 Создаем таблицу для пользователя: ${login}`);
         await createUserTable(login);
       }
 
-      // Сохраняем файл на диск и получаем метаданные
-      // Конвертируем Buffer в base64 для совместимости с существующей функцией
-      const base64Data = file.buffer.toString("base64");
-      console.log(`💾 Сохранение файла на диск...`);
+      fileUuid = crypto.randomUUID();
 
-      const fileInfo = await saveImageToDisk(
-        base64Data,
-        validated.filename,
-        login
-      );
+      // СОЗДАЕМ ПРЕВЬЮ ЧЕРЕЗ WORKER
+      console.log(`🔄 Отправка задачи в воркер: ${fileUuid}`);
+
+      const workerResult = await workerPool.addTask({
+        buffer: file.buffer,
+        originalFilename: validated.filename,
+        userDir: path.join(UPLOAD_DIR, login),
+        fileUuid,
+      });
+
+      const workerTime = Date.now() - startTime;
+
+      if (!workerResult.success) {
+        throw new Error(`Worker ошибка: ${workerResult.error}`);
+      }
 
       console.log(
-        `✅ Файл сохранен: ${fileInfo.filename} (${fileInfo.fileSize} bytes)`
+        `✅ Worker обработал за ${workerTime}ms:`,
+        workerResult.filename
       );
 
-      // Сохраняем информацию в БД (БЕЗ Base64!)
+      // Сохраняем информацию в БД
       await query(
         `INSERT INTO \`${login}\` (
-          file_uuid, fileNameOriginIMG, file_path, thumbnail_path, 
-          comment, file_size, mime_type, 
-          file_hash, width, height, type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        file_uuid, fileNameOriginIMG, file_path, thumbnail_path, 
+        comment, file_size, mime_type, 
+        file_hash, width, height, type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          fileInfo.fileUuid,
-          fileInfo.originalFilename,
-          fileInfo.filename,
-          fileInfo.filename,
+          fileUuid,
+          workerResult.originalFilename,
+          workerResult.filename,
+          workerResult.filename,
           comment || "",
-          fileInfo.fileSize,
-          fileInfo.mimeType,
-          fileInfo.fileHash,
-          fileInfo.width,
-          fileInfo.height,
+          workerResult.fileSize,
+          workerResult.mimeType,
+          workerResult.fileHash,
+          workerResult.width,
+          workerResult.height,
           "image",
         ]
       );
 
-      console.log(`💾 Запись добавлена в БД для пользователя: ${login}`);
+      const totalTime = Date.now() - startTime;
+
+      console.log(`✅ Изображение полностью обработано за ${totalTime}ms`);
+      console.log(`📊 Статистика воркеров:`, workerPool.getStats());
 
       res.json({
         success: true,
         message: "Изображение загружено успешно",
-        fileUuid: fileInfo.fileUuid,
-        filename: fileInfo.filename,
-        thumbnailUrl: `/uploads/${login}/thumbnails/${fileInfo.filename}`,
-        originalUrl: `/uploads/${login}/originals/${fileInfo.filename}`,
+        fileUuid,
+        filename: workerResult.filename,
+        thumbnailUrl: `/uploads/${login}/thumbnails/${workerResult.filename}`,
+        originalUrl: `/uploads/${login}/originals/${workerResult.filename}`,
         dimensions: {
-          width: fileInfo.width,
-          height: fileInfo.height,
+          width: workerResult.width,
+          height: workerResult.height,
         },
-        uploadStats: {
-          method: "formdata",
-          originalSize: file.size,
-          processedSize: fileInfo.fileSize,
-          compressionRatio:
-            file.size > 0
-              ? (((file.size - fileInfo.fileSize) / file.size) * 100).toFixed(1)
-              : 0,
+        processingStats: {
+          workerTime: `${workerTime}ms`,
+          totalTime: `${totalTime}ms`,
+          fallbackUsed: workerResult.fallback || false,
         },
       });
     } catch (error) {
       console.error("❌ Ошибка загрузки изображения:", error);
 
-      // Удаляем файлы с диска, если они были частично сохранены
+      // Очищаем временные файлы
       if (req.file && login) {
         try {
-          const { originalsDir, thumbnailsDir } = await getUserUploadDirs(
-            login
-          );
-          const tempFilename = `${Date.now()}_${req.file.originalname}`;
-          const tempPaths = [
-            path.join(originalsDir, tempFilename),
-            path.join(thumbnailsDir, tempFilename),
-          ];
+          const userDir = path.join(UPLOAD_DIR, login);
+          const filesToDelete = await fs.readdir(userDir).catch(() => []);
 
-          for (const filePath of tempPaths) {
-            try {
-              await fs.unlink(filePath);
-            } catch (unlinkError) {
-              // Игнорируем ошибки удаления
+          for (const file of filesToDelete) {
+            if (file.includes(fileUuid)) {
+              await fs.unlink(path.join(userDir, file)).catch(() => {});
             }
           }
         } catch (cleanupError) {
-          console.warn(
-            "⚠️ Не удалось очистить временные файлы:",
-            cleanupError.message
-          );
+          console.warn("⚠️ Ошибка очистки:", cleanupError.message);
         }
       }
 
-      // Обработка конкретных ошибок валидации
       if (error.name === "ValidationError") {
         return res.status(400).json({
           success: false,
@@ -1175,25 +1381,6 @@ app.post(
         });
       }
 
-      if (error.message && error.message.includes("sharp")) {
-        console.error("🔧 Ошибка Sharp:", error);
-        return res.status(500).json({
-          success: false,
-          message:
-            "Ошибка обработки изображения. Пожалуйста, попробуйте другой файл.",
-          technical:
-            process.env.NODE_ENV === "development" ? error.message : undefined,
-        });
-      }
-
-      if (error.code === "ER_NO_SUCH_TABLE") {
-        return res.status(404).json({
-          success: false,
-          message: "Таблица пользователя не найдена",
-        });
-      }
-
-      // Общая ошибка
       res.status(500).json({
         success: false,
         message: "Ошибка загрузки изображения. Попробуйте позже.",
@@ -1848,6 +2035,9 @@ async function initializeServer() {
   try {
     await ensureUploadDirs();
 
+    // ИНИЦИАЛИЗИРУЕМ POOL ПОСЛЕ СОЗДАНИЯ ДИРЕКТОРИЙ
+    await workerPool.initWorkers();
+
     app.listen(PORT, () => {
       console.log(`🚀 Сервер запущен на порту ${PORT}`);
       console.log(`⏰ Текущее время сервера: ${new Date().toLocaleString()}`);
@@ -1859,5 +2049,29 @@ async function initializeServer() {
     process.exit(1);
   }
 }
+
+// ==================== GRACEFUL SHUTDOWN HANDLERS ====================
+process.on("SIGTERM", async () => {
+  console.log("🛑 Получен SIGTERM, завершаю работу...");
+  await workerPool.shutdown();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  console.log("🛑 Получен SIGINT, завершаю работу...");
+  await workerPool.shutdown();
+  process.exit(0);
+});
+
+process.on("uncaughtException", async (error) => {
+  console.error("💥 Необработанное исключение:", error);
+  await workerPool.shutdown();
+  process.exit(1);
+});
+
+process.on("unhandledRejection", async (reason, promise) => {
+  console.error("💥 Необработанный промис:", reason);
+  // Не выходим сразу, но логируем
+});
 
 initializeServer();
