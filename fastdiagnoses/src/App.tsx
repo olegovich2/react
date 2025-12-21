@@ -43,6 +43,9 @@ const ImagePage = lazy(
 const SurveyPage = lazy(
   () => import("./components/AccountPage/pages/SurveyPage/SurveyPage")
 );
+const SettingsPage = lazy(
+  () => import("./components/AccountPage/pages/SettingsPage/SettingsPage")
+);
 
 // Компонент для защищенных маршрутов
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
@@ -193,12 +196,15 @@ const App: React.FC = () => {
             >
               {/* Главная страница аккаунта */}
               <Route index element={<AccountPage />} />
-              
+
               {/* Просмотр опроса */}
               <Route path="survey/:id" element={<SurveyPage />} />
-              
+
               {/* Просмотр изображения */}
               <Route path="images/original/:uuid" element={<ImagePage />} />
+
+              {/* Настройки */}
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
 
             {/* Маршрут по умолчанию (404) */}

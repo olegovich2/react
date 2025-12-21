@@ -101,7 +101,6 @@ const MainPage: React.FC = () => {
       <Header 
         showAccountButton={true} 
         showExitButton={true} 
-        showBackButton={false} 
       />
       <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
       

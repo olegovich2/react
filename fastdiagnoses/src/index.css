@@ -24,23 +24,7 @@ body {
     min-height: 100vh;
 }
 
-/* ==================== HEADER ==================== */
-.header {
-    background-color: rgb(183, 222, 234);
-    padding: 0;
-    margin: 0;
-    border-bottom: 5px solid rgb(88, 96, 98);
-    display: grid;
-    grid-template-columns: 1fr 1fr 30%;
-    align-items: center;
-}
-
-.svg_param {
-    width: 50px;
-    padding: 0 10px;
-    margin: 0;
-}
-
+/* ==================== ОБЩИЕ ЗАГОЛОВКИ ==================== */
 h1 {
     padding: 5px 0;
     margin: 0;
@@ -65,52 +49,6 @@ h3 {
     text-align: center;
     color: rgb(88, 96, 98);
     font-size: 18px;
-}
-
-/* ==================== КНОПКИ ==================== */
-.buttonsLogin {
-    display: grid;
-    grid-template-columns: 45% 45%;
-    gap: 8%;
-    justify-content: end;
-    padding-right: 20px;
-}
-
-.personal_account,
-.exit_button {
-    color: rgb(88, 96, 98);
-    background-color: rgba(85, 210, 248, 0);
-    padding: 10px 15px;
-    margin: 0;
-    border: none;
-    font-size: 18px;
-    font-weight: 900;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    border-radius: 4px;
-    font-family: 'Montserrat', sans-serif;
-}
-
-.personal_account i,
-.exit_button i {
-    margin-right: 5px;
-}
-
-.personal_account:hover,
-.personal_account:focus,
-.exit_button:hover,
-.exit_button:focus,
-.navlist li:hover,
-.navlist li:focus,
-.navlist li:active,
-.buttonFromAnamnesis:hover,
-.buttonFromAnamnesis:active,
-.buttonFromTemplate:hover,
-.buttonFromTemplate:active,
-.buttonFromTemplateTwo:hover,
-.buttonFromTemplateTwo:active {
-    color: rgb(183, 222, 234) !important;
-    background-color: rgb(88, 96, 98) !important;
 }
 
 /* ==================== NAVBAR ==================== */
@@ -168,152 +106,6 @@ h3 {
     flex: 1;
 }
 
-/* ==================== ФОРМЫ ==================== */
-.formForAuth,
-.formforEntry {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 15px;
-    margin: 0;
-    padding: 0;
-}
-
-.fields {
-    display: grid;
-    grid-template-columns: 20% 40% 1fr;
-    gap: 15px;
-    margin: 15px 0;
-    align-items: center;
-}
-
-.input_length {
-    width: 100%;
-}
-
-.input {
-    height: 40px;
-    margin: 10px 0;
-    border: 2px solid rgb(88, 96, 98);
-    border-radius: 4px;
-    padding: 0 10px;
-    font-size: 16px;
-    font-family: 'Montserrat', sans-serif;
-    background-color: white;
-}
-
-.input:hover,
-.input:focus {
-    background-color: rgba(111, 183, 245, 0.692);
-    transition: all 0.3s ease;
-    outline: none;
-}
-
-/* ==================== ОБЩИЕ КНОПКИ ФОРМ ==================== */
-.buttonFromAnamnesis {
-    color: black;
-    background-color: rgb(184, 198, 202);
-    padding: 12px 24px;
-    margin: 15px;
-    border: none;
-    border-radius: 4px;
-    border: 2px solid black;
-    font-size: 16px;
-    font-weight: 900;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    font-family: 'Montserrat', sans-serif;
-}
-
-.buttonFromTemplate {
-    color: black;
-    background-color: rgba(85, 210, 248, 0);
-    padding: 10px 20px;
-    margin: 10px;
-    border: none;
-    border-radius: 4px;
-    border: 2px solid black;
-    font-size: 16px;
-    font-weight: 900;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    font-family: 'Montserrat', sans-serif;
-}
-
-.buttonFromTemplateTwo {
-    color: black;
-    background-color: rgba(255, 255, 255, 0.536);
-    padding: 10px 20px;
-    margin: 10px;
-    border: none;
-    border-radius: 4px;
-    border: 2px solid black;
-    font-size: 16px;
-    font-weight: 900;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    font-family: 'Montserrat', sans-serif;
-}
-
-/* Старый прогресс бар (для совместимости) */
-.progress-bar {
-    width: 100%;
-    height: 30px;
-    background-color: #f3f3f3;
-    position: relative;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.progress-bar-inner {
-    height: 100%;
-    width: 0;
-    background-color: #4caf50;
-    position: absolute;
-    transition: width 0.3s ease;
-}
-
-/* Стили для валидации */
-.errors {
-    border: 2px solid red !important;
-}
-
-.errors_p {
-    padding: 10px;
-    color: red;
-    font-weight: 900;
-}
-
-.success {
-    border: 2px solid green !important;
-}
-
-.simply {
-    border: 2px solid rgb(154, 13, 248) !important;
-}
-
-.medium {
-    border: 2px solid rgb(1, 118, 150) !important;
-}
-
-.simply_p {
-    padding: 10px;
-    color: rgb(154, 13, 248);
-    font-weight: 900;
-}
-
-.medium_p {
-    padding: 10px;
-    color: rgb(1, 118, 150);
-    font-weight: 900;
-}
-
-.success_p {
-    padding: 10px;
-    color: green;
-    font-weight: 900;
-}
-
 /* ==================== FOOTER ==================== */
 .footer {
     background-color: rgb(183, 222, 234);
@@ -331,57 +123,20 @@ h3 {
     font-weight: 900;
 }
 
-/* ==================== АДАПТИВНОСТЬ ==================== */
+/* ==================== АДАПТИВНОСТЬ (общая) ==================== */
 @media (max-width: 768px) {
-    .header {
-        grid-template-columns: auto 1fr auto;
-    }
-    
-    .buttonsLogin {
-        grid-template-columns: 1fr 1fr;
-        gap: 5px;
-        padding-right: 10px;
-    }
-    
     .navlist {
         grid-template-columns: 1fr;
-    }
-    
-    .fields {
-        grid-template-columns: 1fr;
-        gap: 10px;
     }
     
     h1 {
         font-size: 20px;
     }
-    
-    .personal_account,
-    .exit_button {
-        font-size: 16px;
-        padding: 8px 12px;
-    }
 }
 
 @media (max-width: 480px) {
-    .header {
-        grid-template-columns: auto 1fr;
-    }
-    
-    .buttonsLogin {
-        grid-template-columns: 1fr;
-        padding-right: 5px;
-    }
-    
     .navlist li {
         padding: 15px;
-        font-size: 14px;
-    }
-    
-    .buttonFromTemplate,
-    .buttonFromTemplateTwo,
-    .buttonFromAnamnesis {
-        padding: 10px 15px;
         font-size: 14px;
     }
     
@@ -463,21 +218,12 @@ h3 {
     gap: 20px;
 }
 
-/* ==================== АНИМАЦИИ ==================== */
+/* ==================== АНИМАЦИИ (общие) ==================== */
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
 }
 
-@keyframes slideIn {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
 .fade-in {
     animation: fadeIn 0.3s ease-in;
-}
-
-.slide-in {
-    animation: slideIn 0.3s ease-out;
 }

@@ -1,0 +1,276 @@
+/* LoginPage.css - Специфичные стили для страницы входа */
+
+/* Баннер изменения пароля */
+.password-change-banner {
+    background: linear-gradient(135deg, #c6f6d5, #9ae6b4);
+    border: 2px solid #38a169;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    animation: slideIn 0.5s ease-out;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.banner-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+.banner-content {
+    flex: 1;
+}
+
+.banner-content h3 {
+    color: #22543d;
+    margin-top: 0;
+    margin-bottom: 10px;
+    text-align: left;
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.banner-content p {
+    color: #2d3748;
+    margin-bottom: 15px;
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.banner-instructions {
+    background-color: rgba(255, 255, 255, 0.5);
+    padding: 10px;
+    border-radius: 6px;
+    border-left: 3px solid #38a169;
+}
+
+.banner-instructions p {
+    margin: 0 0 8px 0;
+    font-weight: 600;
+    color: #22543d;
+}
+
+.banner-instructions ol {
+    margin: 0 0 0 20px;
+    padding: 0;
+}
+
+.banner-instructions li {
+    margin-bottom: 5px;
+    color: #2d3748;
+    font-size: 14px;
+}
+
+.banner-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #38a169;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.banner-close:hover {
+    background-color: rgba(56, 161, 105, 0.1);
+}
+
+/* Формы для страницы входа */
+.formForAuth,
+.formforEntry {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin: 0;
+    padding: 0;
+}
+
+.fields {
+    display: grid;
+    grid-template-columns: 20% 40% 1fr;
+    gap: 15px;
+    margin: 15px 0;
+    align-items: center;
+}
+
+.input_length {
+    width: 100%;
+}
+
+.input {
+    height: 40px;
+    margin: 10px 0;
+    border: 2px solid rgb(88, 96, 98);
+    border-radius: 4px;
+    padding: 0 10px;
+    font-size: 16px;
+    font-family: 'Montserrat', sans-serif;
+    background-color: white;
+}
+
+.input:hover,
+.input:focus {
+    background-color: rgba(111, 183, 245, 0.692);
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+/* Кнопки форм для страницы входа */
+.buttonFromAnamnesis {
+    color: black;
+    background-color: rgb(184, 198, 202);
+    padding: 12px 24px;
+    margin: 15px;
+    border: none;
+    border-radius: 4px;
+    border: 2px solid black;
+    font-size: 16px;
+    font-weight: 900;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.buttonFromTemplate {
+    color: black;
+    background-color: rgba(85, 210, 248, 0);
+    padding: 10px 20px;
+    margin: 10px;
+    border: none;
+    border-radius: 4px;
+    border: 2px solid black;
+    font-size: 16px;
+    font-weight: 900;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.buttonFromTemplateTwo {
+    color: black;
+    background-color: rgba(255, 255, 255, 0.536);
+    padding: 10px 20px;
+    margin: 10px;
+    border: none;
+    border-radius: 4px;
+    border: 2px solid black;
+    font-size: 16px;
+    font-weight: 900;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* Стили для валидации (для LoginPage) */
+.errors {
+    border: 2px solid red !important;
+}
+
+.errors_p {
+    padding: 10px;
+    color: red;
+    font-weight: 900;
+}
+
+.success {
+    border: 2px solid green !important;
+}
+
+.simply {
+    border: 2px solid rgb(154, 13, 248) !important;
+}
+
+.medium {
+    border: 2px solid rgb(1, 118, 150) !important;
+}
+
+.simply_p {
+    padding: 10px;
+    color: rgb(154, 13, 248);
+    font-weight: 900;
+}
+
+.medium_p {
+    padding: 10px;
+    color: rgb(1, 118, 150);
+    font-weight: 900;
+}
+
+.success_p {
+    padding: 10px;
+    color: green;
+    font-weight: 900;
+}
+
+/* Адаптивность для LoginPage */
+@media (max-width: 768px) {
+    .fields {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .password-change-banner {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 15px;
+    }
+    
+    .banner-icon {
+        margin-bottom: 10px;
+    }
+    
+    .banner-content h3 {
+        text-align: center;
+    }
+    
+    .banner-instructions {
+        text-align: left;
+    }
+    
+    .banner-close {
+        top: 5px;
+        right: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .buttonFromTemplate,
+    .buttonFromTemplateTwo,
+    .buttonFromAnamnesis {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+}
+
+/* Анимации для LoginPage */
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}

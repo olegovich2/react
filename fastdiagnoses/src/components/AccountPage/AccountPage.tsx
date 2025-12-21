@@ -24,7 +24,7 @@ const AccountPageContent: React.FC = () => {
 
   return (
     <div className="general" data-main="mainElement">
-      <Header showBackButton={true} />
+      <Header showBackButton={true} showSettingsButton={true}/>
 
       <main className="general">
         <div className="mainAccount">

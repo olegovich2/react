@@ -1,9 +1,39 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import Footer from '../components/Layout/Footer';
 import LoginForm from '../components/Auth/LoginForm';
+import './LoginPage.css';
 
 const LoginPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+
+  useEffect(() => {
+    // Проверяем параметры URL
+    const searchParams = new URLSearchParams(location.search);
+    const changed = searchParams.get('passwordChanged') === 'true';
+    const sent = searchParams.get('emailSent') === 'true';
+    
+    if (changed) {
+      setPasswordChanged(true);
+      setEmailSent(sent);
+      
+      // Очищаем URL от параметров (чтобы при обновлении страницы баннер не показывался снова)
+      navigate(location.pathname, { replace: true });
+      
+      // Автоматически скрываем сообщение через 30 секунд
+      const timer = setTimeout(() => {
+        setPasswordChanged(false);
+        setEmailSent(false);
+      }, 30000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location, navigate]);
+
   const handleLoginSuccess = () => {
     console.log('Вход выполнен успешно');
   };
@@ -12,11 +42,45 @@ const LoginPage: React.FC = () => {
     console.error('Ошибка входа:', message);
   };
 
+  const handleCloseBanner = () => {
+    setPasswordChanged(false);
+    setEmailSent(false);
+  };
+
   return (
     <div className="main" data-main="mainElement">
-      <Header showBackButton={false} />
+      <Header showBackButton={true} />
       
       <main className="main">
+        {/* Баннер с информацией об изменении пароля */}
+        {passwordChanged && (
+          <div className="password-change-banner">
+            <div className="banner-icon">🔐</div>
+            <div className="banner-content">
+              <h3>Пароль успешно изменен!</h3>
+              <p>
+                {emailSent 
+                  ? '📧 На вашу почту отправлено уведомление. Введите НОВЫЙ пароль в поле ниже.'
+                  : 'Введите НОВЫЙ пароль в поле ниже.'}
+              </p>
+              <div className="banner-instructions">
+                <p><strong>Что делать:</strong></p>
+                <ol>
+                  <li>Введите новый пароль (старый больше не работает)</li>
+                  <li>Сохраните пароль в менеджере паролей</li>
+                </ol>
+              </div>
+            </div>
+            <button 
+              className="banner-close"
+              onClick={handleCloseBanner}
+              aria-label="Закрыть сообщение"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <LoginForm 
           onSuccess={handleLoginSuccess}
           onError={handleLoginError}

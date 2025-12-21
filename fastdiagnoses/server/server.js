@@ -2000,6 +2000,577 @@ app.get("/api/images/thumbnail/:uuid", authenticateToken, async (req, res) => {
   }
 });
 
+// ==================== НАСТРОЙКИ АККАУНТА API ====================
+
+// 15. Получение информации о пользователе
+app.get("/api/settings/user-info", authenticateToken, async (req, res) => {
+  try {
+    const login = req.user.login;
+
+    // Получаем логин и email пользователя
+    const userInfo = await query(
+      "SELECT login, email FROM usersdata WHERE login = ? AND logic = 'true'",
+      [login]
+    );
+
+    if (userInfo.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Пользователь не найден",
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        login: userInfo[0].login,
+        email: userInfo[0].email,
+      },
+    });
+  } catch (error) {
+    console.error("Ошибка получения информации пользователя:", error);
+    res.status(500).json({
+      success: false,
+      message: "Ошибка получения информации",
+    });
+  }
+});
+
+// 16. Смена пароля (с email уведомлением)
+app.post(
+  "/api/settings/change-password",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const login = req.user.login;
+      const userIp = req.ip || req.connection.remoteAddress;
+      const userAgent = req.headers["user-agent"] || "Неизвестное устройство";
+
+      // Валидация обязательных полей
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Текущий и новый пароль обязательны",
+          field: !currentPassword ? "currentPassword" : "newPassword",
+        });
+      }
+
+      // Используем существующую функцию валидации пароля
+      try {
+        validatePassword(newPassword);
+      } catch (validationError) {
+        return res.status(400).json({
+          success: false,
+          message: validationError.message,
+          field: "newPassword",
+        });
+      }
+
+      // Получаем текущий пароль и email пользователя
+      const user = await query(
+        "SELECT password, email FROM usersdata WHERE login = ? AND logic = 'true'",
+        [login]
+      );
+
+      if (user.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Пользователь не найден",
+        });
+      }
+
+      const userEmail = user[0].email;
+
+      // Проверяем текущий пароль
+      const validPassword = await bcrypt.compare(
+        currentPassword,
+        user[0].password
+      );
+      if (!validPassword) {
+        // Небольшая задержка для защиты от brute force
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        return res.status(401).json({
+          success: false,
+          message: "Неверный текущий пароль",
+          field: "currentPassword",
+        });
+      }
+
+      // Проверяем, что новый пароль отличается от текущего
+      const samePassword = await bcrypt.compare(newPassword, user[0].password);
+      if (samePassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Новый пароль должен отличаться от текущего",
+          field: "newPassword",
+        });
+      }
+
+      // Хешируем новый пароль
+      const salt = await bcrypt.genSalt(12);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      // Обновляем пароль в БД
+      await query(
+        "UPDATE usersdata SET password = ? WHERE login = ? AND logic = 'true'",
+        [hashedPassword, login]
+      );
+
+      // Удаляем ВСЕ сессии пользователя
+      await query("DELETE FROM sessionsdata WHERE login = ?", [login]);
+
+      // ==================== ОТПРАВКА EMAIL УВЕДОМЛЕНИЯ ====================
+      try {
+        const loginUrl = `${
+          process.env.CLIENT_URL || "http://localhost:5000"
+        }/login`;
+        const timestamp = new Date().toLocaleString("ru-RU", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        // Определяем тип устройства из user-agent
+        let deviceType = "Неизвестное устройство";
+        if (userAgent.includes("Mobile")) deviceType = "Мобильное устройство";
+        else if (userAgent.includes("Tablet")) deviceType = "Планшет";
+        else if (userAgent.includes("Windows"))
+          deviceType = "Компьютер (Windows)";
+        else if (userAgent.includes("Mac")) deviceType = "Компьютер (Mac)";
+        else if (userAgent.includes("Linux")) deviceType = "Компьютер (Linux)";
+
+        // Формируем email
+        const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+          <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #2d3748; margin-top: 0; text-align: center;">
+              🔐 Пароль изменен в QuickDiagnosis
+            </h2>
+            
+            <p style="font-size: 16px; color: #4a5568;">
+              Здравствуйте, <strong>${login}</strong>!
+            </p>
+            
+            <p style="font-size: 16px; color: #4a5568;">
+              <strong>Пароль для вашего аккаунта был успешно изменен.</strong>
+            </p>
+            
+            <div style="background-color: #f0fff4; border-left: 4px solid #38a169; padding: 15px; margin: 20px 0;">
+              <p style="margin: 5px 0; color: #2d3748;">
+                <strong>📅 Дата изменения:</strong> ${timestamp}
+              </p>
+              <p style="margin: 5px 0; color: #2d3748;">
+                <strong>🌐 IP адрес:</strong> ${userIp}
+              </p>
+              <p style="margin: 5px 0; color: #2d3748;">
+                <strong>🖥️ Устройство:</strong> ${deviceType}
+              </p>
+            </div>
+            
+            <h3 style="color: #2d3748; margin-top: 25px;">📋 Что нужно сделать:</h3>
+            <ol style="color: #4a5568; font-size: 16px; padding-left: 20px;">
+              <li style="margin-bottom: 10px;">Перейдите на <a href="${loginUrl}" style="color: #4299e1;">страницу входа</a></li>
+              <li style="margin-bottom: 10px;">Введите ваш <strong style="color: #2d3748;">НОВЫЙ пароль</strong></li>
+              <li>Сохраните пароль в менеджере паролей для удобства</li>
+            </ol>
+            
+            <div style="background-color: #fff5f5; border: 1px solid #fed7d7; padding: 15px; border-radius: 6px; margin: 25px 0;">
+              <p style="color: #9b2c2c; margin: 0; font-weight: bold;">
+                ⚠️ <strong>Важно!</strong> Пароль в этом письме <strong>НЕ указан</strong> в целях безопасности.
+              </p>
+              <p style="color: #9b2c2c; margin: 10px 0 0 0;">
+                Если это были не вы, немедленно войдите в аккаунт и смените пароль!
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${loginUrl}" 
+                 style="background-color: #4299e1; color: white; padding: 12px 30px; 
+                        text-decoration: none; border-radius: 6px; font-weight: bold;
+                        font-size: 16px; display: inline-block;">
+                Перейти на страницу входа
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+            
+            <p style="color: #718096; font-size: 14px; text-align: center; margin: 0;">
+              Это автоматическое уведомление системы безопасности QuickDiagnosis.<br>
+              Пожалуйста, не отвечайте на это письмо.
+            </p>
+          </div>
+        </div>
+      `;
+
+        await transporter.sendMail({
+          from: `"QuickDiagnosis - Безопасность" <${process.env.EMAIL_USER}>`,
+          to: userEmail,
+          subject: "🔐 Пароль изменен в QuickDiagnosis",
+          html: emailHtml,
+        });
+
+        console.log(`📧 Уведомление о смене пароля отправлено на ${userEmail}`);
+      } catch (emailError) {
+        console.error(
+          "❌ Ошибка отправки email уведомления:",
+          emailError.message
+        );
+        // НЕ прерываем процесс, если email не отправился
+      }
+
+      console.log(`🔐 Пароль изменен для пользователя: ${login}`);
+      console.log(`🗑️ Удалены все сессии пользователя: ${login}`);
+
+      res.json({
+        success: true,
+        message: "Пароль успешно изменен",
+        requireReauth: true,
+        emailSent: true, // Флаг что email отправлен
+      });
+    } catch (error) {
+      console.error("Ошибка смены пароля:", error);
+
+      if (error.name === "ValidationError") {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+          field: error.field,
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Ошибка смены пароля",
+      });
+    }
+  }
+);
+
+// 17. Удаление аккаунта (hard delete)
+app.delete(
+  "/api/settings/delete-account",
+  authenticateToken,
+  async (req, res) => {
+    const connection = await getConnection();
+
+    try {
+      const login = req.user.login;
+
+      console.log(`🗑️ Начало удаления аккаунта: ${login}`);
+
+      // Начинаем транзакцию для атомарности
+      await connection.beginTransaction();
+
+      // 1. Удаляем таблицу пользователя (если существует)
+      try {
+        await connection.execute(`DROP TABLE IF EXISTS \`${login}\``);
+        console.log(`✅ Таблица пользователя ${login} удалена`);
+      } catch (tableError) {
+        console.warn(
+          `⚠️ Таблица пользователя ${login} не найдена:`,
+          tableError.message
+        );
+        // Продолжаем, даже если таблицы нет
+      }
+
+      // 2. Удаляем все сессии пользователя
+      const sessionResult = await connection.execute(
+        "DELETE FROM sessionsdata WHERE login = ?",
+        [login]
+      );
+      console.log(`✅ Удалено сессий: ${sessionResult[0].affectedRows}`);
+
+      // 3. Удаляем пользователя из usersdata
+      const userResult = await connection.execute(
+        "DELETE FROM usersdata WHERE login = ? AND logic = 'true'",
+        [login]
+      );
+
+      if (userResult[0].affectedRows === 0) {
+        throw new Error("Пользователь не найден в usersdata");
+      }
+      console.log(`✅ Пользователь ${login} удален из usersdata`);
+
+      // 4. Удаляем директорию пользователя с файлами
+      const userDir = path.join(UPLOAD_DIR, login);
+      try {
+        await fs.access(userDir);
+        await fs.rm(userDir, { recursive: true, force: true });
+        console.log(`✅ Директория пользователя удалена: ${userDir}`);
+      } catch (fsError) {
+        console.warn(
+          `⚠️ Директория пользователя не найдена: ${fsError.message}`
+        );
+      }
+
+      // Коммитим транзакцию
+      await connection.commit();
+
+      console.log(`✅ Аккаунт ${login} полностью удален`);
+
+      res.json({
+        success: true,
+        message: "Аккаунт успешно удален",
+      });
+    } catch (error) {
+      // Откатываем транзакцию в случае ошибки
+      await connection.rollback();
+
+      console.error("❌ Ошибка удаления аккаунта:", error);
+
+      res.status(500).json({
+        success: false,
+        message: "Ошибка удаления аккаунта",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    } finally {
+      connection.release();
+    }
+  }
+);
+
+// 18. Отправка запроса на смену email администратору
+app.post(
+  "/api/settings/email-change-request",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { currentEmail, newEmail, reason } = req.body;
+      const login = req.user.login;
+      const userIp = req.ip || req.connection.remoteAddress;
+      const userAgent = req.headers["user-agent"] || "Неизвестное устройство";
+      const timestamp = new Date().toLocaleString("ru-RU");
+
+      // Валидация
+      if (!currentEmail || !newEmail || !reason) {
+        return res.status(400).json({
+          success: false,
+          message: "Все поля обязательны для заполнения",
+        });
+      }
+
+      // Проверка формата email
+      try {
+        validateEmail(currentEmail);
+        validateEmail(newEmail);
+      } catch (validationError) {
+        return res.status(400).json({
+          success: false,
+          message: validationError.message,
+          field: validationError.field,
+        });
+      }
+
+      // Получаем данные пользователя для проверки
+      const user = await query(
+        "SELECT email FROM usersdata WHERE login = ? AND logic = 'true'",
+        [login]
+      );
+
+      if (user.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Пользователь не найден",
+        });
+      }
+
+      const actualEmail = user[0].email;
+
+      // Проверяем, что введенный текущий email совпадает с системным
+      if (actualEmail !== currentEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Текущий email не совпадает с email в системе",
+          field: "currentEmail",
+        });
+      }
+
+      // Проверяем, что новый email отличается
+      if (currentEmail === newEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Новый email должен отличаться от текущего",
+          field: "newEmail",
+        });
+      }
+
+      // ==================== ОТПРАВКА EMAIL АДМИНИСТРАТОРУ ====================
+      try {
+        const adminEmail = process.env.EMAIL_USER; // trmailforupfile@gmail.com
+
+        const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запрос на смену email</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 20px 0; }
+        .info-box { background: #f8f9fa; border-left: 4px solid #4a90e2; padding: 15px; margin: 15px 0; }
+        .info-item { margin: 10px 0; }
+        .label { font-weight: bold; color: #333; }
+        .value { color: #666; }
+        .reason-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; text-align: center; }
+        .action-buttons { margin-top: 20px; text-align: center; }
+        .button { display: inline-block; background: #4a90e2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 0 10px; }
+        .warning { color: #e74c3c; font-weight: bold; background: #fdf2f2; padding: 10px; border-radius: 5px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Запрос на смену email</h1>
+            <p>QuickDiagnosis - Административная панель</p>
+        </div>
+        
+        <div class="content">
+            <div class="warning">
+                ⚠️ ТРЕБУЕТСЯ РУЧНОЕ ВМЕШАТЕЛЬСТВО
+            </div>
+            
+            <div class="info-box">
+                <div class="info-item">
+                    <span class="label">👤 Пользователь:</span>
+                    <span class="value">${login}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">📅 Дата запроса:</span>
+                    <span class="value">${timestamp}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">🌐 IP адрес:</span>
+                    <span class="value">${userIp}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">🖥️ Устройство:</span>
+                    <span class="value">${userAgent.substring(0, 100)}</span>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <h3>📧 Данные для смены email</h3>
+                <div class="info-item">
+                    <span class="label">Текущий email (в системе):</span>
+                    <span class="value">${actualEmail}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Подтверждённый текущий email:</span>
+                    <span class="value">${currentEmail}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Запрошенный новый email:</span>
+                    <span class="value" style="color: #27ae60; font-weight: bold;">${newEmail}</span>
+                </div>
+            </div>
+            
+            <div class="reason-box">
+                <h3>📝 Причина смены email:</h3>
+                <p>${reason.replace(/\n/g, "<br>")}</p>
+            </div>
+            
+            <div class="action-buttons">
+                <p><strong>Действия администратора:</strong></p>
+                <p>1. Проверьте, что новый email не занят другим пользователем</p>
+                <p>2. Обновите email в таблице usersdata</p>
+                <p>3. Уведомите пользователя о выполнении</p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Это автоматическое уведомление от системы QuickDiagnosis</p>
+            <p>Email сгенерирован: ${new Date().toISOString()}</p>
+        </div>
+    </div>
+</body>
+</html>
+      `;
+
+        const textVersion = `
+ЗАПРОС НА СМЕНУ EMAIL - QuickDiagnosis
+
+ТРЕБУЕТСЯ РУЧНОЕ ВМЕШАТЕЛЬСТВО
+
+ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+- Пользователь: ${login}
+- Дата запроса: ${timestamp}
+- IP адрес: ${userIp}
+- Устройство: ${userAgent}
+
+ДАННЫЕ ДЛЯ СМЕНЫ EMAIL:
+- Текущий email (в системе): ${actualEmail}
+- Подтверждённый текущий email: ${currentEmail}
+- Запрошенный новый email: ${newEmail}
+
+ПРИЧИНА СМЕНЫ EMAIL:
+${reason}
+
+ИНСТРУКЦИЯ ДЛЯ АДМИНИСТРАТОРА:
+1. Проверьте, что новый email не занят другим пользователем
+2. Обновите email в таблице usersdata
+3. Уведомите пользователя о выполнении
+
+Это автоматическое уведомление от системы QuickDiagnosis
+Email сгенерирован: ${new Date().toISOString()}
+      `;
+
+        await transporter.sendMail({
+          from: `"QuickDiagnosis - Система уведомлений" <${process.env.EMAIL_USER}>`,
+          to: adminEmail, // Отправляем администратору
+          cc: actualEmail, // Копия текущему email пользователя (опционально)
+          subject: `🔧 Запрос на смену email: ${login}`,
+          text: textVersion,
+          html: emailHtml,
+        });
+
+        console.log(
+          `📧 Запрос на смену email отправлен администратору для пользователя: ${login}`
+        );
+        console.log(`📧 От: ${actualEmail} → Кому: ${newEmail}`);
+      } catch (emailError) {
+        console.error(
+          "❌ Ошибка отправки email администратору:",
+          emailError.message
+        );
+        // НЕ прерываем процесс, если email не отправился
+      }
+
+      res.json({
+        success: true,
+        message:
+          "Запрос на смену email отправлен администратору. Вы получите уведомление после обработки.",
+        notification:
+          "Администратор получил ваш запрос и свяжется с вами после обработки.",
+      });
+    } catch (error) {
+      console.error("Ошибка обработки запроса смены email:", error);
+
+      if (error.name === "ValidationError") {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+          field: error.field,
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Ошибка обработки запроса",
+      });
+    }
+  }
+);
+
 // ==================== ОБРАБОТКА ОШИБОК ====================
 app.use((err, req, res, next) => {
   console.error("Global error handler:", err);
