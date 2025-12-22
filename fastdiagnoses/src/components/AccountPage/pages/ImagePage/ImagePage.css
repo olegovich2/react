@@ -5,6 +5,10 @@
     min-height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     padding: 20px;
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 /* Загрузка */
@@ -18,13 +22,15 @@
     border-radius: 15px;
     padding: 50px;
     text-align: center;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.spinner {
+.image-page-spinner {
     margin-bottom: 20px;
 }
 
-.spinner i {
+.image-page-spinner i {
     color: rgb(88, 96, 98);
 }
 
@@ -32,6 +38,8 @@
     font-size: 18px;
     color: rgb(88, 96, 98);
     font-weight: 700;
+    max-width: 100%;
+    word-wrap: break-word;
 }
 
 /* Ошибка */
@@ -45,14 +53,16 @@
     border-radius: 15px;
     padding: 50px;
     text-align: center;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.error-icon {
+.image-page-error-icon {
     color: rgb(249, 144, 144);
     margin-bottom: 20px;
 }
 
-.error-icon i {
+.image-page-error-icon i {
     font-size: 48px;
 }
 
@@ -61,6 +71,7 @@
     margin-bottom: 10px;
     font-size: 24px;
     font-weight: 700;
+    max-width: 100%;
 }
 
 .image-page-error p {
@@ -68,16 +79,19 @@
     margin-bottom: 30px;
     max-width: 500px;
     font-size: 16px;
+    word-wrap: break-word;
 }
 
-.error-actions {
+.image-page-error-actions {
     display: flex;
     gap: 15px;
     flex-wrap: wrap;
     justify-content: center;
+    max-width: 100%;
 }
 
-.error-actions .buttonFromTemplate {
+/* Используем глобальный класс buttonFromTemplate для консистентности */
+.image-page-error-actions .buttonFromTemplate {
     background-color: rgb(88, 96, 98);
     color: white;
     border: 2px solid rgb(88, 96, 98);
@@ -89,10 +103,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease-out;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.error-actions .buttonFromTemplate:hover {
+.image-page-error-actions .buttonFromTemplate:hover {
     background-color: rgb(60, 65, 70);
     border-color: rgb(60, 65, 70);
     transform: translateY(-2px);
@@ -113,9 +129,11 @@
     border: 2px solid rgb(88, 96, 98);
     flex-wrap: wrap;
     gap: 20px;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.back-button {
+.image-page-back-button {
     background-color: rgb(88, 96, 98);
     color: white;
     border: 2px solid rgb(88, 96, 98);
@@ -127,17 +145,20 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease-out;
+    font-family: 'Montserrat', sans-serif;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.back-button:hover {
+.image-page-back-button:hover {
     background-color: rgb(60, 65, 70);
     border-color: rgb(60, 65, 70);
     transform: translateY(-2px);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.image-title {
+.image-page-title {
     margin: 0;
     color: rgb(88, 96, 98);
     font-size: 24px;
@@ -147,50 +168,70 @@
     gap: 10px;
     flex: 1;
     justify-content: center;
+    text-align: center;
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
-.header-actions {
+.image-page-header-actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
-.action-button {
-    padding: 10px 20px;
+/* КНОПКИ В СТИЛЕ ОСТАЛЬНОГО САЙТА */
+.image-page-download-button.buttonFromTemplate {
+    background-color: rgb(76, 175, 80);
+    color: white;
+    border-color: rgb(56, 142, 60);
+    border: 2px solid rgb(56, 142, 60);
+    padding: 12px 24px;
     border-radius: 6px;
-    border: 2px solid;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease-out;
+    font-family: 'Montserrat', sans-serif;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.download-button {
-    background-color: rgb(76, 175, 80);
-    color: white;
-    border-color: rgb(56, 142, 60);
-}
-
-.download-button:hover {
+.image-page-download-button.buttonFromTemplate:hover {
     background-color: rgb(56, 142, 60);
     border-color: rgb(56, 142, 60);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
-.delete-button {
-    background-color: rgb(220, 53, 69);
-    color: white;
-    border-color: rgb(200, 35, 51);
+.image-page-delete-button.buttonFromTemplate {
+    background-color: rgb(249, 144, 144);
+    color: rgb(90, 30, 30);
+    border-color: rgb(220, 100, 100);
+    border: 2px solid rgb(220, 100, 100);
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease-out;
+    font-family: 'Montserrat', sans-serif;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.delete-button:hover {
-    background-color: rgb(200, 35, 51);
-    border-color: rgb(180, 25, 41);
+.image-page-delete-button.buttonFromTemplate:hover {
+    background-color: rgb(90, 30, 30);
+    color: rgb(249, 144, 144);
+    border-color: rgb(90, 30, 30);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    box-shadow: 0 4px 12px rgba(249, 144, 144, 0.3);
 }
 
 /* Контент */
@@ -199,10 +240,12 @@
     grid-template-columns: 300px 1fr;
     gap: 20px;
     min-height: calc(100vh - 150px);
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 /* Информационная панель */
-.image-info-panel {
+.image-page-info-panel {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-radius: 15px;
@@ -212,10 +255,11 @@
     height: fit-content;
     position: sticky;
     top: 20px;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.info-section h3,
-.comment-section h3 {
+.image-page-info-section h3 {
     color: rgb(88, 96, 98);
     margin-bottom: 15px;
     font-size: 18px;
@@ -223,51 +267,42 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    max-width: 100%;
 }
 
-.info-grid {
+.image-page-info-grid {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-width: 100%;
 }
 
-.info-item {
+.image-page-info-item {
     padding: 8px 12px;
     background-color: rgba(183, 222, 234, 0.3);
     border-radius: 6px;
     border-left: 3px solid rgb(88, 96, 98);
+    box-sizing: border-box;
+    max-width: 100%;
+    word-wrap: break-word;
 }
 
-.info-item strong {
+.image-page-info-item strong {
     color: rgb(60, 65, 70);
     margin-right: 5px;
 }
 
-.info-item code {
+.image-page-info-item code {
     font-size: 12px;
     background: #e9ecef;
     padding: 2px 6px;
     border-radius: 3px;
     color: rgb(220, 53, 69);
-}
-
-.comment-section {
-    margin-top: 25px;
-    padding-top: 25px;
-    border-top: 1px solid rgb(184, 198, 202);
-}
-
-.comment-section p {
-    color: rgb(88, 96, 98);
-    line-height: 1.6;
-    background-color: rgba(183, 222, 234, 0.3);
-    padding: 15px;
-    border-radius: 8px;
-    margin: 0;
+    word-break: break-all;
 }
 
 /* Область просмотра */
-.image-viewer-container {
+.image-page-viewer-container {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-radius: 15px;
@@ -276,9 +311,11 @@
     border: 2px solid rgb(88, 96, 98);
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.viewer-controls {
+.image-page-viewer-controls {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -289,17 +326,20 @@
     border: 2px solid rgb(88, 96, 98);
     flex-wrap: wrap;
     gap: 15px;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.zoom-controls,
-.transform-controls,
-.view-controls {
+.image-page-zoom-controls,
+.image-page-transform-controls,
+.image-page-view-controls {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
-.control-button {
+.image-page-control-button {
     padding: 8px 15px;
     border: 2px solid rgb(88, 96, 98);
     background: white;
@@ -308,31 +348,34 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease-out;
     font-size: 14px;
     font-weight: 700;
     color: rgb(88, 96, 98);
+    font-family: 'Montserrat', sans-serif;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.control-button:hover:not(:disabled) {
+.image-page-control-button:hover:not(:disabled) {
     background-color: rgb(88, 96, 98);
     color: white;
     border-color: rgb(88, 96, 98);
 }
 
-.control-button:disabled {
+.image-page-control-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-.scale-display {
+.image-page-scale-display {
     min-width: 60px;
     text-align: center;
     font-weight: 700;
     color: rgb(88, 96, 98);
 }
 
-.image-viewer {
+.image-page-viewer {
     flex: 1;
     display: flex;
     justify-content: center;
@@ -343,62 +386,46 @@
     min-height: 400px;
     overflow: auto;
     position: relative;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.original-image {
+.image-page-original-image {
     max-width: 100%;
     max-height: 70vh;
     object-fit: contain;
     transition: transform 0.3s ease;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     border-radius: 8px;
+    display: block;
 }
 
-.no-image {
+.image-page-no-image {
     text-align: center;
     padding: 50px;
     color: rgb(88, 96, 98);
+    max-width: 100%;
 }
 
-.no-image i {
+.image-page-no-image i {
     margin-bottom: 15px;
     color: rgb(184, 198, 202);
     font-size: 48px;
 }
 
-.no-image p {
+.image-page-no-image p {
     font-size: 18px;
     font-weight: 700;
-}
-
-.hotkeys-info {
-    margin-top: 20px;
-    padding: 15px;
-    background-color: rgba(183, 222, 234, 0.3);
-    border-radius: 10px;
-    text-align: center;
-    font-size: 14px;
-    color: rgb(88, 96, 98);
-    border: 1px solid rgb(184, 198, 202);
-}
-
-.hotkeys-info kbd {
-    background-color: rgb(88, 96, 98);
-    color: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-family: monospace;
-    margin: 0 2px;
 }
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 1024px) {
     .image-page-content {
         grid-template-columns: 1fr;
+        gap: 15px;
     }
     
-    .image-info-panel {
+    .image-page-info-panel {
         position: static;
     }
 }
@@ -406,6 +433,8 @@
 @media (max-width: 768px) {
     .image-page-container {
         padding: 15px;
+        width: 100%;
+        max-width: 100%;
     }
     
     .image-page-header {
@@ -415,31 +444,33 @@
         padding: 15px;
     }
     
-    .image-title {
+    .image-page-title {
         order: -1;
         margin-bottom: 10px;
         font-size: 20px;
     }
     
-    .header-actions {
+    .image-page-header-actions {
         width: 100%;
         justify-content: center;
     }
     
-    .viewer-controls {
+    .image-page-viewer-controls {
         flex-direction: column;
         align-items: stretch;
+        gap: 10px;
     }
     
-    .zoom-controls,
-    .transform-controls,
-    .view-controls {
+    .image-page-zoom-controls,
+    .image-page-transform-controls,
+    .image-page-view-controls {
         justify-content: center;
     }
     
     .image-page-loading,
     .image-page-error {
         padding: 30px;
+        margin: 10px;
     }
     
     .image-page-loading p,
@@ -447,12 +478,12 @@
         font-size: 16px;
     }
     
-    .error-actions {
+    .image-page-error-actions {
         flex-direction: column;
         width: 100%;
     }
     
-    .error-actions .buttonFromTemplate {
+    .image-page-error-actions .buttonFromTemplate {
         width: 100%;
         justify-content: center;
     }
@@ -461,60 +492,114 @@
 @media (max-width: 480px) {
     .image-page-container {
         padding: 10px;
+        width: 100%;
+        max-width: 100%;
     }
     
     .image-page-header {
         padding: 12px;
     }
     
-    .back-button,
-    .action-button {
+    .image-page-back-button,
+    .image-page-download-button.buttonFromTemplate,
+    .image-page-delete-button.buttonFromTemplate {
         padding: 8px 16px;
         font-size: 14px;
+        width: 100%;
+        justify-content: center;
     }
     
-    .image-title {
+    .image-page-title {
         font-size: 18px;
     }
     
-    .image-info-panel,
-    .image-viewer-container {
+    .image-page-info-panel,
+    .image-page-viewer-container {
         padding: 15px;
     }
     
-    .info-item {
+    .image-page-info-item {
         padding: 6px 10px;
         font-size: 14px;
     }
     
-    .comment-section p {
-        padding: 12px;
-        font-size: 14px;
-    }
-    
-    .control-button {
+    .image-page-control-button {
         padding: 6px 12px;
         font-size: 13px;
+        width: 100%;
+        justify-content: center;
     }
     
-    .scale-display {
+    .image-page-scale-display {
         font-size: 13px;
+        min-width: 50px;
     }
     
-    .hotkeys-info {
-        font-size: 12px;
-        padding: 12px;
-    }
-    
-    .no-image {
+    .image-page-no-image {
         padding: 30px 15px;
     }
     
-    .no-image i {
+    .image-page-no-image i {
         font-size: 36px;
     }
     
-    .no-image p {
+    .image-page-no-image p {
         font-size: 16px;
+    }
+}
+
+@media (max-width: 360px) {
+    .image-page-container {
+        padding: 8px;
+    }
+    
+    .image-page-header {
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .image-page-title {
+        font-size: 16px;
+    }
+    
+    .image-page-info-panel,
+    .image-page-viewer-container {
+        padding: 12px;
+    }
+    
+    .image-page-control-button {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+    
+    .image-page-download-button.buttonFromTemplate,
+    .image-page-delete-button.buttonFromTemplate {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 320px) {
+    .image-page-container {
+        padding: 5px;
+    }
+    
+    .image-page-header {
+        padding: 8px;
+    }
+    
+    .image-page-title {
+        font-size: 15px;
+    }
+    
+    .image-page-info-section h3 {
+        font-size: 16px;
+    }
+    
+    .image-page-info-item {
+        font-size: 12px;
+    }
+    
+    .image-page-viewer {
+        min-height: 300px;
     }
 }

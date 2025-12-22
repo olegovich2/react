@@ -1,4 +1,3 @@
-// src/components/AccountPage/pages/ImagePage/ImagePage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -12,7 +11,7 @@ import { UploadedImage } from '../../types/account.types';
 import './ImagePage.css';
 
 const ImagePage: React.FC = () => {
- const { uuid } = useParams<{ uuid: string }>();
+  const { uuid } = useParams<{ uuid: string }>();
   const navigate = useNavigate();
   
   const [image, setImage] = useState<UploadedImage | null>(null);
@@ -23,68 +22,65 @@ const ImagePage: React.FC = () => {
 
   // Загрузка изображения
   const loadImage = useCallback(async () => {
-  if (!uuid) {
-    setError('Некорректный UUID изображения');
-    setIsLoading(false);
-    return;
-  }
-
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    console.log(`🔍 Загрузка изображения по UUID: ${uuid}`);
-    
-    // Нужен новый метод для получения по UUID
-    const result = await getImageForViewPage(uuid);
-    
-    if (result.success && result.data) {
-      setImage(result.data);
-      console.log(`✅ Изображение загружено: ${result.data.fileName}`);
-    } else {
-      setError(result.message || 'Изображение не найдено');
-      console.error('❌ Ошибка загрузки изображения:', result.message);
+    if (!uuid) {
+      setError('Некорректный UUID изображения');
+      setIsLoading(false);
+      return;
     }
-  } catch (error: any) {
-    setError(error.message || 'Ошибка загрузки изображения');
-    console.error('❌ Ошибка загрузки изображения:', error);
-  } finally {
-    setIsLoading(false);
-  }
-}, [uuid]); 
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log(`🔍 Загрузка изображения по UUID: ${uuid}`);
+      
+      const result = await getImageForViewPage(uuid);
+      
+      if (result.success && result.data) {
+        setImage(result.data);
+        console.log(`✅ Изображение загружено: ${result.data.fileName}`);
+      } else {
+        setError(result.message || 'Изображение не найдено');
+        console.error('❌ Ошибка загрузки изображения:', result.message);
+      }
+    } catch (error: any) {
+      setError(error.message || 'Ошибка загрузки изображения');
+      console.error('❌ Ошибка загрузки изображения:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [uuid]); 
 
   // Удаление изображения
   const handleDelete = useCallback(async () => {
-    // Проверяем image на null в самом начале
-  if (!image) {
-    console.error('❌ Нет данных изображения');
-    return;
-  }
-  
-  console.log('🆔 ID изображения для удаления:', image.id);
-  
-  if (!image.id) {
-    setError('Не найден ID изображения');
-    return;
-  }
-  
-  if (!window.confirm(`Вы уверены, что хотите удалить изображение "${image.fileName}"?`)) {
-    return;
-  }
-
-  try {
-    // Удаляем по ID (а не по uuid)
-    const result = await deleteImage(image.id);
-    if (result.success) {
-      console.log(`✅ Изображение ${image.id} удалено`);
-      navigate('/account');
-    } else {
-      setError(result.message || 'Ошибка удаления изображения');
+    if (!image) {
+      console.error('❌ Нет данных изображения');
+      return;
     }
-  } catch (error: any) {
-    setError(error.message || 'Ошибка удаления изображения');
-  }
-}, [image, navigate]);  // ← image содержит ID
+    
+    console.log('🆔 ID изображения для удаления:', image.id);
+    
+    if (!image.id) {
+      setError('Не найден ID изображения');
+      return;
+    }
+    
+    if (!window.confirm(`Вы уверены, что хотите удалить изображение "${image.fileName}"?`)) {
+      return;
+    }
+
+    try {
+      const result = await deleteImage(image.id);
+      if (result.success) {
+        console.log(`✅ Изображение ${image.id} удалено`);
+        navigate('/account');
+      } else {
+        setError(result.message || 'Ошибка удаления изображения');
+      }
+    } catch (error: any) {
+      setError(error.message || 'Ошибка удаления изображения');
+    }
+  }, [image, navigate]);
 
   // Скачивание изображения
   const handleDownload = useCallback(() => {
@@ -154,7 +150,7 @@ const ImagePage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="image-page-loading">
-        <div className="spinner">
+        <div className="image-page-spinner">
           <i className="fas fa-spinner fa-spin fa-3x"></i>
         </div>
         <p>Загрузка изображения...</p>
@@ -166,16 +162,16 @@ const ImagePage: React.FC = () => {
   if (error || !image) {
     return (
       <div className="image-page-error">
-        <div className="error-icon">
+        <div className="image-page-error-icon">
           <i className="fas fa-exclamation-triangle fa-3x"></i>
         </div>
         <h2>Ошибка загрузки изображения</h2>
         <p>{error || 'Изображение не найдено'}</p>
-        <div className="error-actions">
-          <button className="buttonFromTemplate" onClick={() => navigate('/account')}>
+        <div className="image-page-error-actions">
+          <button className="image-page-back-button buttonFromTemplate" onClick={() => navigate('/account')}>
             <i className="fas fa-arrow-left"></i> Вернуться в аккаунт
           </button>
-          <button className="buttonFromTemplate" onClick={loadImage}>
+          <button className="image-page-retry-button buttonFromTemplate" onClick={loadImage}>
             <i className="fas fa-redo"></i> Попробовать снова
           </button>
         </div>
@@ -192,31 +188,31 @@ const ImagePage: React.FC = () => {
       {/* Шапка страницы */}
       <header className="image-page-header">
         <button 
-          className="back-button"
+          className="image-page-back-button"
           onClick={() => navigate('/account')}
           title="Вернуться назад (Esc)"
         >
           <i className="fas fa-arrow-left"></i> Назад
         </button>
         
-        <h1 className="image-title">
+        <h1 className="image-page-title">
           <i className="fas fa-image"></i> {image.fileName}
         </h1>
         
-        <div className="header-actions">
+        <div className="image-page-header-actions">
           <button 
-            className="action-button download-button"
+            className="buttonFromTemplate image-page-download-button"
             onClick={handleDownload}
             title="Скачать изображение"
           >
             <i className="fas fa-download"></i> Скачать
           </button>
           <button 
-            className="action-button delete-button"
+            className="buttonFromTemplate image-page-delete-button"
             onClick={handleDelete}
             title="Удалить изображение"
           >
-            <i className="fas fa-trash"></i> Удалить
+            <i className="fas fa-trash-alt"></i> Удалить
           </button>
         </div>
       </header>
@@ -224,65 +220,49 @@ const ImagePage: React.FC = () => {
       {/* Основной контент */}
       <div className="image-page-content">
         {/* Информационная панель */}
-        <div className="image-info-panel">
-          <div className="info-section">
+        <div className="image-page-info-panel">
+          <div className="image-page-info-section">
             <h3><i className="fas fa-info-circle"></i> Информация</h3>
-            <div className="info-grid">
-              <div className="info-item">
+            <div className="image-page-info-grid">
+              <div className="image-page-info-item">
                 <strong>Файл:</strong> {image.fileName}
               </div>
-              {image.fileSize && (
-                <div className="info-item">
-                  <strong>Размер:</strong> {image.fileSize < 1024 ? 
-                    `${image.fileSize} B` : 
-                    image.fileSize < 1024 * 1024 ? 
-                    `${(image.fileSize / 1024).toFixed(2)} KB` : 
-                    `${(image.fileSize / (1024 * 1024)).toFixed(2)} MB`}
-                </div>
-              )}
               {image.dimensions && (
-                <div className="info-item">
+                <div className="image-page-info-item">
                   <strong>Разрешение:</strong> {image.dimensions}
                 </div>
               )}
               {image.fileUuid && (
-                <div className="info-item">
+                <div className="image-page-info-item">
                   <strong>UUID:</strong> <code>{image.fileUuid}</code>
                 </div>
               )}
-              <div className="info-item">
+              <div className="image-page-info-item">
                 <strong>Формат:</strong> {mimeType.split('/')[1].toUpperCase()}
               </div>
-              <div className="info-item">
+              <div className="image-page-info-item">
                 <strong>ID:</strong> {image.id}
               </div>
             </div>
-          </div>
-
-          {image.comment && (
-            <div className="comment-section">
-              <h3><i className="fas fa-comment"></i> Комментарий</h3>
-              <p>{image.comment}</p>
-            </div>
-          )}
+          </div>          
         </div>
 
         {/* Область просмотра изображения */}
-        <div className="image-viewer-container">
+        <div className="image-page-viewer-container">
           {/* Панель управления */}
-          <div className="viewer-controls">
-            <div className="zoom-controls">
+          <div className="image-page-viewer-controls">
+            <div className="image-page-zoom-controls">
               <button 
-                className="control-button"
+                className="image-page-control-button"
                 onClick={handleZoomOut}
                 title="Уменьшить (Ctrl + -)"
                 disabled={scale <= 0.25}
               >
                 <i className="fas fa-search-minus"></i>
               </button>
-              <span className="scale-display">{Math.round(scale * 100)}%</span>
+              <span className="image-page-scale-display">{Math.round(scale * 100)}%</span>
               <button 
-                className="control-button"
+                className="image-page-control-button"
                 onClick={handleZoomIn}
                 title="Увеличить (Ctrl + +)"
                 disabled={scale >= 3}
@@ -290,7 +270,7 @@ const ImagePage: React.FC = () => {
                 <i className="fas fa-search-plus"></i>
               </button>
               <button 
-                className="control-button"
+                className="image-page-control-button"
                 onClick={handleResetZoom}
                 title="Сбросить масштаб (Ctrl + 0)"
               >
@@ -298,9 +278,9 @@ const ImagePage: React.FC = () => {
               </button>
             </div>
             
-            <div className="transform-controls">
+            <div className="image-page-transform-controls">
               <button 
-                className="control-button"
+                className="image-page-control-button"
                 onClick={handleRotate}
                 title="Повернуть на 90° (Ctrl + R)"
               >
@@ -308,11 +288,11 @@ const ImagePage: React.FC = () => {
               </button>
             </div>
             
-            <div className="view-controls">
+            <div className="image-page-view-controls">
               <button 
-                className="control-button"
+                className="image-page-control-button"
                 onClick={() => {
-                  const viewer = document.querySelector('.image-viewer');
+                  const viewer = document.querySelector('.image-page-viewer');
                   viewer?.requestFullscreen();
                 }}
                 title="Полноэкранный режим (F11)"
@@ -323,12 +303,12 @@ const ImagePage: React.FC = () => {
           </div>
 
           {/* Область просмотра */}
-          <div className="image-viewer">
+          <div className="image-page-viewer">
             {imageUrl ? (
               <img
                 src={imageUrl}
                 alt={image.fileName}
-                className="original-image"
+                className="image-page-original-image"
                 style={{
                   transform: `scale(${scale}) rotate(${rotation}deg)`,
                   cursor: scale > 1 ? 'grab' : 'default'
@@ -373,28 +353,18 @@ const ImagePage: React.FC = () => {
                 }}
               />
             ) : (
-              <div className="no-image">
+              <div className="image-page-no-image">
                 <i className="fas fa-exclamation-triangle fa-3x"></i>
                 <p>Изображение не доступно</p>
               </div>
             )}
-          </div>
-
-          {/* Горячие клавиши */}
-          <div className="hotkeys-info">
-            <p>
-              <strong>Горячие клавиши:</strong>{' '}
-              <kbd>Ctrl + +</kbd> Увеличить •{' '}
-              <kbd>Ctrl + -</kbd> Уменьшить •{' '}
-              <kbd>Ctrl + 0</kbd> Сбросить •{' '}
-              <kbd>Ctrl + R</kbd> Повернуть •{' '}
-              <kbd>Esc</kbd> Назад
-            </p>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+ImagePage.displayName = 'ImagePage';
 
 export default ImagePage;
