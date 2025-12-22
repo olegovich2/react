@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import Header from '../components/Layout/Header';
-import Footer from '../components/Layout/Footer';
-import LoginForm from '../components/Auth/LoginForm';
+import Header from '../Layout/Header';
+import Footer from '../Layout/Footer';
+import LoginForm from './LoginForm/LoginForm';
 import './LoginPage.css'; // Только специфичные стили для страницы
 
 const LoginPage: React.FC = () => {

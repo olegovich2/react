@@ -1,7 +1,7 @@
 import React from 'react';
-import Header from '../components/Layout/Header';
-import Footer from '../components/Layout/Footer';
-import RegisterForm from '../components/Auth/RegisterForm';
+import Header from '../Layout/Header';
+import Footer from '../Layout/Footer';
+import RegisterForm from './RegisterForm/RegisterForm';
 import './RegisterPage.css'; // Импортируем стили страницы
 
 const RegisterPage: React.FC = () => {

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import Header from '../components/Layout/Header';
-import Footer from '../components/Layout/Footer';
-import Navbar from '../components/Layout/Navbar';
-import RespiratoryForm from '../components/Main/RespiratoryForm';
-import ResultSurvey from '../components/Main/ResultSurvey';
+import Header from '../Layout/Header';
+import Footer from '../Layout/Footer';
+import Navbar from '../Layout/Navbar';
+import RespiratoryForm from './RespiratoryForm/RespiratoryForm';
+import ResultSurvey from './ResultSurvey/ResultSurvey';
 import { useNavigate } from 'react-router-dom';
-import { Survey } from '../components/AccountPage/types/account.types';
-import { fetchClient } from '../api/fetchClient';
+import { Survey } from '../AccountPage/types/account.types';
+import { fetchClient } from '../../api/fetchClient';
 import './MainPage.css';
 
 const MainPage: React.FC = () => {

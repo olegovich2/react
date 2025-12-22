@@ -7,7 +7,7 @@ import {
   Outlet,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import ConfirmEmailPage from "../src/pages/ConfirmEmailPage";
+import ConfirmEmailPage from "./components/ConfirmEmailPage/ConfirmEmailPage";
 
 // Компоненты для отображения во время загрузки
 const LoadingSpinner = () => (
@@ -33,9 +33,9 @@ const LoadingSpinner = () => (
 );
 
 // Ленивая загрузка страниц для оптимизации
-const LoginPage = lazy(() => import("./pages/LoginPage"));
-const RegisterPage = lazy(() => import("./pages/RegisterPage"));
-const MainPage = lazy(() => import("./pages/MainPage"));
+const LoginPage = lazy(() => import("./components/LoginPage/LoginPage"));
+const RegisterPage = lazy(() => import("./components/RegisterPage/RegisterPage"));
+const MainPage = lazy(() => import("./components/MainPage/MainPage"));
 const AccountPage = lazy(() => import("./components/AccountPage/AccountPage"));
 const ImagePage = lazy(
   () => import("./components/AccountPage/pages/ImagePage/ImagePage")

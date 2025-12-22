@@ -1,9 +1,9 @@
-// src/pages/ConfirmEmailPage.tsx
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { confirmEmail } from '../api/auth.api';
-import Header from '../components/Layout/Header';
-import Footer from '../components/Layout/Footer';
+import { confirmEmail } from '../../api/auth.api';
+import Header from '../Layout/Header';
+import Footer from '../Layout/Footer';
 
 const ConfirmEmailPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();

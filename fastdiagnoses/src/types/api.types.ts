@@ -1,6 +1,7 @@
 /**
  * Базовые типы API для FastDiagnoses
  * Все типы, связанные с аккаунтом (опросы, изображения, пагинация) вынесены в account.types.ts
+ * Все типы для регистрации вынесены в register.types.ts
  */
 
 // ==================== БАЗОВЫЕ ТИПЫ ====================
@@ -17,12 +18,6 @@ export interface APIResponse {
 export interface LoginCredentials {
   login: string;
   password: string;
-}
-
-export interface RegisterCredentials {
-  login: string;
-  password: string;
-  email: string;
 }
 
 export interface AuthResponse {
@@ -117,36 +112,6 @@ export interface EmailConfirmationResponse {
   message: string;
 }
 
-// ==================== ФОРМЫ ====================
-export interface FormField {
-  name: string;
-  type: 'text' | 'email' | 'password' | 'number' | 'textarea' | 'select' | 'checkbox' | 'radio';
-  label: string;
-  placeholder?: string;
-  required?: boolean;
-  options?: Array<{ value: string; label: string }>;
-  validation?: {
-    minLength?: number;
-    maxLength?: number;
-    pattern?: RegExp;
-    custom?: (value: any) => boolean;
-  };
-}
-
-export interface FormData {
-  [key: string]: any;
-}
-
-// ==================== РЕЗУЛЬТАТЫ ====================
-export interface DiagnosisResultItem {
-  id: number;
-  name: string;
-  description?: string;
-  severity: 'low' | 'medium' | 'high';
-  recommendations: string[];
-  confidence: number; // 0-100%
-}
-
 // ==================== СЕССИЯ ====================
 export interface Session {
   id: number;
@@ -203,25 +168,6 @@ export interface AppSettings {
   notifications: boolean;
   autoSave: boolean;
   fontSize: 'small' | 'medium' | 'large';
-}
-
-// ==================== СОБЫТИЯ ====================
-export interface AppEvent {
-  type: string;
-  data: any;
-  timestamp: number;
-  userId?: number;
-}
-
-// ==================== ЛОГИРОВАНИЕ ====================
-export interface LogEntry {
-  id: number;
-  level: 'info' | 'warn' | 'error' | 'debug';
-  message: string;
-  timestamp: string;
-  source: string;
-  userId?: number;
-  metadata?: Record<string, any>;
 }
 
 // ==================== ИСТОРИЯ ====================
@@ -292,20 +238,4 @@ export interface AppConfig {
   sessionTimeout: number;
   enableAnalytics: boolean;
   version: string;
-}
-
-// ==================== СИСТЕМНАЯ ИНФОРМАЦИЯ ====================
-export interface SystemInfo {
-  version: string;
-  nodeVersion: string;
-  platform: string;
-  uptime: number;
-  memoryUsage: {
-    rss: number;
-    heapTotal: number;
-    heapUsed: number;
-    external: number;
-  };
-  databaseStatus: 'connected' | 'disconnected' | 'error';
-  lastBackup?: string;
 }

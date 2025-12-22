@@ -1,19 +1,8 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { RegisterCredentials } from '../../types/api.types';
+import { useAuth } from '../../../context/AuthContext';
+import { RegisterFormData, RegisterFormProps, PasswordStrength } from '../types/register.types';
 import './RegisterForm.css'; 
-
-interface RegisterFormProps {
-  onSuccess?: () => void;
-  onError?: (message: string) => void;
-  redirectOnSuccess?: boolean;
-}
-
-// Создаем локальный тип для формы
-interface RegisterFormData extends RegisterCredentials {
-  confirmPassword: string;
-}
 
 const RegisterForm: React.FC<RegisterFormProps> = ({
   onSuccess,
@@ -29,10 +18,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState<'weak' | 'medium' | 'strong'>('weak');
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>('weak');
   const navigate = useNavigate();
   const { register } = useAuth();
-
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -74,7 +62,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const checkPasswordStrength = (password: string): 'weak' | 'medium' | 'strong' => {
+  const checkPasswordStrength = (password: string): PasswordStrength => {
     let strength = 0;
     
     if (password.length >= 8) strength++;
@@ -88,7 +76,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     return 'strong';
   };
 
-  const getPasswordStrengthText = (strength: 'weak' | 'medium' | 'strong'): string => {
+  const getPasswordStrengthText = (strength: PasswordStrength): string => {
     switch (strength) {
       case 'weak': return 'Слабый';
       case 'medium': return 'Средний';
@@ -97,7 +85,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     }
   };
 
-  const getPasswordStrengthClass = (strength: 'weak' | 'medium' | 'strong'): string => {
+  const getPasswordStrengthClass = (strength: PasswordStrength): string => {
     switch (strength) {
       case 'weak': return 'password-weak';
       case 'medium': return 'password-medium';
@@ -106,26 +94,26 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     }
   };
 
- const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const { name, value } = e.target;
-  setFormData((prev: RegisterFormData) => ({
-    ...prev,
-    [name]: value
-  }));
-  
-  // Проверка силы пароля
-  if (name === 'password') {
-    setPasswordStrength(checkPasswordStrength(value));
-  }
-  
-  // Очищаем ошибку при изменении поля
-  if (errors[name]) {
-    setErrors(prev => ({
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
       ...prev,
-      [name]: ''
+      [name]: value
     }));
-  }
-};
+    
+    // Проверка силы пароля
+    if (name === 'password') {
+      setPasswordStrength(checkPasswordStrength(value));
+    }
+    
+    // Очищаем ошибку при изменении поля
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -138,12 +126,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     setErrors({});
 
     try {     
-      
       const result = await register(
-      formData.login,
-      formData.password,
-      formData.email
-    );
+        formData.login,
+        formData.password,
+        formData.email
+      );
 
       if (result.success) {
         // Успешная регистрация

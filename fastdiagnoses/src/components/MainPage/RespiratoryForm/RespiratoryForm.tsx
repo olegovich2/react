@@ -1,8 +1,8 @@
 import React, { useState, FormEvent } from 'react';
-import { titleStates } from '../../constants/allConstants';
-import { getDiagnosisRecommendations } from '../../api/surveys.api';
-import { Survey } from '../../components/AccountPage/types/account.types';
-import { historyTaking, formatedSymbolInName } from '../../utils/formatters';
+import { titleStates } from '../constants/allConstants';
+import { getDiagnosisRecommendations } from '../../../api/surveys.api';
+import { Survey } from '../../AccountPage/types/account.types';
+import { historyTaking, formatedSymbolInName } from '../utils/formatters';
 import './RespiratoryForm.css'; // Импорт стилей
 
 interface RespiratoryFormProps {

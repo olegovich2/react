@@ -1,26 +1,4 @@
 /**
- * Форматирует ФИО - каждое слово с заглавной буквы
- */
-export const formatedSymbolInName = (nameSurname: string): string => {
-  if (nameSurname.length > 0) {
-    const arrayFromNameSurname = nameSurname.toLowerCase().split(' ');
-    const newNameSurname = [];
-    
-    for (let i = 0; i < arrayFromNameSurname.length; i++) {
-      const word = arrayFromNameSurname[i];
-      if (word.length > 0) {
-        const newArray = word.split('');
-        newArray[0] = newArray[0].toUpperCase();
-        newNameSurname.push(newArray.join(''));
-      }
-    }
-    
-    return newNameSurname.join(' ');
-  }
-  return '';
-};
-
-/**
  * Создает текстовый анамнез на основе данных формы
  * Полная копия функции из allFunctionsForWorkMain.js
  */
@@ -113,69 +91,25 @@ export const historyTaking = (formElements: Record<string, any>): string => {
   return overview.trim();
 };
 
+
 /**
- * Конвертирует ArrayBuffer в Base64
+ * Форматирует ФИО - каждое слово с заглавной буквы
  */
-export const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
+export const formatedSymbolInName = (nameSurname: string): string => {
+  if (nameSurname.length > 0) {
+    const arrayFromNameSurname = nameSurname.toLowerCase().split(' ');
+    const newNameSurname = [];
+    
+    for (let i = 0; i < arrayFromNameSurname.length; i++) {
+      const word = arrayFromNameSurname[i];
+      if (word.length > 0) {
+        const newArray = word.split('');
+        newArray[0] = newArray[0].toUpperCase();
+        newNameSurname.push(newArray.join(''));
+      }
+    }
+    
+    return newNameSurname.join(' ');
   }
-  
-  return window.btoa(binary);
-};
-
-/**
- * Форматирует дату для отображения
- */
-export const formatDate = (date: Date): string => {
-  return date.toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-};
-
-/**
- * Валидация email
- */
-export const validateEmail = (email: string): boolean => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-};
-
-/**
- * Валидация логина (без спецсимволов)
- */
-export const validateLogin = (login: string): boolean => {
-  const re = /^[a-zA-Z0-9_]+$/;
-  return re.test(login) && login.length >= 3;
-};
-
-/**
- * Валидация пароля
- */
-export const validatePassword = (password: string): boolean => {
-  return password.length >= 6 && !password.includes(' ');
-};
-
-/**
- * Экранирование HTML символов
- */
-export const escapeHtml = (text: string): string => {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  };
-  
-  return text.replace(/[&<>"']/g, (m) => map[m]);
+  return '';
 };

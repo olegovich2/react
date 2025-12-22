@@ -1,6 +1,6 @@
 import React from 'react';
-import { Survey } from '../../components/AccountPage/types/account.types';
-import { saveSurveyToDB } from '../../api/surveys.api';
+import { Survey } from '../../AccountPage/types/account.types';
+import { saveSurveyToDB } from '../../../api/surveys.api';
 import './ResultSurvey.css'
 
 interface ResultSurveyProps {
