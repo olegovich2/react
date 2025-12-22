@@ -19,6 +19,7 @@ interface ScrollContextType {
 // Создаем контекст
 const ScrollContext = createContext<ScrollContextType | undefined>(undefined);
 
+
 // Провайдер контекста
 export const ScrollProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const surveysRef = useRef<HTMLDivElement | null>(null);
@@ -98,3 +99,7 @@ export const useScroll = (): ScrollContextType => {
   }
   return context;
 };
+
+useScroll.displayName = 'useScroll';
+ScrollContext.displayName = 'ScrollContext';
+ScrollProvider.displayName = 'ScrollProvider';

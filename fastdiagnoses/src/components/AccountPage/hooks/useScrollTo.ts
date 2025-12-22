@@ -70,3 +70,6 @@ export const useScrollTo = (): UseScrollToResult => {
     scrollToElement
   };
 };
+
+// Добавляем displayName для хука
+useScrollTo.displayName = 'useScrollTo';

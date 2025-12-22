@@ -422,8 +422,8 @@ const SurveyPage: React.FC = () => {
   // Отображение загрузки
   if (isLoading) {
     return (
-      <div className="survey-page-loading">
-        <div className="spinner">
+      <div className="sur-page-account-loading">
+        <div className="sur-page-account-spinner">
           <i className="fas fa-spinner fa-spin fa-3x"></i>
         </div>
         <p>Загрузка опроса...</p>
@@ -434,13 +434,13 @@ const SurveyPage: React.FC = () => {
   // Отображение ошибки
   if (error || !survey) {
     return (
-      <div className="survey-page-error">
-        <div className="error-icon">
+      <div className="sur-page-account-error">
+        <div className="sur-page-account-error-icon">
           <i className="fas fa-exclamation-triangle fa-3x"></i>
         </div>
         <h2>Ошибка загрузки опроса</h2>
         <p>{error || 'Опрос не найден'}</p>
-        <div className="error-actions">
+        <div className="sur-page-account-error-actions">
           <button className="buttonFromTemplate" onClick={() => navigate('/account')}>
             <i className="fas fa-arrow-left"></i> Вернуться в аккаунт
           </button>
@@ -453,38 +453,38 @@ const SurveyPage: React.FC = () => {
   }
 
   return (
-    <div className="survey-page-container">
+    <div className="sur-page-account-container">
       {/* Шапка страницы */}
-      <header className="survey-page-header">
+      <header className="sur-page-account-header">
         <button 
-          className="back-button"
+          className="sur-page-account-back-button"
           onClick={() => navigate('/account')}
           title="Вернуться назад (Esc)"
         >
           <i className="fas fa-arrow-left"></i> Назад
         </button>
         
-        <h1 className="survey-title">
+        <h1 className="sur-page-account-survey-title">
           <i className="fas fa-clipboard-list"></i> Опрос пациента
         </h1>
         
-        <div className="header-actions">
+        <div className="sur-page-account-header-actions">
           <button 
-            className="action-button print-button"
+            className="sur-page-account-action-button sur-page-account-print-button"
             onClick={handlePrint}
             title="Печать (Ctrl + P)"
           >
             <i className="fas fa-print"></i> Печать
           </button>
           <button 
-            className="action-button save-button"
+            className="sur-page-account-action-button sur-page-account-save-button"
             onClick={handleSaveAsWord}
             title="Сохранить как Word (Ctrl + S)"
           >
             <i className="fas fa-file-word"></i> Word
           </button>
           <button 
-            className="action-button delete-button"
+            className="sur-page-account-action-button sur-page-account-delete-button"
             onClick={handleDelete}
             title="Удалить опрос"
           >
@@ -494,25 +494,25 @@ const SurveyPage: React.FC = () => {
       </header>
 
       {/* Основной контент */}
-      <div className="survey-page-content">
-        <div className="survey-info-panel">
-          <div className="info-section">
+      <div className="sur-page-account-content">
+        <div className="sur-page-account-info-panel">
+          <div className="sur-page-account-info-section">
             <h3><i className="fas fa-info-circle"></i> Информация об опросе</h3>
-            <div className="info-grid">
-              <div className="info-item">
+            <div className="sur-page-account-info-grid">
+              <div className="sur-page-account-info-item">
                 <strong>ID:</strong> {survey.id}
               </div>
-              <div className="info-item">
+              <div className="sur-page-account-info-item">
                 <strong>Дата и время:</strong> {survey.date || 'Не указано'}
               </div>
-              <div className="info-item">
+              <div className="sur-page-account-info-item">
                 <strong>Пациент:</strong> {survey.nameSurname || 'Не указано'}
               </div>
-              <div className="info-item">
+              <div className="sur-page-account-info-item">
                 <strong>Возраст:</strong> {survey.age || 'Не указано'}
               </div>
               {survey.temperature && (
-                <div className="info-item">
+                <div className="sur-page-account-info-item">
                   <strong>Температура:</strong> {survey.temperature}
                 </div>
               )}
@@ -521,28 +521,28 @@ const SurveyPage: React.FC = () => {
         </div>
 
         {/* Данные опроса */}
-        <div className="survey-data-container">
+        <div className="sur-page-account-data-container">
           {/* Симптомы */}
-          <div className="survey-section">
+          <div className="sur-page-account-survey-section">
             <h3><i className="fas fa-stethoscope"></i> Симптомы</h3>
-            <div className="section-content">
+            <div className="sur-page-account-section-content">
               {survey.anamnesis || "Не указано"}
             </div>
           </div>
 
           {/* Диагноз */}
-          <div className="survey-section">
+          <div className="sur-page-account-survey-section">
             <h3><i className="fas fa-diagnoses"></i> Диагноз</h3>
-            <div className="section-content">
+            <div className="sur-page-account-section-content">
               {Array.isArray(survey.title) ? survey.title.join(', ') : survey.title || "Не указано"}
             </div>
           </div>
 
           {/* Обследования */}
           {survey.diagnostic && survey.diagnostic.length > 0 && (
-            <div className="survey-section">
+            <div className="sur-page-account-survey-section">
               <h3><i className="fas fa-search"></i> Рекомендуемые обследования</h3>
-              <div className="section-content">
+              <div className="sur-page-account-section-content">
                 <ul>
                   {survey.diagnostic.map((item, index) => (
                     <li key={index}>{item}</li>
@@ -554,9 +554,9 @@ const SurveyPage: React.FC = () => {
 
           {/* Лечение */}
           {survey.treatment && survey.treatment.length > 0 && (
-            <div className="survey-section">
+            <div className="sur-page-account-survey-section">
               <h3><i className="fas fa-pills"></i> Рекомендуемое лечение</h3>
-              <div className="section-content">
+              <div className="sur-page-account-section-content">
                 <ul>
                   {survey.treatment.map((item, index) => (
                     <li key={index}>{item}</li>
@@ -568,9 +568,9 @@ const SurveyPage: React.FC = () => {
 
           {/* Дополнительные рекомендации */}
           {survey.otherGuidelines && survey.otherGuidelines.length > 0 && (
-            <div className="survey-section">
+            <div className="sur-page-account-survey-section">
               <h3><i className="fas fa-comment-medical"></i> Дополнительные рекомендации</h3>
-              <div className="section-content">
+              <div className="sur-page-account-section-content">
                 <ul>
                   {survey.otherGuidelines.map((item, index) => (
                     <li key={index}>{item}</li>
@@ -579,20 +579,12 @@ const SurveyPage: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Горячие клавиши */}
-        <div className="hotkeys-info">
-          <p>
-            <strong>Горячие клавиши:</strong>{' '}
-            <kbd>Ctrl + P</kbd> Печать •{' '}
-            <kbd>Ctrl + S</kbd> Сохранить Word •{' '}
-            <kbd>Esc</kbd> Назад
-          </p>
-        </div>
+        </div>        
       </div>
     </div>
   );
 };
+
+SurveyPage.displayName='SurveyPage';
 
 export default SurveyPage;

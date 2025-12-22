@@ -141,3 +141,7 @@ export const AccountProvider: React.FC<AccountProviderProps> = ({ children }) =>
     </AccountContext.Provider>
   );
 };
+
+AccountContext.displayName='AccountContext';
+useAccountContext.displayName='useAccountContext';
+AccountProvider.displayName='AccountProvider';

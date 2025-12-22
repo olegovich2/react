@@ -34,4 +34,6 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
   );
 };
 
+Navbar.displayName='Navbar';
+
 export default Navbar;

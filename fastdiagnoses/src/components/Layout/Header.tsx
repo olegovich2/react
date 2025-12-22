@@ -159,4 +159,6 @@ const Header: React.FC<HeaderProps> = () => {
   );
 };
 
+Header.displayName='Header';
+
 export default Header;

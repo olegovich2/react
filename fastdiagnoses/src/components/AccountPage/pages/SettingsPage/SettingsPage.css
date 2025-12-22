@@ -1,24 +1,24 @@
 /* SettingsPage.css - Полная версия */
 
-.general {
+.set-page-general {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   background-color: #f8f9fa;
 }
 
-.settings-main {
+.set-page-main {
   flex: 1;
   padding: 20px 0;
 }
 
-.settings-container {
+.set-page-container {
   max-width: 800px;
   margin: 0 auto;
   padding: 0 20px;
 }
 
-.settings-header {
+.set-page-header {
   display: flex;
   align-items: center;
   margin-bottom: 30px;
@@ -26,7 +26,7 @@
   border-bottom: 2px solid rgb(183, 222, 234);
 }
 
-.settings-back-button {
+.set-page-back-button {
   background: none;
   border: 2px solid rgb(88, 96, 98);
   color: rgb(88, 96, 98);
@@ -40,13 +40,13 @@
   font-family: 'Montserrat', sans-serif;
 }
 
-.settings-back-button:hover {
+.set-page-back-button:hover {
   background-color: rgb(88, 96, 98);
   color: rgb(183, 222, 234);
   transform: translateX(-3px);
 }
 
-.settings-title {
+.set-page-title {
   margin: 0;
   font-size: 28px;
   color: rgb(88, 96, 98);
@@ -54,13 +54,13 @@
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.settings-sections {
+.set-page-sections {
   display: flex;
   flex-direction: column;
   gap: 30px;
 }
 
-.settings-section {
+.set-page-section {
   background: rgb(183, 222, 234);
   border-radius: 12px;
   padding: 25px;
@@ -69,12 +69,12 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.settings-section:hover {
+.set-page-section:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
-.section-title {
+.set-page-section-title {
   margin-top: 0;
   margin-bottom: 20px;
   color: rgb(88, 96, 98);
@@ -85,7 +85,7 @@
   position: relative;
 }
 
-.section-title::after {
+.set-page-section-title::after {
   content: '';
   position: absolute;
   bottom: -2px;
@@ -96,13 +96,13 @@
 }
 
 /* Информация об аккаунте */
-.info-grid {
+.set-page-info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
 }
 
-.info-item {
+.set-page-info-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -112,7 +112,7 @@
   border: 1px solid rgba(88, 96, 98, 0.2);
 }
 
-.info-label {
+.set-page-info-label {
   font-size: 14px;
   color: rgb(88, 96, 98);
   font-weight: 600;
@@ -120,7 +120,7 @@
   letter-spacing: 0.5px;
 }
 
-.info-value {
+.set-page-info-value {
   font-size: 18px;
   color: rgb(88, 96, 98);
   font-weight: 900;
@@ -128,7 +128,7 @@
 }
 
 /* Смена email */
-.email-change-info {
+.set-page-email-change-info {
   padding: 20px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6));
   border-radius: 10px;
@@ -136,14 +136,14 @@
   text-align: center;
 }
 
-.email-change-description {
+.set-page-email-change-description {
   color: rgb(88, 96, 98);
   margin-bottom: 20px;
   line-height: 1.6;
   font-size: 15px;
 }
 
-.email-change-init-button {
+.set-page-email-change-init-button {
   background: linear-gradient(135deg, rgb(88, 96, 98), rgb(66, 73, 75));
   color: rgb(183, 222, 234);
   border: none;
@@ -161,7 +161,7 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.email-change-init-button:hover {
+.set-page-email-change-init-button:hover {
   background: linear-gradient(135deg, rgb(184, 198, 202), rgb(150, 165, 169));
   color: rgb(88, 96, 98);
   transform: translateY(-2px);
@@ -169,13 +169,13 @@
 }
 
 /* Форма смены email */
-.email-form {
+.set-page-email-form {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.email-form-error {
+.set-page-email-form-error {
   background: linear-gradient(135deg, #fed7d7, #fc8181);
   color: #9b2c2c;
   padding: 15px;
@@ -183,10 +183,10 @@
   font-size: 14px;
   border: 2px solid #fc8181;
   font-weight: 600;
-  animation: fadeIn 0.3s ease;
+  animation: set-page-fadeIn 0.3s ease;
 }
 
-.email-form-success {
+.set-page-email-form-success {
   background: linear-gradient(135deg, #c6f6d5, #9ae6b4);
   color: #22543d;
   padding: 20px;
@@ -196,23 +196,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  animation: fadeIn 0.3s ease;
+  animation: set-page-fadeIn 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.email-form-success p {
+.set-page-email-form-success p {
   margin: 0;
   font-weight: 600;
 }
 
-.success-content {
+.set-page-success-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.success-close-button {
+.set-page-success-close-button {
   background: none;
   border: none;
   color: #22543d;
@@ -228,18 +228,18 @@
   margin-left: 10px;
 }
 
-.success-close-button:hover {
+.set-page-success-close-button:hover {
   transform: scale(1.2);
 }
 
 /* Формы */
-.form-group {
+.set-page-form-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.form-group label {
+.set-page-form-group label {
   font-size: 14px;
   color: rgb(88, 96, 98);
   font-weight: 600;
@@ -248,7 +248,7 @@
   gap: 5px;
 }
 
-.form-hint {
+.set-page-form-hint {
   font-size: 12px;
   color: #718096;
   font-weight: normal;
@@ -256,8 +256,8 @@
   margin-top: 2px;
 }
 
-.form-group input,
-.form-group textarea {
+.set-page-form-group input,
+.set-page-form-group textarea {
   padding: 14px;
   border: 2px solid rgb(88, 96, 98);
   border-radius: 6px;
@@ -268,34 +268,34 @@
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.form-group input:focus,
-.form-group textarea:focus {
+.set-page-form-group input:focus,
+.set-page-form-group textarea:focus {
   outline: none;
   background-color: rgba(183, 222, 234, 0.2);
   border-color: rgb(66, 73, 75);
   box-shadow: 0 0 0 3px rgba(183, 222, 234, 0.3);
 }
 
-.form-group input:disabled,
-.form-group textarea:disabled {
+.set-page-form-group input:disabled,
+.set-page-form-group textarea:disabled {
   background-color: #f1f1f1;
   color: #999;
   cursor: not-allowed;
 }
 
-.form-group textarea {
+.set-page-form-group textarea {
   resize: vertical;
   min-height: 100px;
   line-height: 1.5;
 }
 
-.email-form-buttons {
+.set-page-email-form-buttons {
   display: flex;
   gap: 15px;
   margin-top: 10px;
 }
 
-.email-form-submit-button {
+.set-page-email-form-submit-button {
   background: linear-gradient(135deg, #4299e1, #3182ce);
   color: white;
   border: none;
@@ -314,20 +314,20 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.email-form-submit-button:hover:not(:disabled) {
+.set-page-email-form-submit-button:hover:not(:disabled) {
   background: linear-gradient(135deg, #3182ce, #2b6cb0);
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
-.email-form-submit-button:disabled {
+.set-page-email-form-submit-button:disabled {
   background: #a0aec0;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-.email-form-cancel-button {
+.set-page-email-form-cancel-button {
   background-color: rgb(184, 198, 202);
   color: rgb(88, 96, 98);
   border: 2px solid rgb(88, 96, 98);
@@ -341,30 +341,31 @@
   flex: 0.5;
 }
 
-.email-form-cancel-button:hover:not(:disabled) {
+.set-page-email-form-cancel-button:hover:not(:disabled) {
   background-color: rgb(88, 96, 98);
   color: rgb(183, 222, 234);
   transform: translateY(-2px);
 }
 
-.email-form-cancel-button:disabled {
+.set-page-email-form-cancel-button:disabled {
   background-color: #a0aec0;
   color: white;
   cursor: not-allowed;
 }
 
 /* Форма смены пароля */
-.password-form {
+.set-page-password-form {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-width: 500px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 15px;
   background: rgba(255, 255, 255, 0.5);
   border-radius: 10px;
 }
 
-.password-error {
+.set-page-password-error {
   background: linear-gradient(135deg, #fed7d7, #fc8181);
   color: #9b2c2c;
   padding: 15px;
@@ -372,10 +373,10 @@
   font-size: 14px;
   border: 2px solid #fc8181;
   font-weight: 600;
-  animation: fadeIn 0.3s ease;
+  animation: set-page-fadeIn 0.3s ease;
 }
 
-.password-hint {
+.set-page-password-hint {
   font-size: 12px;
   color: rgb(88, 96, 98);
   margin-top: 6px;
@@ -383,7 +384,7 @@
   padding-left: 5px;
 }
 
-.change-password-button {
+.set-page-change-password-button {
   background: linear-gradient(135deg, rgb(88, 96, 98), rgb(66, 73, 75));
   color: rgb(183, 222, 234);
   border: none;
@@ -400,16 +401,19 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  width: 100%;
+  max-width: 500px;
+  align-self: flex-start;
 }
 
-.change-password-button:hover:not(:disabled) {
+.set-page-change-password-button:hover:not(:disabled) {
   background: linear-gradient(135deg, rgb(184, 198, 202), rgb(150, 165, 169));
   color: rgb(88, 96, 98);
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
-.change-password-button:disabled {
+.set-page-change-password-button:disabled {
   background: #a0aec0;
   color: white;
   cursor: not-allowed;
@@ -418,7 +422,7 @@
 }
 
 /* Секция удаления аккаунта */
-.delete-section {
+.set-page-delete-section {
   background: linear-gradient(135deg, #fff5f5, #fed7d7);
   border: 2px solid #fc8181;
   border-radius: 10px;
@@ -426,7 +430,7 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.delete-warning {
+.set-page-delete-warning {
   color: #9b2c2c;
   margin-bottom: 20px;
   font-size: 15px;
@@ -438,7 +442,7 @@
   border-radius: 8px;
 }
 
-.delete-button {
+.set-page-delete-button {
   background: linear-gradient(135deg, #fed7d7, #fc8181);
   color: #c53030;
   border: 2px solid #fc8181;
@@ -457,29 +461,29 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.delete-button:hover {
+.set-page-delete-button:hover {
   background: linear-gradient(135deg, #fc8181, #f56565);
   color: white;
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
-.delete-confirm {
+.set-page-delete-confirm {
   padding: 20px;
   background: linear-gradient(135deg, #fed7d7, #fc8181);
   border-radius: 10px;
   border: 2px solid #fc8181;
-  animation: fadeIn 0.3s ease;
+  animation: set-page-fadeIn 0.3s ease;
 }
 
-.delete-confirm-text {
+.set-page-delete-confirm-text {
   color: #9b2c2c;
   margin-bottom: 15px;
   font-weight: 700;
   font-size: 16px;
 }
 
-.delete-list {
+.set-page-delete-list {
   color: #9b2c2c;
   margin-left: 25px;
   margin-bottom: 25px;
@@ -487,13 +491,13 @@
   padding: 0;
 }
 
-.delete-list li {
+.set-page-delete-list li {
   margin-bottom: 10px;
   position: relative;
   padding-left: 5px;
 }
 
-.delete-list li::before {
+.set-page-delete-list li::before {
   content: '•';
   color: #c53030;
   font-weight: bold;
@@ -501,12 +505,12 @@
   left: -15px;
 }
 
-.delete-buttons {
+.set-page-delete-buttons {
   display: flex;
   gap: 15px;
 }
 
-.delete-confirm-button {
+.set-page-delete-confirm-button {
   background: linear-gradient(135deg, #c53030, #9b2c2c);
   color: white;
   border: none;
@@ -524,18 +528,18 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.delete-confirm-button:hover:not(:disabled) {
+.set-page-delete-confirm-button:hover:not(:disabled) {
   background: linear-gradient(135deg, #9b2c2c, #742a2a);
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
-.delete-confirm-button:disabled {
+.set-page-delete-confirm-button:disabled {
   background: #a0aec0;
   cursor: not-allowed;
 }
 
-.delete-cancel-button {
+.set-page-delete-cancel-button {
   background-color: rgb(184, 198, 202);
   color: rgb(88, 96, 98);
   border: 2px solid rgb(88, 96, 98);
@@ -548,26 +552,26 @@
   flex: 1;
 }
 
-.delete-cancel-button:hover:not(:disabled) {
+.set-page-delete-cancel-button:hover:not(:disabled) {
   background-color: rgb(88, 96, 98);
   color: rgb(183, 222, 234);
   transform: translateY(-2px);
 }
 
-.delete-cancel-button:disabled {
+.set-page-delete-cancel-button:disabled {
   background-color: #a0aec0;
   color: white;
   cursor: not-allowed;
 }
 
 /* Информация о системе */
-.system-info {
+.set-page-system-info {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.system-info-item {
+.set-page-system-info-item {
   padding: 12px 0;
   border-bottom: 1px solid rgba(88, 96, 98, 0.3);
   display: flex;
@@ -576,24 +580,24 @@
   transition: background-color 0.2s ease;
 }
 
-.system-info-item:hover {
+.set-page-system-info-item:hover {
   background-color: rgba(255, 255, 255, 0.3);
   padding-left: 10px;
   padding-right: 10px;
   border-radius: 6px;
 }
 
-.system-info-item strong {
+.set-page-system-info-item strong {
   color: rgb(88, 96, 98);
   min-width: 140px;
 }
 
-.system-info-item:last-child {
+.set-page-system-info-item:last-child {
   border-bottom: none;
 }
 
 /* Ошибки */
-.settings-error {
+.set-page-error {
   background: linear-gradient(135deg, #fed7d7, #fc8181);
   color: #9b2c2c;
   padding: 20px;
@@ -603,17 +607,17 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  animation: fadeIn 0.3s ease;
+  animation: set-page-fadeIn 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.settings-error p {
+.set-page-error p {
   margin: 0;
   font-weight: 600;
   flex: 1;
 }
 
-.settings-error button {
+.set-page-error button {
   background: none;
   border: none;
   color: #9b2c2c;
@@ -629,27 +633,27 @@
   flex-shrink: 0;
 }
 
-.settings-error button:hover {
+.set-page-error button:hover {
   transform: scale(1.2);
 }
 
 /* Кнопки с индикатором загрузки */
-.button-spinner {
+.set-page-button-spinner {
   display: inline-block;
   width: 18px;
   height: 18px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
   border-top-color: white;
-  animation: spin 1s linear infinite;
+  animation: set-page-spin 1s linear infinite;
 }
 
-@keyframes spin {
+@keyframes set-page-spin {
   to { transform: rotate(360deg); }
 }
 
 /* Загрузка */
-.settings-loading {
+.set-page-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -657,24 +661,24 @@
   min-height: 400px;
 }
 
-.spinner {
+.set-page-spinner {
   border: 4px solid rgb(183, 222, 234);
   border-top: 4px solid rgb(88, 96, 98);
   border-radius: 50%;
   width: 60px;
   height: 60px;
-  animation: spin 1s linear infinite;
+  animation: set-page-spin 1s linear infinite;
   margin-bottom: 25px;
 }
 
-.settings-loading p {
+.set-page-loading p {
   color: rgb(88, 96, 98);
   font-size: 18px;
   font-weight: 600;
 }
 
 /* Анимации */
-@keyframes fadeIn {
+@keyframes set-page-fadeIn {
   from { 
     opacity: 0; 
     transform: translateY(-10px);
@@ -685,116 +689,104 @@
   }
 }
 
-.fade-in {
-  animation: fadeIn 0.3s ease-in;
-}
-
-/* Утилиты */
-.text-center {
-  text-align: center;
-}
-
-.mt-20 {
-  margin-top: 20px;
-}
-
-.mb-20 {
-  margin-bottom: 20px;
+.set-page-fade-in {
+  animation: set-page-fadeIn 0.3s ease-in;
 }
 
 /* Адаптивность */
 @media (max-width: 768px) {
-  .settings-container {
+  .set-page-container {
     padding: 0 15px;
   }
   
-  .settings-header {
+  .set-page-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 15px;
     padding-bottom: 15px;
   }
   
-  .settings-back-button {
+  .set-page-back-button {
     margin-right: 0;
     align-self: flex-start;
   }
   
-  .settings-title {
+  .set-page-title {
     font-size: 24px;
     align-self: center;
     width: 100%;
     text-align: center;
   }
   
-  .info-grid {
+  .set-page-info-grid {
     grid-template-columns: 1fr;
   }
   
-  .settings-section {
+  .set-page-section {
     padding: 20px;
   }
   
-  .section-title {
+  .set-page-section-title {
     font-size: 20px;
   }
   
-  .email-form-buttons,
-  .delete-buttons {
+  .set-page-email-form-buttons,
+  .set-page-delete-buttons {
     flex-direction: column;
   }
   
-  .email-form-submit-button,
-  .email-form-cancel-button,
-  .delete-confirm-button,
-  .delete-cancel-button {
+  .set-page-email-form-submit-button,
+  .set-page-email-form-cancel-button,
+  .set-page-delete-confirm-button,
+  .set-page-delete-cancel-button,
+  .set-page-change-password-button {
     width: 100%;
     text-align: center;
   }
   
-  .system-info-item {
+  .set-page-system-info-item {
     flex-direction: column;
     gap: 5px;
     align-items: flex-start;
   }
   
-  .system-info-item strong {
+  .set-page-system-info-item strong {
     min-width: auto;
     margin-bottom: 5px;
   }
 }
 
 @media (max-width: 480px) {
-  .settings-container {
+  .set-page-container {
     padding: 0 10px;
   }
   
-  .settings-section {
+  .set-page-section {
     padding: 15px;
   }
   
-  .section-title {
+  .set-page-section-title {
     font-size: 18px;
   }
   
-  .info-value {
+  .set-page-info-value {
     font-size: 16px;
   }
   
-  .email-change-init-button,
-  .change-password-button,
-  .delete-button {
+  .set-page-email-change-init-button,
+  .set-page-change-password-button,
+  .set-page-delete-button {
     padding: 12px 20px;
     font-size: 14px;
   }
   
-  .form-group input,
-  .form-group textarea {
+  .set-page-form-group input,
+  .set-page-form-group textarea {
     padding: 12px;
     font-size: 14px;
   }
   
-  .delete-list {
+  .set-page-delete-list {
     margin-left: 15px;
     font-size: 13px;
   }

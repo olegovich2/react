@@ -295,12 +295,12 @@ const SettingsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="general">
+      <div className="set-page-general">
         <Header />
-        <main className="settings-main">
-          <div className="settings-container">
-            <div className="settings-loading">
-              <div className="spinner"></div>
+        <main className="set-page-main">
+          <div className="set-page-container">
+            <div className="set-page-loading">
+              <div className="set-page-spinner"></div>
               <p>Загрузка данных...</p>
             </div>
           </div>
@@ -311,79 +311,79 @@ const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="general">
+    <div className="set-page-general">
       <Header/>
       
-      <main className="settings-main">
-        <div className="settings-container">
-          <div className="settings-header">
+      <main className="set-page-main">
+        <div className="set-page-container">
+          <div className="set-page-header">
             <button 
-              className="settings-back-button" 
+              className="set-page-back-button" 
               onClick={handleBack}
               aria-label="Вернуться назад"
             >
               ← Назад
             </button>
-            <h1 className="settings-title">Настройки аккаунта</h1>
+            <h1 className="set-page-title">Настройки аккаунта</h1>
           </div>
 
           {error && (
-            <div className="settings-error">
+            <div className="set-page-error">
               <p>{error}</p>
               <button onClick={() => setError(null)}>✕</button>
             </div>
           )}
 
-          <div className="settings-sections">
+          <div className="set-page-sections">
             {/* Секция 1: Информация об аккаунте */}
-            <section className="settings-section">
-              <h2 className="section-title">Информация об аккаунте</h2>
+            <section className="set-page-section">
+              <h2 className="set-page-section-title">Информация об аккаунте</h2>
               
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Логин:</span>
-                  <span className="info-value">{accountData?.login}</span>
+              <div className="set-page-info-grid">
+                <div className="set-page-info-item">
+                  <span className="set-page-info-label">Логин:</span>
+                  <span className="set-page-info-value">{accountData?.login}</span>
                 </div>
                 
-                <div className="info-item">
-                  <span className="info-label">Email:</span>
-                  <span className="info-value">{accountData?.email}</span>
+                <div className="set-page-info-item">
+                  <span className="set-page-info-label">Email:</span>
+                  <span className="set-page-info-value">{accountData?.email}</span>
                 </div>
               </div>
             </section>
 
             {/* Секция 2: Смена email */}
-            <section className="settings-section">
-              <h2 className="section-title">Смена email</h2>
+            <section className="set-page-section">
+              <h2 className="set-page-section-title">Смена email</h2>
               
               {!showEmailForm ? (
-                <div className="email-change-info">
-                  <p className="email-change-description">
+                <div className="set-page-email-change-info">
+                  <p className="set-page-email-change-description">
                     Для смены email необходимо обратиться к администратору.
                     Заполните форму ниже, и мы автоматически отправим запрос администратору.
                   </p>
                   <button 
-                    className="email-change-init-button"
+                    className="set-page-email-change-init-button"
                     onClick={() => setShowEmailForm(true)}
                   >
                     📧 Запросить смену email
                   </button>
                 </div>
               ) : (
-                <div className="email-form">
+                <div className="set-page-email-form">
                   {emailFormError && (
-                    <div className="email-form-error">
+                    <div className="set-page-email-form-error">
                       {emailFormError}
                     </div>
                   )}
                   
                   {emailFormSuccess && (
-                    <div className="email-form-success">
-                      <div className="success-content">
+                    <div className="set-page-email-form-success">
+                      <div className="set-page-success-content">
                         <p>{emailFormSuccess}</p>
                       </div>
                       <button 
-                        className="success-close-button"
+                        className="set-page-success-close-button"
                         onClick={() => {
                           setEmailFormSuccess(null);
                         }}
@@ -393,10 +393,10 @@ const SettingsPage: React.FC = () => {
                     </div>
                   )}
                   
-                  <div className="form-group">
+                  <div className="set-page-form-group">
                     <label htmlFor="currentEmail">
                       Подтвердите текущий email:
-                      <span className="form-hint"> (должен совпадать с {accountData?.email})</span>
+                      <span className="set-page-form-hint"> (должен совпадать с {accountData?.email})</span>
                     </label>
                     <input
                       type="email"
@@ -408,7 +408,7 @@ const SettingsPage: React.FC = () => {
                     />
                   </div>
                   
-                  <div className="form-group">
+                  <div className="set-page-form-group">
                     <label htmlFor="newEmail">Новый email:</label>
                     <input
                       type="email"
@@ -420,7 +420,7 @@ const SettingsPage: React.FC = () => {
                     />
                   </div>
                   
-                  <div className="form-group">
+                  <div className="set-page-form-group">
                     <label htmlFor="reason">Причина смены:</label>
                     <textarea
                       id="reason"
@@ -432,15 +432,15 @@ const SettingsPage: React.FC = () => {
                     />
                   </div>
                   
-                  <div className="email-form-buttons">
+                  <div className="set-page-email-form-buttons">
                     <button 
-                      className="email-form-submit-button"
+                      className="set-page-email-form-submit-button"
                       onClick={handleEmailChangeRequest}
                       disabled={emailFormLoading}
                     >
                       {emailFormLoading ? (
                         <>
-                          <span className="button-spinner"></span>
+                          <span className="set-page-button-spinner"></span>
                           Отправка...
                         </>
                       ) : (
@@ -448,7 +448,7 @@ const SettingsPage: React.FC = () => {
                       )}
                     </button>
                     <button 
-                      className="email-form-cancel-button"
+                      className="set-page-email-form-cancel-button"
                       onClick={() => {
                         setShowEmailForm(false);
                         setEmailFormError(null);
@@ -469,17 +469,17 @@ const SettingsPage: React.FC = () => {
             </section>
 
             {/* Секция 3: Безопасность */}
-            <section className="settings-section">
-              <h2 className="section-title">Безопасность</h2>
+            <section className="set-page-section">
+              <h2 className="set-page-section-title">Безопасность</h2>
               
-              <div className="password-form">
+              <div className="set-page-password-form">
                 {passwordError && (
-                  <div className="password-error">
+                  <div className="set-page-password-error">
                     {passwordError}
                   </div>
                 )}
                 
-                <div className="form-group">
+                <div className="set-page-form-group">
                   <label htmlFor="currentPassword">Текущий пароль</label>
                   <input
                     type="password"
@@ -491,7 +491,7 @@ const SettingsPage: React.FC = () => {
                   />
                 </div>
                 
-                <div className="form-group">
+                <div className="set-page-form-group">
                   <label htmlFor="newPassword">Новый пароль</label>
                   <input
                     type="password"
@@ -501,12 +501,12 @@ const SettingsPage: React.FC = () => {
                     placeholder="Введите новый пароль (мин. 6 символов)"
                     disabled={passwordLoading}
                   />
-                  <div className="password-hint">
+                  <div className="set-page-password-hint">
                     Должен содержать заглавные, строчные буквы и цифры
                   </div>
                 </div>
                 
-                <div className="form-group">
+                <div className="set-page-form-group">
                   <label htmlFor="confirmPassword">Подтвердите новый пароль</label>
                   <input
                     type="password"
@@ -519,13 +519,13 @@ const SettingsPage: React.FC = () => {
                 </div>
                 
                 <button 
-                  className="change-password-button"
+                  className="set-page-change-password-button"
                   onClick={handleChangePassword}
                   disabled={passwordLoading || !newPassword.currentPassword || !newPassword.newPassword || !confirmPassword}
                 >
                   {passwordLoading ? (
                     <>
-                      <span className="button-spinner"></span>
+                      <span className="set-page-button-spinner"></span>
                       Смена пароля...
                     </>
                   ) : (
@@ -536,34 +536,34 @@ const SettingsPage: React.FC = () => {
             </section>
 
             {/* Секция 4: Удаление аккаунта */}
-            <section className="settings-section">
-              <h2 className="section-title">Удаление аккаунта</h2>
+            <section className="set-page-section">
+              <h2 className="set-page-section-title">Удаление аккаунта</h2>
               
-              <div className="delete-section">
-                <p className="delete-warning">
+              <div className="set-page-delete-section">
+                <p className="set-page-delete-warning">
                   ⚠️ Внимание! Это действие нельзя отменить. Все ваши данные будут безвозвратно удалены.
                 </p>
                 
                 {deleteConfirm ? (
-                  <div className="delete-confirm">
-                    <p className="delete-confirm-text">
+                  <div className="set-page-delete-confirm">
+                    <p className="set-page-delete-confirm-text">
                       Вы уверены, что хотите удалить аккаунт? Все данные будут удалены:
                     </p>
-                    <ul className="delete-list">
+                    <ul className="set-page-delete-list">
                       <li>Все сохраненные опросы</li>
                       <li>Все загруженные изображения</li>
                       <li>История активности</li>
                       <li>Настройки аккаунта</li>
                     </ul>
-                    <div className="delete-buttons">
+                    <div className="set-page-delete-buttons">
                       <button 
-                        className="delete-confirm-button"
+                        className="set-page-delete-confirm-button"
                         onClick={handleDeleteAccount}
                         disabled={deleteLoading}
                       >
                         {deleteLoading ? (
                           <>
-                            <span className="button-spinner"></span>
+                            <span className="set-page-button-spinner"></span>
                             Удаление...
                           </>
                         ) : (
@@ -571,7 +571,7 @@ const SettingsPage: React.FC = () => {
                         )}
                       </button>
                       <button 
-                        className="delete-cancel-button"
+                        className="set-page-delete-cancel-button"
                         onClick={() => {
                           setDeleteConfirm(false);
                           setError(null);
@@ -584,7 +584,7 @@ const SettingsPage: React.FC = () => {
                   </div>
                 ) : (
                   <button 
-                    className="delete-button"
+                    className="set-page-delete-button"
                     onClick={() => setDeleteConfirm(true)}
                   >
                     🗑️ Удалить аккаунт
@@ -594,21 +594,21 @@ const SettingsPage: React.FC = () => {
             </section>
 
             {/* Секция 5: Информация о системе */}
-            <section className="settings-section">
-              <h2 className="section-title">О системе</h2>
+            <section className="set-page-section">
+              <h2 className="set-page-section-title">О системе</h2>
               
-              <div className="system-info">
-                <div className="system-info-item">
+              <div className="set-page-system-info">
+                <div className="set-page-system-info-item">
                   <strong>Название:</strong> QuickDiagnosis
                 </div>
-                <div className="system-info-item">
+                <div className="set-page-system-info-item">
                   <strong>Версия:</strong> 2.0.0
                 </div>
-                <div className="system-info-item">
+                <div className="set-page-system-info-item">
                   <strong>Тип лицензии:</strong> Бесплатная
                 </div>
-                <div className="system-info-item">
-                  <strong>Поддержка:</strong> support@quickdiagnosis.com
+                <div className="set-page-system-info-item">
+                  <strong>Поддержка:</strong> trmailforupfile@gmail.com
                 </div>
               </div>
             </section>
@@ -620,5 +620,7 @@ const SettingsPage: React.FC = () => {
     </div>
   );
 };
+
+SettingsPage.displayName = 'SettingsPage';
 
 export default SettingsPage;
