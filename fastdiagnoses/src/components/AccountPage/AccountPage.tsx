@@ -23,18 +23,18 @@ const AccountPageContent: React.FC = () => {
   }, [navigate]);
 
   return (
-    <div className="general" data-main="mainElement">
+    <div className="account-page-general" data-main="mainElement">
       <Header/>
 
-      <main className="general">
-        <div className="mainAccount">
+      <main className="account-page-general">
+        <div className="account-page-main">
           {/* 1. Список опросов с пагинацией */}
-          <div className="full-width-section">
+          <div className="account-page-full-width-section">
             <SurveysContainerPaginated />
           </div>
           
           {/* 2. Блок загрузки и отображения изображений */}
-          <div className="full-width-section">
+          <div className="account-page-full-width-section">
             <ImagesContainerPaginated />
           </div>
         </div>
@@ -54,5 +54,9 @@ const AccountPage: React.FC = () => {
     </AccountProvider>
   );
 };
+
+// Добавляем displayName
+AccountPage.displayName = 'AccountPage';
+AccountPageContent.displayName = 'AccountPageContent';
 
 export default AccountPage;

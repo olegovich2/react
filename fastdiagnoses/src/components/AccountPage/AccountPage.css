@@ -4,7 +4,7 @@
 @import url('https://fonts.googleapis.com/css?family=Montserrat:100,100i,200,200i,300,300i,400,400i,500,500i,600,600i,700,700i,800,800i,900,900i&display=swap&subset=cyrillic');
 
 /* ==================== ОСНОВНЫЕ СТИЛИ АККАУНТА ==================== */
-.mainAccount {
+.account-page-main {
     display: flex;
     flex-direction: column;
     gap: 30px;
@@ -12,7 +12,7 @@
     padding: 15px 0;
 }
 
-.general {
+.account-page-general {
     display: grid;
     grid-template-rows: auto;
     gap: 15px;
@@ -21,7 +21,7 @@
 }
 
 /* Приветствие */
-.greeting {
+.account-page-greeting {
     width: 100%;
     margin: 10px 0;
     font-size: 24px;
@@ -31,7 +31,7 @@
 }
 
 /* Контейнер для кнопки выхода */
-.containerForExit {
+.account-page-container-for-exit {
     display: grid;
     grid-template-columns: 80% 100px;
     background-color: rgb(8, 16, 16);
@@ -39,7 +39,7 @@
     margin: 10px 0;
 }
 
-.containerForExit h3 {
+.account-page-container-for-exit h3 {
     color: rgb(255, 255, 255);
     margin: 0;
     text-align: left;
@@ -47,22 +47,22 @@
 }
 
 /* Полноширинные секции */
-.full-width-section {
+.account-page-full-width-section {
     width: 100%;
     margin-bottom: 30px;
 }
 
-.full-width-section:last-child {
+.account-page-full-width-section:last-child {
     margin-bottom: 0;
 }
 
 /* ==================== УТИЛИТЫ ==================== */
-.unvisible {
+.account-page-unvisible {
     display: none !important;
 }
 
 /* Пустые сообщения */
-.empty-message {
+.account-page-empty-message {
     text-align: center;
     padding: 40px 20px;
     color: rgb(88, 96, 98);
@@ -72,20 +72,20 @@
     margin: 20px 0;
 }
 
-.empty-message i {
+.account-page-empty-message i {
     font-size: 48px;
     margin-bottom: 20px;
     color: rgb(183, 222, 234);
     opacity: 0.7;
 }
 
-.empty-message p {
+.account-page-empty-message p {
     font-size: 18px;
     font-weight: 700;
     margin: 0;
 }
 
-.loading-message {
+.account-page-loading-message {
     text-align: center;
     padding: 40px 20px;
     color: rgb(88, 96, 98);
@@ -93,82 +93,82 @@
     font-weight: 700;
 }
 
-.loading-message i {
+.account-page-loading-message i {
     margin-right: 10px;
     color: rgb(76, 175, 80);
 }
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 1200px) {
-    .mainAccount {
+    .account-page-main {
         padding: 10px 0;
     }
 }
 
 @media (max-width: 768px) {
-    .mainAccount {
+    .account-page-main {
         grid-template-columns: 1fr;
         gap: 20px;
     }
     
-    .full-width-section {
+    .account-page-full-width-section {
         margin-bottom: 20px;
     }
     
-    .greeting {
+    .account-page-greeting {
         font-size: 20px;
     }
     
-    .containerForExit {
+    .account-page-container-for-exit {
         grid-template-columns: 1fr;
         text-align: center;
     }
     
-    .containerForExit h3 {
+    .account-page-container-for-exit h3 {
         padding-left: 0;
         text-align: center;
         margin-bottom: 10px;
     }
     
-    .empty-message,
-    .loading-message {
+    .account-page-empty-message,
+    .account-page-loading-message {
         padding: 30px 15px;
     }
     
-    .empty-message i {
+    .account-page-empty-message i {
         font-size: 36px;
     }
     
-    .empty-message p,
-    .loading-message {
+    .account-page-empty-message p,
+    .account-page-loading-message {
         font-size: 16px;
     }
 }
 
 @media (max-width: 480px) {
-    .mainAccount {
+    .account-page-main {
         gap: 15px;
     }
     
-    .full-width-section {
+    .account-page-full-width-section {
         margin-bottom: 15px;
     }
     
-    .greeting {
+    .account-page-greeting {
         font-size: 18px;
     }
     
-    .empty-message,
-    .loading-message {
+    .account-page-empty-message,
+    .account-page-loading-message {
         padding: 25px 10px;
     }
     
-    .empty-message i {
+    .account-page-empty-message i {
         font-size: 32px;
     }
     
-    .empty-message p,
-    .loading-message {
+    .account-page-empty-message p,
+    .account-page-loading-message {
         font-size: 15px;
     }
 }
