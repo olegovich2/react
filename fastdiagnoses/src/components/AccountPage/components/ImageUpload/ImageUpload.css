@@ -1,5 +1,7 @@
+/* ImageUpload.css */
+
 /* ==================== ОСНОВНЫЕ СТИЛИ КОНТЕЙНЕРА ==================== */
-.formForUploadOnServer {
+.image-upload-form {
     display: grid;
     grid-template-rows: auto;
     gap: 20px;
@@ -8,11 +10,15 @@
     border-radius: 10px;
     border: 2px solid rgb(88, 96, 98);
     width: 100%;
+    max-width: 100%; /* ← ФИКС: ограничение ширины */
+    box-sizing: border-box; /* ← ФИКС: учитываем padding в ширине */
+    overflow-x: hidden; /* ← ФИКС: скрываем горизонтальный скролл */
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     font-family: 'Montserrat', sans-serif;
+    margin: 0 auto;
 }
 
-.formForUploadOnServer h3 {
+.image-upload-form h3 {
     margin: 0;
     padding: 0 0 10px 0;
     font-size: 20px;
@@ -21,7 +27,7 @@
     border-bottom: 2px solid rgb(88, 96, 98);
 }
 
-.formForUploadOnServer p {
+.image-upload-form p {
     margin: 0;
     padding: 5px 0;
     font-size: 14px;
@@ -29,14 +35,16 @@
 }
 
 /* ==================== СЕКЦИЯ ЗАГРУЗКИ ФАЙЛОВ ==================== */
-.upload-section {
+.image-upload-section {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* Кнопка выбора файла */
-.upload-button {
+.image-upload-button {
     color: white;
     background-color: rgb(88, 96, 98);
     padding: 12px 24px;
@@ -52,73 +60,84 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.green-upload-button {
+.image-upload-green-button {
     background-color: rgb(76, 175, 80);
     border-color: rgb(56, 142, 60);
     color: white;
 }
 
-.green-upload-button:hover {
+.image-upload-green-button:hover {
     background-color: rgb(56, 142, 60);
     border-color: rgb(56, 142, 60);
     color: white !important;
 }
 
-.green-upload-button:disabled {
+.image-upload-green-button:disabled {
     background-color: rgb(144, 238, 144);
     border-color: rgb(144, 238, 144);
     opacity: 0.7;
     cursor: not-allowed;
 }
 
-.green-upload-button:disabled:hover {
+.image-upload-green-button:disabled:hover {
     background-color: rgb(144, 238, 144);
     color: white;
 }
 
 /* Информация о выбранном файле */
-.file-info-preview {
+.image-upload-file-info-preview {
     margin-top: 15px;
     padding: 15px;
     background: #f9f9f9;
     border-radius: 8px;
     border: 1px solid #e0e0e0;
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
-.selected-file-info {
+.image-upload-selected-file-info {
     background-color: rgba(183, 222, 234, 0.3);
     padding: 15px;
     border-radius: 8px;
     border-left: 4px solid rgb(76, 175, 80);
     margin-bottom: 15px;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.selected-file-info p {
+.image-upload-selected-file-info p {
     margin: 5px 0;
     font-size: 14px;
     color: #555;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
-.selected-file-info strong {
+.image-upload-selected-file-info strong {
     color: rgb(60, 65, 70);
     min-width: 100px;
     display: inline-block;
 }
 
 /* Предпросмотр изображения */
-.image-preview-container {
+.image-upload-preview-container {
     margin-top: 15px;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
-.image-preview-container h4 {
+.image-upload-preview-container h4 {
     margin: 0 0 10px 0;
     color: #333;
     font-size: 16px;
 }
 
-.image-preview-wrapper {
+.image-upload-preview-wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -128,29 +147,33 @@
     border: 1px solid #ddd;
     padding: 10px;
     background: white;
+    box-sizing: border-box;
 }
 
-.image-preview {
+.image-upload-preview {
     max-width: 100%;
     max-height: 300px;
     object-fit: contain;
     border-radius: 4px;
+    display: block;
 }
 
 /* ==================== СЕКЦИЯ КОММЕНТАРИЕВ ==================== */
-.comment-section {
+.image-upload-comment-section {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
-.comment-section label {
+.image-upload-comment-section label {
     font-weight: 900;
     color: rgb(88, 96, 98);
     font-size: 16px;
 }
 
-.comment-input {
+.image-upload-comment-input {
     width: 100%;
     padding: 12px;
     border: 2px solid rgb(88, 96, 98);
@@ -161,22 +184,24 @@
     min-height: 60px;
     background-color: white;
     transition: all 0.3s ease;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.comment-input:focus {
+.image-upload-comment-input:focus {
     outline: none;
     border-color: rgb(76, 175, 80);
     background-color: rgba(144, 238, 144, 0.1);
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
-.comment-input:disabled {
+.image-upload-comment-input:disabled {
     background-color: rgb(240, 240, 240);
     cursor: not-allowed;
     opacity: 0.7;
 }
 
-.comment-counter {
+.image-upload-comment-counter {
     text-align: right;
     font-size: 12px;
     color: #888;
@@ -184,21 +209,25 @@
 }
 
 /* ==================== ПРОГРЕСС ЗАГРУЗКИ ==================== */
-.upload-progress-container {
+.image-upload-progress-container {
     width: 100%;
     margin: 15px 0;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.upload-progress-bar-wrapper {
+.image-upload-progress-bar-wrapper {
     height: 24px;
     background: #f0f0f0;
     border-radius: 12px;
     overflow: hidden;
     margin-bottom: 8px;
     border: 1px solid #ddd;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.upload-progress-bar {
+.image-upload-progress-bar {
     height: 100%;
     width: 0%;
     background: linear-gradient(90deg, #4CAF50, #45a049);
@@ -214,25 +243,27 @@
     box-sizing: border-box;
 }
 
-.upload-progress-details {
+.image-upload-progress-details {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 13px;
     color: #666;
     margin-bottom: 5px;
+    max-width: 100%;
+    flex-wrap: wrap;
 }
 
-.progress-text {
+.image-upload-progress-text {
     font-weight: 500;
 }
 
-.file-size {
+.image-upload-file-size {
     color: #888;
     font-style: italic;
 }
 
-.upload-speed {
+.image-upload-speed {
     text-align: center;
     font-size: 11px;
     color: #999;
@@ -240,17 +271,19 @@
 }
 
 /* ==================== СООБЩЕНИЯ ==================== */
-.upload-message {
+.image-upload-message {
     display: flex;
     align-items: flex-start;
     padding: 12px 15px;
     margin: 15px 0;
     border-radius: 6px;
     border-left: 4px solid;
-    animation: slideIn 0.3s ease;
+    animation: image-upload-slide-in 0.3s ease;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-@keyframes slideIn {
+@keyframes image-upload-slide-in {
     from {
         opacity: 0;
         transform: translateY(-10px);
@@ -261,39 +294,42 @@
     }
 }
 
-.upload-success {
+.image-upload-success {
     background: #edf7ed;
     border-color: #4caf50;
     color: #2e7d32;
 }
 
-.upload-error {
+.image-upload-error {
     background: #fdeded;
     border-color: #f44336;
     color: #d32f2f;
 }
 
-.upload-warning {
+.image-upload-warning {
     background: #fff4e5;
     border-color: #ff9800;
     color: #ef6c00;
 }
 
-.message-icon {
+.image-upload-message-icon {
     margin-right: 10px;
     font-size: 18px;
     flex-shrink: 0;
 }
 
-.message-content {
+.image-upload-message-content {
     flex-grow: 1;
+    max-width: calc(100% - 60px); /* ← ФИКС для длинных сообщений */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
-.message-content strong {
+.image-upload-message-content strong {
     margin-right: 5px;
 }
 
-.message-close {
+.image-upload-message-close {
     background: none;
     border: none;
     font-size: 20px;
@@ -307,18 +343,22 @@
     transition: opacity 0.2s ease;
 }
 
-.message-close:hover {
+.image-upload-message-close:hover {
     opacity: 1;
 }
 
 /* ==================== КНОПКИ ДЕЙСТВИЙ ==================== */
-.upload-actions {
+.image-upload-actions {
     display: flex;
     gap: 15px;
     justify-content: center;
     margin-top: 10px;
+    max-width: 100%;
+    box-sizing: border-box;
+    flex-wrap: wrap; /* ← ФИКС: перенос кнопок на маленьких экранах */
 }
 
+/* Общий класс buttonFromTemplateTwo остается глобальным */
 .buttonFromTemplateTwo {
     display: flex;
     align-items: center;
@@ -333,16 +373,18 @@
     transition: all 0.3s ease;
     font-family: 'Montserrat', sans-serif;
     min-width: 200px;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.green-submit-button {
+.image-upload-green-submit-button {
     background: linear-gradient(135deg, #4CAF50, #45a049);
     border-color: rgb(56, 142, 60);
     color: white;
     border: none;
 }
 
-.green-submit-button:hover:not(:disabled) {
+.image-upload-green-submit-button:hover:not(:disabled) {
     background: linear-gradient(135deg, #45a049, #3d8b40);
     border-color: rgb(56, 142, 60);
     color: white !important;
@@ -350,7 +392,7 @@
     box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
-.green-submit-button:disabled {
+.image-upload-green-submit-button:disabled {
     background: rgb(144, 238, 144);
     border-color: rgb(144, 238, 144);
     opacity: 0.7;
@@ -359,31 +401,31 @@
     box-shadow: none;
 }
 
-.green-submit-button:disabled:hover {
+.image-upload-green-submit-button:disabled:hover {
     background: rgb(144, 238, 144);
     color: white;
 }
 
-.cancel-button {
+.image-upload-cancel-button {
     background: #f5f5f5;
     border: 2px solid #ddd;
     color: #666;
 }
 
-.cancel-button:hover:not(:disabled) {
+.image-upload-cancel-button:hover:not(:disabled) {
     background: #e0e0e0;
     border-color: #ccc;
     color: #333 !important;
 }
 
-.cancel-button:disabled {
+.image-upload-cancel-button:disabled {
     background: #f5f5f5;
     border-color: #eee;
     opacity: 0.7;
     cursor: not-allowed;
 }
 
-.cancel-button:disabled:hover {
+.image-upload-cancel-button:disabled:hover {
     background: #f5f5f5;
     color: #666;
 }
@@ -392,12 +434,12 @@
 
 /* Планшеты и небольшие экраны */
 @media (max-width: 768px) {
-    .formForUploadOnServer {
+    .image-upload-form {
         padding: 15px;
         gap: 15px;
     }
     
-    .upload-actions {
+    .image-upload-actions {
         flex-direction: column;
         gap: 10px;
     }
@@ -405,54 +447,57 @@
     .buttonFromTemplateTwo {
         width: 100%;
         min-width: auto;
-        padding: 10px 20px;
+        padding: 10px 15px;
     }
     
-    .upload-button {
-        padding: 10px 20px;
+    .image-upload-button {
+        padding: 10px 15px;
         font-size: 15px;
         margin: 10px 0;
+        width: 100%; /* ← Кнопка на всю ширину */
     }
     
-    .comment-input {
+    .image-upload-comment-input {
         padding: 10px;
         font-size: 14px;
         min-height: 50px;
     }
     
-    .image-preview {
+    .image-upload-preview {
         max-height: 200px;
     }
     
-    .upload-progress-details {
+    .image-upload-progress-details {
         flex-direction: column;
         align-items: flex-start;
         gap: 5px;
     }
     
-    .file-info-preview {
+    .image-upload-file-info-preview {
         padding: 12px;
     }
     
-    .selected-file-info {
+    .image-upload-selected-file-info {
         padding: 12px;
     }
 }
 
 /* Мобильные телефоны */
 @media (max-width: 480px) {
-    .formForUploadOnServer {
+    .image-upload-form {
         padding: 12px;
         gap: 12px;
+        width: calc(100% - 16px);
+        margin: 0 auto;
     }
     
-    .formForUploadOnServer h3 {
+    .image-upload-form h3 {
         font-size: 18px;
         padding-bottom: 8px;
     }
     
-    .upload-button {
-        padding: 8px 16px;
+    .image-upload-button {
+        padding: 8px 12px;
         font-size: 14px;
         margin: 8px 0;
     }
@@ -463,82 +508,89 @@
         min-width: auto;
     }
     
-    .selected-file-info {
+    .image-upload-selected-file-info {
         padding: 10px;
     }
     
-    .selected-file-info p {
+    .image-upload-selected-file-info p {
         font-size: 13px;
     }
     
-    .selected-file-info strong {
+    .image-upload-selected-file-info strong {
         min-width: 70px;
         font-size: 13px;
     }
     
-    .comment-section label {
+    .image-upload-comment-section label {
         font-size: 14px;
     }
     
-    .comment-input {
+    .image-upload-comment-input {
         padding: 8px;
         font-size: 13px;
         min-height: 45px;
     }
     
-    .comment-counter {
+    .image-upload-comment-counter {
         font-size: 11px;
     }
     
-    .upload-progress-bar-wrapper {
+    .image-upload-progress-bar-wrapper {
         height: 20px;
         margin-bottom: 6px;
     }
     
-    .upload-progress-bar {
+    .image-upload-progress-bar {
         font-size: 11px;
         min-width: 35px;
     }
     
-    .upload-progress-details {
+    .image-upload-progress-details {
         font-size: 12px;
     }
     
-    .upload-speed {
+    .image-upload-speed {
         font-size: 10px;
     }
     
-    .upload-message {
+    .image-upload-message {
         padding: 10px;
         font-size: 13px;
         margin: 10px 0;
     }
     
-    .message-icon {
+    .image-upload-message-icon {
         font-size: 16px;
         margin-right: 8px;
     }
     
-    .image-preview-container h4 {
+    .image-upload-message-content {
+        max-width: calc(100% - 50px); /* ← Адаптация для мобильных */
+    }
+    
+    .image-upload-preview-container h4 {
         font-size: 15px;
     }
     
-    .image-preview {
+    .image-upload-preview {
         max-height: 150px;
     }
 }
 
 /* Очень маленькие экраны */
 @media (max-width: 360px) {
-    .formForUploadOnServer {
-        padding: 10px;
+    .image-upload-form {
+        padding: 8px;
+        gap: 10px;
+        width: calc(100% - 12px);
+        margin: 0 auto;
     }
     
-    .formForUploadOnServer h3 {
+    .image-upload-form h3 {
         font-size: 16px;
     }
     
-    .upload-button {
+    .image-upload-button {
         padding: 6px 12px;
         font-size: 13px;
     }
@@ -548,17 +600,60 @@
         font-size: 13px;
     }
     
-    .comment-input {
+    .image-upload-comment-input {
         padding: 6px;
         font-size: 12px;
     }
     
-    .selected-file-info p {
+    .image-upload-selected-file-info p {
         font-size: 12px;
     }
     
-    .selected-file-info strong {
+    .image-upload-selected-file-info strong {
         min-width: 60px;
         font-size: 12px;
+    }
+    
+    .image-upload-actions {
+        gap: 8px;
+    }
+}
+
+@media (max-width: 320px) {
+    .image-upload-form {
+        padding: 6px;
+        width: calc(100% - 8px);
+        gap: 8px;
+    }
+    
+    .image-upload-form h3 {
+        font-size: 14px;
+        padding-bottom: 4px;
+    }
+    
+    .image-upload-button {
+        padding: 5px 8px;
+        font-size: 12px;
+        margin: 5px 0;
+    }
+    
+    .buttonFromTemplateTwo {
+        padding: 5px 8px;
+        font-size: 12px;
+    }
+    
+    .image-upload-comment-input {
+        padding: 5px;
+        font-size: 11px;
+        min-height: 35px;
+    }
+    
+    .image-upload-selected-file-info p {
+        font-size: 11px;
+    }
+    
+    .image-upload-selected-file-info strong {
+        min-width: 50px;
+        font-size: 11px;
     }
 }

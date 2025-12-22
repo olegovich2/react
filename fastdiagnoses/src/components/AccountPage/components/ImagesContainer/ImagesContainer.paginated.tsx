@@ -249,11 +249,9 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
       {renderLoading}
       {renderError}
       
-      {/* Компонент загрузки изображений */}
-      <div className="images-container-upload-section">
-        <h2>Загрузка нового изображения</h2>
+      {/* Компонент загрузки изображений */}     
         <ImageUpload onUploadSuccess={handleImageUploadSuccess} />
-      </div>
+      
 
       {/* Список изображений с пагинацией */}
       <div className="images-container-all-download-images" id="images-container-gallery">

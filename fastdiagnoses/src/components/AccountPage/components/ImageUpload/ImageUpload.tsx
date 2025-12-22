@@ -1,4 +1,3 @@
-// src/components/AccountPage/components/ImageUpload/ImageUpload.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { uploadImage } from '../../../../api/images.api';
 import { ImageUploadProps } from '../../types/account.types';
@@ -167,10 +166,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   return (
-    <div className="formForUploadOnServer">
+    <div className="image-upload-form">
       <h3>Загрузка нового изображения</h3>
       
-      <div className="upload-section">
+      <div className="image-upload-section">
         <input
           type="file"
           id="imageUpload"
@@ -182,7 +181,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         />
         
         <button
-          className="upload-button green-upload-button"
+          className="image-upload-button image-upload-green-button"
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
@@ -191,21 +190,21 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         </button>
         
         {selectedFile && (
-          <div className="file-info-preview">
-            <div className="selected-file-info">
+          <div className="image-upload-file-info-preview">
+            <div className="image-upload-selected-file-info">
               <p><strong>Файл:</strong> {selectedFile.name}</p>
               <p><strong>Размер:</strong> {formatFileSize(selectedFile.size)}</p>
               <p><strong>Тип:</strong> {selectedFile.type}</p>
             </div>
             
             {previewUrl && (
-              <div className="image-preview-container">
+              <div className="image-upload-preview-container">
                 <h4>Предпросмотр:</h4>
-                <div className="image-preview-wrapper">
+                <div className="image-upload-preview-wrapper">
                   <img 
                     src={previewUrl} 
                     alt="Preview" 
-                    className="image-preview"
+                    className="image-upload-preview"
                     onLoad={(e) => {
                       const img = e.target as HTMLImageElement;
                       if (img.naturalWidth > 500) {
@@ -220,11 +219,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         )}
       </div>
 
-      <div className="comment-section">
+      <div className="image-upload-comment-section">
         <label htmlFor="comment">Комментарий к изображению:</label>
         <textarea
           id="comment"
-          className="comment-input"
+          className="image-upload-comment-input"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="Введите комментарий (необязательно)"
@@ -232,33 +231,33 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           disabled={isUploading}
           maxLength={500}
         />
-        <div className="comment-counter">
+        <div className="image-upload-comment-counter">
           {comment.length}/500 символов
         </div>
       </div>
 
       {isUploading && (
-        <div className="upload-progress-container">
-          <div className="upload-progress-bar-wrapper">
+        <div className="image-upload-progress-container">
+          <div className="image-upload-progress-bar-wrapper">
             <div 
-              className="upload-progress-bar" 
+              className="image-upload-progress-bar" 
               style={{ width: `${uploadProgress}%` }}
               title={`${uploadProgress}%`}
             >
               {uploadProgress > 10 && `${uploadProgress}%`}
             </div>
           </div>
-          <div className="upload-progress-details">
-            <span className="progress-text">
+          <div className="image-upload-progress-details">
+            <span className="image-upload-progress-text">
               {uploadProgress < 100 ? 'Загрузка...' : 'Обработка на сервере...'}
             </span>
-            <span className="file-size">
+            <span className="image-upload-file-size">
               ({formatFileSize(selectedFile?.size || 0)})
             </span>
           </div>
           
           {uploadProgress > 0 && uploadProgress < 100 && (
-            <div className="upload-speed">
+            <div className="image-upload-speed">
               <small>Пожалуйста, не закрывайте страницу</small>
             </div>
           )}
@@ -266,12 +265,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       )}
 
       {message && (
-        <div className={`upload-message upload-${message.type}`}>
-          <div className="message-icon">
+        <div className={`image-upload-message image-upload-${message.type}`}>
+          <div className="image-upload-message-icon">
             {message.type === 'error' ? '❌' : 
              message.type === 'success' ? '✅' : '⚠️'}
           </div>
-          <div className="message-content">
+          <div className="image-upload-message-content">
             <strong>
               {message.type === 'error' ? 'Ошибка:' : 
                message.type === 'success' ? 'Успех:' : 'Внимание:'}
@@ -280,7 +279,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           </div>
           {message.type !== 'success' && (
             <button 
-              className="message-close"
+              className="image-upload-message-close"
               onClick={() => setMessage(null)}
               aria-label="Закрыть"
             >
@@ -290,9 +289,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         </div>
       )}
 
-      <div className="upload-actions">
+      <div className="image-upload-actions">
         <button
-          className="buttonFromTemplateTwo green-submit-button"
+          className="buttonFromTemplateTwo image-upload-green-submit-button"
           type="button"
           onClick={handleUpload}
           disabled={isUploading || !selectedFile}
@@ -311,7 +310,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         </button>
         
         <button
-          className="buttonFromTemplateTwo cancel-button"
+          className="buttonFromTemplateTwo image-upload-cancel-button"
           type="button"
           onClick={handleCancel}
           disabled={isUploading}
@@ -322,5 +321,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     </div>
   );
 };
+
+ImageUpload.displayName = 'ImageUpload';
 
 export default ImageUpload;
