@@ -1,32 +1,18 @@
 import { 
   APIResponse,
-  ImageUploadResponse,
-  PaginatedSurveysResponseData,
-  SingleSurveyResponseData,
-  PaginatedImagesResponseData,
-  SingleImageResponseData,
-  DeleteResponseData,
   AuthLoginResponseData,
   AuthVerifyResponseData,
   DiagnosisSearchResponseData,
-  SaveSurveyBody,
-  UploadImageBody,
   SearchDiagnosesBody,
-  PaginationParams,
-  SearchParams,
 } from '../components/AccountPage/types/account.types'; 
+import { userDataService } from '../context/AuthContext';
 
 /**
  * Безопасный HTTP клиент для работы с API
- * Все валидации на сервере, клиент только передает данные
+ * ТОЛЬКО базовые HTTP методы, без бизнес-логики
  */
 class FetchClient {
   private baseURL: string;
-  private isRefreshingToken = false;
-  private refreshQueue: Array<{
-    resolve: (value: any) => void;
-    reject: (error: any) => void;
-  }> = [];
 
   constructor(baseURL: string = '') {
     this.baseURL = baseURL;
@@ -38,7 +24,8 @@ class FetchClient {
    */
   private setupGlobalHandlers() {
     window.addEventListener('auth-required', () => {
-      this.clearAuthData();
+      userDataService.clearAuthData();
+      
       if (window.location.pathname !== '/login' && 
           !window.location.pathname.includes('/confirm-email')) {
         window.location.href = '/login';
@@ -59,7 +46,7 @@ class FetchClient {
   ): Promise<APIResponse & { data?: T; field?: string }> {
     const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`;
     
-    const token = this.getToken();
+    const token = userDataService.getToken();
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -73,10 +60,7 @@ class FetchClient {
     }
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔗 ${options.method || 'GET'} ${fullUrl}`, {
-        hasToken: !!token,
-        bodySize: options.body ? JSON.stringify(options.body).length : 0
-      });
+      console.log(`🔗 ${options.method || 'GET'} ${fullUrl}`);
     }
 
     try {
@@ -144,7 +128,6 @@ class FetchClient {
 
       case 401:
         console.warn(`🔐 Требуется авторизация (401) ${url}`);
-        this.clearAuthData();
         window.dispatchEvent(new CustomEvent('auth-required'));
         break;
 
@@ -202,43 +185,7 @@ class FetchClient {
     };
   }
 
-  /**
-   * Безопасное получение токена
-   */
-  private getToken(): string {
-    try {
-      return localStorage.getItem('token') || '';
-    } catch (error) {
-      console.error('Ошибка получения токена из localStorage:', error);
-      return '';
-    }
-  }
-
-  /**
-   * Безопасное сохранение токена
-   */
-  private setToken(token: string): void {
-    try {
-      localStorage.setItem('token', token);
-    } catch (error) {
-      console.error('Ошибка сохранения токена в localStorage:', error);
-    }
-  }
-
-  /**
-   * Очистка данных аутентификации
-   */
-  private clearAuthData(): void {
-    try {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      sessionStorage.removeItem('tempData');
-    } catch (error) {
-      console.error('Ошибка очистки данных аутентификации:', error);
-    }
-  }
-
-  // ==================== HTTP МЕТОДЫ (БЕЗ ИЗМЕНЕНИЙ) ====================
+  // ==================== БАЗОВЫЕ HTTP МЕТОДЫ (ТОЛЬКО ЭТО!) ====================
 
   async get<T = any>(url: string): Promise<APIResponse & { data?: T }> {
     return this.request<T>(url, { method: 'GET' });
@@ -265,25 +212,25 @@ class FetchClient {
     });
   }
 
-  // ==================== АУТЕНТИФИКАЦИЯ (С ТИПАМИ) ====================
+  // ==================== АУТЕНТИФИКАЦИЯ (основные методы) ====================
 
-  /**
-   * Вход пользователя
-   */
   async login(login: string, password: string) {
     const response = await this.post<AuthLoginResponseData>('/auth/login', { login, password });
     
     if (response.success && response.data) {
-      this.setToken(response.data.token);
-      this.saveUserData(response.data.user);
+      userDataService.saveUserData(
+        {
+          login: response.data.user?.login || login,
+          email: response.data.user?.email || '',
+          token: response.data.token
+        },
+        response.data.token || ''
+      );
     }
     
     return response;
   }
 
-  /**
-   * Регистрация пользователя
-   */
   async register(login: string, password: string, email: string) {
     return this.post<{ message: string }>('/auth/register', {
       login,
@@ -292,118 +239,23 @@ class FetchClient {
     });
   }
 
-  /**
-   * Подтверждение email
-   */
   async confirmEmail(token: string) {
     return this.get<{ message: string }>(`/auth/confirm/${token}`);
   }
 
-  /**
-   * Проверка JWT токена
-   */
   async verifyToken() {
     return this.post<AuthVerifyResponseData>('/auth/verify', {});
   }
 
-  /**
-   * Выход пользователя
-   */
   async logout() {
     const response = await this.post<{ message: string }>('/auth/logout', {});
     if (response.success) {
-      this.clearAuthData();
       window.dispatchEvent(new CustomEvent('user-logged-out'));
     }
     return response;
   }
 
-  /**
-   * Сохранение данных пользователя
-   */
-  private saveUserData(user: any) {
-    try {
-      localStorage.setItem('user', JSON.stringify({
-        login: user.login,
-        email: user.email,
-        createdAt: user.createdAt
-      }));
-    } catch (error) {
-      console.error('Ошибка сохранения данных пользователя:', error);
-    }
-  }
-
-  /**
-   * Получение данных текущего пользователя
-   */
-  getCurrentUser() {
-    try {
-      const userStr = localStorage.getItem('user');
-      return userStr ? JSON.parse(userStr) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Получение логина текущего пользователя
-   */
-  getCurrentLogin(): string | null {
-    try {
-      const userStr = localStorage.getItem('user');
-      if (!userStr) return null;
-      const user = JSON.parse(userStr);
-      return user.login || null;
-    } catch {
-      return null;
-    }
-  }
-
-  // ==================== ОПРОСЫ (С ПРАВИЛЬНЫМИ ТИПАМИ) ====================
-
-  /**
-   * Сохранение опроса (БЕЗ логина в body - сервер берет из токена)
-   */
-  async saveSurvey(surveyData: SaveSurveyBody) {
-    return this.post<{ message: string }>('/surveys/save', surveyData);
-  }
-
-  /**
-   * Получение конкретного опроса (БЕЗ логина в query - сервер берет из токена)
-   */
-  async getSurveyById(id: number) {
-    return this.get<SingleSurveyResponseData>(`/surveys/${id}`);
-  }
-
-  /**
-   * Удаление опроса или изображения
-   */
-  async deleteSurveyOrImage(id: number) {
-    return this.delete<DeleteResponseData>(`/data/${id}`);
-  }
-
-  // ==================== ИЗОБРАЖЕНИЯ (С ПРАВИЛЬНЫМИ ТИПАМИ) ====================
-
-  /**
-   * Получение конкретного изображения (БЕЗ логина в query - сервер берет из токена)
-   */
-  async getImageById(id: number) {
-    return this.get<SingleImageResponseData>(`/images/${id}`);
-  }
-
-  /**
-   * Загрузка изображения (Base64) БЕЗ логина в body - сервер берет из токена
-   */
-  async uploadImageBase64(filename: string, base64Data: string, comment?: string) {
-    const body: UploadImageBody = {
-      filename,
-      file: base64Data,
-      comment: comment || ''
-    };
-    return this.post<ImageUploadResponse>('/images/upload', body);
-  }
-
-    // ==================== ДИАГНОЗЫ (С ТИПАМИ) ====================
+  // ==================== СПЕЦИАЛЬНЫЕ МЕТОДЫ (только если нет в API модулях) ====================
 
   /**
    * Поиск диагнозов и рекомендаций (публичный эндпоинт, без аутентификации)
@@ -413,26 +265,10 @@ class FetchClient {
     return this.post<DiagnosisSearchResponseData>('/diagnoses/search', body);
   }
 
-  // ==================== ПАГИНАЦИЯ (С ПРАВИЛЬНЫМИ ТИПАМИ) ====================
-
   /**
-   * Получение опросов с пагинацией
+   * Получение всех данных с пагинацией и поиском (общий метод)
    */
-  async getPaginatedSurveys(params?: PaginationParams) {
-    return this.post<PaginatedSurveysResponseData>('/surveys/paginated', params || {});
-  }
-
-  /**
-   * Получение изображений с пагинацией
-   */
-  async getPaginatedImages(params?: PaginationParams) {
-    return this.post<PaginatedImagesResponseData>('/images/paginated', params || {});
-  }
-
-  /**
-   * Получение всех данных с пагинацией и поиском
-   */
-  async getPaginatedData(params?: SearchParams) {
+  async getPaginatedData(params?: any) {
     return this.post<{
       data: Array<{
         id: number;
@@ -455,7 +291,7 @@ class FetchClient {
     }>('/data/search', params || {});
   }
 
-  // ==================== УТИЛИТЫ (БЕЗ ИЗМЕНЕНИЙ) ====================
+  // ==================== УТИЛИТЫ ====================
 
   /**
    * Проверка соединения с сервером
@@ -503,25 +339,35 @@ class FetchClient {
    * Проверка авторизации
    */
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    return !!userDataService.getToken();
   }
 
   /**
-   * Получение токена (публичный метод)
+   * Получение токена
    */
   getTokenPublic(): string | null {
-    try {
-      return localStorage.getItem('token');
-    } catch {
-      return null;
-    }
+    return userDataService.getToken() || null;
+  }
+
+  /**
+   * Получение текущего пользователя
+   */
+  getCurrentUser() {
+    return userDataService.getUser();
+  }
+
+  /**
+   * Получение логина текущего пользователя
+   */
+  getCurrentLogin(): string | null {
+    return userDataService.getLogin();
   }
 
   /**
    * Получение заголовков с авторизацией
    */
   getAuthHeaders(): Record<string, string> {
-    const token = this.getToken();
+    const token = userDataService.getToken();
     return {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Bearer ${token}` })

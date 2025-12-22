@@ -1,71 +1,45 @@
 import { fetchClient } from './fetchClient';
+import { BaseApiService, APIResponse, PaginationInfo } from './BaseApiService';
+import { userDataService } from '../context/AuthContext';
 import { 
-  APIResponse, 
   UploadedImage,
-  PaginatedImagesResponseData,
   ImageUploadResponse,
-  DeleteResponseData
+  normalizeImage
 } from '../components/AccountPage/types/account.types';
 
 // Получаем API URL из fetchClient
-const API_URL = fetchClient.getBaseURL() || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-export const imagesApi = {
-  
-  /**
-   * Получение изображений с пагинацией
-   */
-  async getPaginatedImages(params?: {
-    page?: number;
-    limit?: number;
-  }): Promise<APIResponse & { 
-    data?: {
-      images: UploadedImage[];
-      pagination: {
-        currentPage: number;
-        totalPages: number;
-        totalItems: number;
-        itemsPerPage: number;
-        hasNextPage: boolean;
-        hasPrevPage: boolean;
-      };
-    }
-  }> {
-    try {
-      // Сервер возвращает { images: [], pagination: {} }
-      const response = await fetchClient.post<PaginatedImagesResponseData>(
-        '/images/paginated', 
-        params || {}
-      );
-      
-      if (response.success && response.data) {
-        console.log(`✅ Получено ${response.data.images?.length || 0} изображений с пагинацией`);
-        
-        return {
-          success: true,
-          data: {
-            images: response.data.images,
-            pagination: response.data.pagination
-          },
-        };
-      }
-      
-      return {
-        success: false,
-        message: response.message || 'Ошибка получения изображений',
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка получения изображений с пагинацией:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка получения изображений',
-      };
-    }
-  },
+/**
+ * API сервис для работы с изображениями
+ */
+class ImagesApi extends BaseApiService<UploadedImage> {
+  protected endpoint = '/images/paginated';
+  protected entityName = 'изображений';
+
+  // ==================== РЕАЛИЗАЦИЯ АБСТРАКТНЫХ МЕТОДОВ ====================
+
+  protected extractItems(data: any): any[] {
+    // Сервер возвращает { images: [...], pagination: {...} }
+    return data.images || [];
+  }
+
+  protected processItems(items: any[]): UploadedImage[] {
+    return items.map((item: any) => this.normalizeImageData(item));
+  }
+
+  protected extractSingleItem(data: any): any {
+    return data.image || data;
+  }
+
+  protected processSingleItem(item: any): UploadedImage {
+    return this.normalizeImageData(item);
+  }
+
+  // ==================== ПУБЛИЧНЫЕ МЕТОДЫ ДЛЯ ИЗОБРАЖЕНИЙ ====================
 
   /**
-   * Загрузка изображения (НОВАЯ версия с FormData)
+   * Загрузка изображения (публичный метод с XMLHttpRequest)
    */
   async uploadImage(file: File, comment: string = '', onProgress?: (progress: number) => void): 
     Promise<ImageUploadResponse> {
@@ -74,18 +48,15 @@ export const imagesApi = {
       try {
         console.log(`📤 Загрузка изображения через FormData: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         
-        // 1. Создаем FormData
         const formData = new FormData();
-        formData.append('image', file);           // Бинарный файл (НЕ Base64!)
-        formData.append('filename', file.name);   // Оригинальное имя
-        formData.append('comment', comment);      // Комментарий
+        formData.append('image', file);
+        formData.append('filename', file.name);
+        formData.append('comment', comment);
         
-        const token = localStorage.getItem('token') || '';
+        const token = userDataService.getToken();
         
-        // 2. Используем XMLHttpRequest для отслеживания прогресса
         const xhr = new XMLHttpRequest();
         
-        // Формируем URL (убираем '/api' если fetchClient уже добавляет)
         const endpoint = API_URL.includes('/api') 
           ? `${API_URL}/images/upload`
           : `${API_URL}/api/images/upload`;
@@ -93,7 +64,6 @@ export const imagesApi = {
         xhr.open('POST', endpoint);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         
-        // 3. Реальный прогресс загрузки (если нужен)
         if (onProgress) {
           xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
@@ -125,9 +95,8 @@ export const imagesApi = {
           reject(new Error('Таймаут загрузки (5 минут)'));
         };
         
-        xhr.timeout = 300000; // 5 минут таймаут
+        xhr.timeout = 300000;
         
-        // 4. Отправляем FormData
         xhr.send(formData);
         
       } catch (error: any) {
@@ -135,80 +104,52 @@ export const imagesApi = {
         reject(error);
       }
     });
-  },
+  }
 
   /**
-   * Удаление изображения
+   * Получение изображения для страницы просмотра по UUID (публичный метод)
    */
-  async deleteImage(id: number): Promise<APIResponse> {
-    try {
-      console.log(`🗑️ Удаление изображения ${id}...`);
-      
-      const response = await fetchClient.deleteSurveyOrImage(id) as APIResponse & { data?: DeleteResponseData };
-      
-      return {
-        success: response.success,
-        message: response.message,
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка удаления изображения:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка удаления изображения',
-      };
-    }
-  },
-
-  /**
-   * Получение изображения для страницы просмотра по UUID
-   */
-  async getImageForViewPage(uuid: string): Promise<APIResponse & {
-    data?: UploadedImage
-  }> {
+  async getImageForViewPage(uuid: string): Promise<APIResponse<UploadedImage>> {
     try {
       console.log(`🔍 Получение изображения по UUID: ${uuid}`);
       
-      // Получаем оригинальное изображение через серверный эндпоинт
-      const originalResponse = await fetchClient.get<{
-        success: boolean;
-        originalUrl?: string;
-        filename?: string;
-        fileUuid?: string;
-        id?: number;      
-      }>(`/images/original/${uuid}`);
+      // Используем fetchClient для запроса
+      const response = await fetch(`/api/images/original/${uuid}`, {
+        headers: {
+          'Authorization': `Bearer ${userDataService.getToken()}`
+        }
+      });
       
-      if (originalResponse.success && originalResponse.data) {
-        const responseData = originalResponse.data;
-        console.log(responseData.id, originalResponse.data, '----------- originalResponse.data');
-        
-        
-        // Формируем объект UploadedImage на основе полученных данных
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
         const imageData: UploadedImage = {
-          id: responseData.id || 0, // ID не возвращается в текущем эндпоинте
-          fileUuid: responseData.fileUuid || uuid,
-          fileName: responseData.filename || 'Изображение',
-          originalUrl: responseData.originalUrl || '',
-          thumbnailUrl: responseData.thumbnailUrl || responseData.originalUrl || '',
-          comment: responseData.comment || '',
-          fileSize: responseData.fileSize || 0,
-          dimensions: responseData.dimensions || 
-                     (responseData.width && responseData.height ? 
-                      `${responseData.width}x${responseData.height}` : null),
-          created_at: responseData.created_at || new Date().toISOString(),
+          id: data.id || 0,
+          fileUuid: data.fileUuid || uuid,
+          fileName: data.filename || 'Изображение',
+          originalUrl: data.originalUrl || '',
+          thumbnailUrl: data.thumbnailUrl || data.originalUrl || '',
+          comment: data.comment || '',
+          fileSize: data.fileSize || 0,
+          dimensions: data.dimensions || 
+                     (data.width && data.height ? 
+                      `${data.width}x${data.height}` : null),
+          created_at: data.created_at || new Date().toISOString(),
           isFileOnDisk: true,
-          storedFilename: responseData.storedFilename || responseData.filename || ''
+          storedFilename: data.storedFilename || data.filename || ''
         };
         
         return {
           success: true,
           data: imageData,
+          status: response.status
         };
       }
       
       return {
         success: false,
-        message: originalResponse.message || 'Изображение не найдено',
+        message: data.message || 'Изображение не найдено',
+        status: response.status
       };
       
     } catch (error: any) {
@@ -216,13 +157,115 @@ export const imagesApi = {
       return {
         success: false,
         message: error.message || 'Ошибка получения изображения',
+        status: 0
       };
     }
-  },
+  }
 
   /**
-   * Формирование URL для доступа к файлу на сервере
-   * ТОЛЬКО ФАЙЛОВАЯ СИСТЕМА
+   * Удаление изображения (публичный метод)
+   */
+  async deleteImage(id: number): Promise<APIResponse<{ message: string }>> {
+    try {
+      console.log(`🗑️ Удаление изображения ${id}...`);
+      
+      const response = await fetchClient.delete<{ message: string }>(`/data/${id}`);
+      
+      return {
+        success: response.success,
+        message: response.message || (response.success ? 'Изображение удалено' : 'Ошибка удаления'),
+        status: response.status,
+        field: response.field
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка удаления изображения:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка удаления изображения',
+        status: 0
+      };
+    }
+  }
+
+  /**
+   * Получение изображений с пагинацией (публичный метод для обратной совместимости)
+   * Возвращает старую структуру { images: [...], pagination: {...} }
+   */
+  async getPaginatedImages(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<APIResponse<{
+    images: UploadedImage[];
+    pagination: PaginationInfo;
+  }>> {
+    try {
+      console.log(`📥 Получение изображений с пагинацией через getPaginated...`);
+      
+      // Используем базовый метод getPaginated
+      const response = await this.getPaginated(params);
+      
+      if (response.success && response.data) {
+        // Преобразуем items → images для обратной совместимости
+        return {
+          success: true,
+          data: {
+            images: response.data.items, // items → images
+            pagination: response.data.pagination
+          },
+          status: response.status,
+          responseTime: response.responseTime
+        };
+      }
+      
+      return {
+        success: false,
+        message: response.message || 'Ошибка получения изображений',
+        status: response.status
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка получения изображений:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка получения изображений',
+        status: 0
+      };
+    }
+  }
+
+  // ==================== УТИЛИТНЫЕ МЕТОДЫ ====================
+
+  /**
+   * Нормализует данные изображения (приватный метод)
+   */
+  private normalizeImageData(image: any): UploadedImage {
+    // Используем готовую функцию normalizeImage из account.types.ts если она есть
+    if (typeof normalizeImage === 'function') {
+      return normalizeImage(image);
+    }
+    
+    // Fallback если функция normalizeImage не экспортирована
+    return {
+      id: image.id || 0,
+      fileUuid: image.fileUuid,
+      fileName: image.fileName || '',
+      comment: image.comment || '',
+      smallImage: image.smallImage,
+      originIMG: image.originIMG,
+      imageUrl: image.imageUrl,
+      thumbnailUrl: image.thumbnailUrl,
+      originalUrl: image.originalUrl || image.originIMG,
+      storedFilename: image.storedFilename,
+      isFileOnDisk: image.isFileOnDisk,
+      fileSize: image.fileSize,
+      dimensions: image.dimensions,
+      created_at: image.created_at
+    };
+  }
+
+  /**
+   * Формирование URL для доступа к файлу на сервере (публичный метод)
    */
   getImageUrl(image: UploadedImage): string {
     if (!image) {
@@ -230,24 +273,21 @@ export const imagesApi = {
       return '';
     }
     
-    // ПРИОРИТЕТ 1: originalUrl от сервера
     if (image.originalUrl) {
       return image.originalUrl;
     }
     
-    // ПРИОРИТЕТ 2: thumbnailUrl как fallback
     if (image.thumbnailUrl) {
       console.warn('⚠️ Нет originalUrl, используем thumbnailUrl');
       return image.thumbnailUrl;
     }
     
-    console.error('❌ Ошибка: изображение не имеет URL (файловая система)', image);
+    console.error('❌ Ошибка: изображение не имеет URL', image);
     return '';
-  },
+  }
 
   /**
-   * Формирование URL для превью
-   * ТОЛЬКО ФАЙЛОВАЯ СИСТЕМА
+   * Формирование URL для превью (публичный метод)
    */
   getThumbnailUrl(image: UploadedImage): string {
     if (!image) {
@@ -255,18 +295,16 @@ export const imagesApi = {
       return '';
     }
     
-    // ПРИОРИТЕТ 1: thumbnailUrl от сервера
     if (image.thumbnailUrl) {
       return image.thumbnailUrl;
     }
     
-    // ПРИОРИТЕТ 2: Основное изображение как fallback
     console.warn('⚠️ Нет thumbnailUrl, используем оригинал');
-    return imagesApi.getImageUrl(image);
-  },
+    return this.getImageUrl(image);
+  }
 
   /**
-   * Определение MIME типа по имени файла
+   * Определение MIME типа по имени файла (публичный метод)
    */
   getMimeType(filename: string): string {
     if (!filename) return 'image/jpeg';
@@ -292,10 +330,10 @@ export const imagesApi = {
       default:
         return 'image/jpeg';
     }
-  },
+  }
 
   /**
-   * Получение размера файла в читаемом формате
+   * Получение размера файла в читаемом формате (публичный метод)
    */
   getReadableFileSize(image: UploadedImage): string {
     if (!image || !image.fileSize) {
@@ -311,10 +349,10 @@ export const imagesApi = {
     } else {
       return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     }
-  },
+  }
 
   /**
-   * Скачивание изображения
+   * Скачивание изображения (публичный метод)
    */
   async downloadImage(image: UploadedImage): Promise<void> {
     try {
@@ -322,37 +360,28 @@ export const imagesApi = {
         throw new Error('Нет данных изображения или URL для скачивания');
       }
 
-      // Преобразуем относительный URL в абсолютный если нужно
       let downloadUrl = image.originalUrl;
       
       if (downloadUrl.startsWith('/')) {
-        // Относительный путь → делаем абсолютным
         downloadUrl = window.location.origin + downloadUrl;
       }
           
-      // Создаем временную ссылку с атрибутом download
       const link = document.createElement('a');
       link.href = downloadUrl;
       
-      // Устанавливаем имя файла для скачивания
       const fileName = image.fileName || 
                       (image.storedFilename ? 
                        image.storedFilename.split('/').pop() : 'image.jpg') || 
                       'image.jpg';
       
-      // ВАЖНО: атрибут download заставляет браузер скачивать файл
       link.download = fileName;
       link.setAttribute('download', fileName);
-      
-      // Дополнительные атрибуты для безопасности
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       
-      // Добавляем в DOM и кликаем
       document.body.appendChild(link);
       link.click();
       
-      // Убираем ссылку из DOM
       setTimeout(() => {
         document.body.removeChild(link);
       }, 100);
@@ -362,13 +391,19 @@ export const imagesApi = {
       throw error;
     }
   }
-};
+}
 
-// Экспорт отдельных функций
+// Нужно импортировать fetchClient для метода deleteImage
+
+
+// Экспортируем синглтон
+export const imagesApi = new ImagesApi();
+
+// Экспорт отдельных функций для обратной совместимости
 export const uploadImage = imagesApi.uploadImage.bind(imagesApi);
 export const deleteImage = imagesApi.deleteImage.bind(imagesApi);
-export const getPaginatedImages = imagesApi.getPaginatedImages.bind(imagesApi);
 export const getImageForViewPage = imagesApi.getImageForViewPage.bind(imagesApi);
+export const getPaginatedImages = imagesApi.getPaginatedImages.bind(imagesApi);
 export const getImageUrl = imagesApi.getImageUrl.bind(imagesApi);
 export const getThumbnailUrl = imagesApi.getThumbnailUrl.bind(imagesApi);
 export const getMimeType = imagesApi.getMimeType.bind(imagesApi);

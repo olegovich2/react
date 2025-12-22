@@ -145,12 +145,6 @@ export interface SaveSurveyBody {
   survey: Survey;
 }
 
-export interface UploadImageBody {
-  filename: string;
-  file: string; // Base64
-  comment?: string;
-}
-
 export interface SearchDiagnosesBody {
   titles: string[];
 }

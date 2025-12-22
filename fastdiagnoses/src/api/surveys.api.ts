@@ -1,125 +1,64 @@
-// surveys.api.ts (исправленная версия с правильными типами)
+import { BaseApiService, APIResponse, PaginationInfo } from './BaseApiService';
 import { fetchClient } from './fetchClient';
 import { 
-  APIResponse,
-  Survey
+  Survey,
+  SingleSurveyResponseData,
+  normalizeSurvey as normalizeSurveyFromTypes
 } from '../components/AccountPage/types/account.types';
 
-// ==================== ЛОКАЛЬНЫЕ ТИПЫ ====================
-
-// Тип для сырых данных опроса с сервера
-interface ServerSurveyData {
-  id: number;
-  date: string;
-  survey: Survey; // Сервер УЖЕ парсит JSON и возвращает Survey объект!
-}
-
-// Тип для пагинированного ответа сервера
-interface ServerPaginatedSurveysData {
-  surveys: ServerSurveyData[];
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalItems: number;
-    itemsPerPage: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  };
-}
-
-// Тип для единого ответа сервера
-interface ServerSingleSurveyData {
-  survey: Survey;
-}
-
-// ==================== API МЕТОДЫ ====================
-
-export const surveysApi = {
-  /**
- * Получение опросов с пагинацией (ОСНОВНОЙ МЕТОД)
+/**
+ * API сервис для работы с опросами
  */
-async getPaginatedSurveys(params?: {
-  page?: number;
-  limit?: number;
-}): Promise<APIResponse & { 
-  data?: {
-    surveys: Survey[];
-    pagination: ServerPaginatedSurveysData['pagination'];
+class SurveysApi extends BaseApiService<Survey> {
+  protected endpoint = '/surveys/paginated';
+  protected entityName = 'опросов';
+
+  // ==================== РЕАЛИЗАЦИЯ АБСТРАКТНЫХ МЕТОДОВ ====================
+
+  protected extractItems(data: any): any[] {
+    // Сервер возвращает { surveys: [...], pagination: {...} }
+    return data.surveys || [];
   }
-}> {
-  try {
-    const page = params?.page || 1;
-    const limit = params?.limit || 5;
-    
-    console.log(`📥 Запрос опросов с пагинацией: страница ${page}, лимит ${limit}`);
-    
-    const response = await fetchClient.post<ServerPaginatedSurveysData>(
-      '/surveys/paginated', 
-      { page, limit }
-    );
-    
-    if (response.success && response.data) {
-      console.log(`✅ Получено ${response.data.surveys?.length || 0} опросов с пагинацией`);
-      
-      // ВАЖНО: Объединяем ID из БД с данными опроса
-      const surveys = response.data.surveys.map((row: ServerSurveyData) => {
-        // Сервер возвращает {id, date, survey}, но survey не содержит ID из БД
+
+  protected processItems(items: any[]): Survey[] {
+    return items.map((item: any) => {
+      // Если сервер возвращает RawSurveyFromServer (с полями id, date, survey)
+      if (item.id !== undefined && item.date !== undefined && item.survey !== undefined) {
         const surveyWithId = {
-          ...row.survey,              // Данные опроса
-          id: row.id,                // ID записи из БД (ВАЖНО!)
-          created_at: row.date,      // created_at из БД
+          ...item.survey,
+          id: item.id,
+          created_at: item.date,
         };
         
-        // Если в survey уже есть date, используем его, иначе используем row.date
         if (!surveyWithId.date) {
-          surveyWithId.date = row.date;
+          surveyWithId.date = item.date;
         }
         
-        return surveyWithId;
-      });
-      
-      // Добавим логирование для отладки
-      if (surveys.length > 0) {
-        console.log('🔍 Пример обработанного опроса:', {
-          rowId: response.data.surveys[0].id,
-          surveyId: surveys[0].id,
-          hasId: !!surveys[0].id,
-          dateFromRow: response.data.surveys[0].date,
-          dateFromSurvey: surveys[0].date
-        });
+        return this.normalizeSurveyData(surveyWithId);
       }
       
-      return {
-        success: true,
-        data: {
-          surveys,
-          pagination: response.data.pagination
-        },
-      };
-    }
-    
-    return {
-      success: false,
-      message: response.message || 'Ошибка получения опросов с пагинацией',
-    };
-    
-  } catch (error: any) {
-    console.error('❌ Ошибка получения опросов с пагинацией:', error);
-    return {
-      success: false,
-      message: error.message || 'Ошибка получения опросов с пагинацией',
-    };
+      // Если сервер уже возвращает нормализованный Survey
+      return this.normalizeSurveyData(item);
+    });
   }
-},
+
+  protected extractSingleItem(data: any): any {
+    return data.survey || data;
+  }
+
+  protected processSingleItem(item: any): Survey {
+    return this.normalizeSurveyData(item);
+  }
+
+  // ==================== ПУБЛИЧНЫЕ МЕТОДЫ ДЛЯ ОПРОСОВ ====================
 
   /**
-   * Сохранение опроса в БД
+   * Сохранение опроса в БД (публичный метод)
    */
-  async saveSurveyToDB(surveyData: Survey | string): Promise<APIResponse> {
+  async saveSurveyToDB(surveyData: Survey | string): Promise<APIResponse<{ message: string }>> {
     try {
       console.log(`💾 Сохранение опроса...`);
       
-      // Убеждаемся, что это объект Survey
       let surveyObj: Survey;
       if (typeof surveyData === 'string') {
         surveyObj = JSON.parse(surveyData);
@@ -127,13 +66,17 @@ async getPaginatedSurveys(params?: {
         surveyObj = surveyData;
       }
       
-      // Сервер ожидает { survey: Survey }
       const response = await fetchClient.post<{ message: string }>(
         '/surveys/save', 
         { survey: surveyObj }
       );
       
-      return response;
+      return {
+        success: response.success,
+        message: response.message,
+        status: response.status,
+        field: response.field
+      };
       
     } catch (error: any) {
       console.error('❌ Ошибка сохранения опроса:', error);
@@ -142,80 +85,16 @@ async getPaginatedSurveys(params?: {
         message: error.message || 'Ошибка сохранения опроса'
       };
     }
-  },
+  }
 
   /**
-   * Удаление опроса
+   * Получение рекомендаций по диагнозам (публичный метод)
    */
-  async deleteSurvey(id: number): Promise<APIResponse> {
-    try {
-      console.log(`🗑️ Удаление записи ${id}...`);
-      
-      const result = await fetchClient.delete<{ message: string }>(`/data/${id}`);
-      
-      if (result.success) {
-        console.log('✅ Запись успешно удалена');
-        return {
-          success: true,
-          message: 'Запись успешно удалена',
-        };
-      }
-      
-      return {
-        success: false,
-        message: result.message || 'Ошибка удаления',
-        field: result.field
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка удаления:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка удаления'
-      };
-    }
-  },
-
-  /**
-   * Получение конкретного опроса по ID
-   */
-  async getSurveyById(id: number): Promise<APIResponse & { data?: Survey }> {
-    try {
-      console.log(`🔍 Получение опроса с ID: ${id}`);
-      
-      const response = await fetchClient.get<ServerSingleSurveyData>(`/surveys/${id}`);
-      
-      if (response.success && response.data) {
-        return {
-          success: true,
-          data: response.data.survey,
-        };
-      }
-      
-      return {
-        success: false,
-        message: response.message || 'Ошибка получения опроса',
-      };
-      
-    } catch (error: any) {
-      console.error('❌ Ошибка получения опроса:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка получения опроса',
-      };
-    }
-  },
-
-  /**
-   * Получение рекомендаций по диагнозам
-   */
-  async getDiagnosisRecommendations(titles: string[]): Promise<APIResponse & { 
-    data?: { 
-      title: string[]; 
-      diagnostic: string[]; 
-      treatment: string[] 
-    } 
-  }> {
+  async getDiagnosisRecommendations(titles: string[]): Promise<APIResponse<{ 
+    title: string[]; 
+    diagnostic: string[]; 
+    treatment: string[] 
+  }>> {
     try {
       console.log('🔍 Поиск рекомендаций для диагнозов:', titles);
       
@@ -232,13 +111,15 @@ async getPaginatedSurveys(params?: {
             title: response.data.titles || [],
             diagnostic: response.data.diagnostic || [],
             treatment: response.data.treatment || []
-          }
+          },
+          status: response.status
         };
       }
       
       return {
         success: false,
         message: response.message || 'Ошибка получения рекомендаций',
+        status: response.status
       };
       
     } catch (error: any) {
@@ -246,35 +127,166 @@ async getPaginatedSurveys(params?: {
       return {
         success: false,
         message: error.message || 'Ошибка получения рекомендаций',
+        status: 0
       };
     }
-  },
+  }
+
+  /**
+   * Получение конкретного опроса по ID (публичный метод)
+   */
+  async getSurveyById(id: number): Promise<APIResponse<Survey>> {
+    try {
+      console.log(`🔍 Получение опроса с ID: ${id}`);
+      
+      const response = await fetchClient.get<SingleSurveyResponseData>(`/surveys/${id}`);
+      
+      if (response.success && response.data) {
+        return {
+          success: true,
+          data: response.data.survey,
+          status: response.status
+        };
+      }
+      
+      return {
+        success: false,
+        message: response.message || 'Ошибка получения опроса',
+        status: response.status
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка получения опроса:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка получения опроса',
+        status: 0
+      };
+    }
+  }
+
+  /**
+   * Получение опросов с пагинацией (публичный метод для обратной совместимости)
+   * Возвращает старую структуру { surveys: [...], pagination: {...} }
+   */
+  async getPaginatedSurveys(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<APIResponse<{
+    surveys: Survey[];
+    pagination: PaginationInfo;
+  }>> {
+    try {
+      console.log(`📥 Получение опросов с пагинацией через getPaginated...`);
+      
+      // Используем базовый метод getPaginated
+      const response = await this.getPaginated(params);
+      
+      if (response.success && response.data) {
+        // Преобразуем items → surveys для обратной совместимости
+        return {
+          success: true,
+          data: {
+            surveys: response.data.items, // items → surveys
+            pagination: response.data.pagination
+          },
+          status: response.status,
+          responseTime: response.responseTime
+        };
+      }
+      
+      return {
+        success: false,
+        message: response.message || 'Ошибка получения опросов',
+        status: response.status
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка получения опросов:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка получения опросов',
+        status: 0
+      };
+    }
+  }
+
+  /**
+   * Удаление опроса (публичный метод)
+   */
+  async deleteSurvey(id: number): Promise<APIResponse<{ message: string }>> {
+    try {
+      console.log(`🗑️ Удаление опроса ${id}...`);
+      
+      const response = await fetchClient.delete<{ message: string }>(`/data/${id}`);
+      
+      return {
+        success: response.success,
+        message: response.message || (response.success ? 'Опрос удален' : 'Ошибка удаления'),
+        status: response.status,
+        field: response.field
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Ошибка удаления опроса:', error);
+      return {
+        success: false,
+        message: error.message || 'Ошибка удаления опроса',
+        status: 0
+      };
+    }
+  }
 
   // ==================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ====================
 
   /**
-   * Гарантирует, что значение является массивом строк
+   * Гарантирует, что значение является массивом строк (публичный метод)
    */
   ensureStringArray(value: any): string[] {
     if (!value) return [];
+    
     if (Array.isArray(value)) {
-      return value.map((item: any) => String(item).trim()).filter((item: string) => item.length > 0);
+      return value
+        .map((item: any) => String(item).trim())
+        .filter((item: string) => item.length > 0);
     }
+    
     if (typeof value === 'string') {
-      // Если строка содержит запятые, разбиваем
       if (value.includes(',')) {
-        return value.split(',').map((item: string) => item.trim()).filter((item: string) => item.length > 0);
+        return value
+          .split(',')
+          .map((item: string) => item.trim())
+          .filter((item: string) => item.length > 0);
       }
-      // Иначе возвращаем как массив с одним элементом
       return [value.trim()].filter((item: string) => item.length > 0);
     }
+    
     return [String(value)].filter((item: string) => item.length > 0);
-  },
+  }
 
   /**
-   * Нормализует Survey объект (для обратной совместимости)
+   * Нормализует Survey объект (приватный метод)
    */
-  normalizeSurvey(survey: any): Survey {
+  private normalizeSurveyData(survey: any): Survey {
+    // Используем готовую функцию normalizeSurvey из account.types.ts если она есть
+    if (typeof normalizeSurveyFromTypes === 'function') {
+      const normalized = normalizeSurveyFromTypes(survey);
+      
+      // Добавляем дополнительную обработку если нужно
+      return {
+        ...normalized,
+        // Гарантируем, что массивы всегда являются массивами строк
+        title: this.ensureStringArray(normalized.title),
+        diagnostic: this.ensureStringArray(normalized.diagnostic),
+        treatment: this.ensureStringArray(normalized.treatment),
+        otherGuidelines: this.ensureStringArray(normalized.otherGuidelines),
+        // Сохраняем оригинальные данные если они есть
+        survey: survey.survey || normalized.survey,
+        created_at: survey.created_at || normalized.created_at
+      };
+    }
+    
+    // Fallback если функция normalizeSurvey не экспортирована
     return {
       id: survey.id || 0,
       date: survey.date || new Date().toLocaleString('ru-RU'),
@@ -286,24 +298,36 @@ async getPaginatedSurveys(params?: {
       diagnostic: this.ensureStringArray(survey.diagnostic || survey.examinations),
       treatment: this.ensureStringArray(survey.treatment),
       otherGuidelines: this.ensureStringArray(survey.otherGuidelines),
-      // Для обратной совместимости
       survey: survey.survey,
       created_at: survey.created_at
     };
   }
-};
 
-// ==================== ЭКСПОРТ ====================
+  /**
+   * Преобразует строки разделенные запятыми в массивы (для обратной совместимости)
+   */
+  private commaSeparatedToArray(value: any): string[] {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map(item => String(item));
+    if (typeof value === 'string') {
+      return value.split(',').map(item => item.trim()).filter(item => item.length > 0);
+    }
+    return [String(value)];
+  }
+}
 
-// Экспорт отдельных функций
-export const getPaginatedSurveys = surveysApi.getPaginatedSurveys;
-export const saveSurveyToDB = surveysApi.saveSurveyToDB;
-export const deleteSurvey = surveysApi.deleteSurvey;
-export const getSurveyById = surveysApi.getSurveyById;
-export const getDiagnosisRecommendations = surveysApi.getDiagnosisRecommendations;
+// Экспортируем синглтон
+export const surveysApi = new SurveysApi();
 
-// Экспорт вспомогательных методов (для тестирования)
-export const ensureStringArray = surveysApi.ensureStringArray;
-export const normalizeSurvey = surveysApi.normalizeSurvey;
+// Экспорт отдельных функций для обратной совместимости
+export const saveSurveyToDB = surveysApi.saveSurveyToDB.bind(surveysApi);
+export const deleteSurvey = surveysApi.deleteSurvey.bind(surveysApi);
+export const getSurveyById = surveysApi.getSurveyById.bind(surveysApi);
+export const getDiagnosisRecommendations = surveysApi.getDiagnosisRecommendations.bind(surveysApi);
+export const getPaginatedSurveys = surveysApi.getPaginatedSurveys.bind(surveysApi);
+export const ensureStringArray = surveysApi.ensureStringArray.bind(surveysApi);
+
+// Экспортируем метод normalizeSurveyData под другим именем чтобы избежать конфликта
+export const normalizeSurveyData = surveysApi['normalizeSurveyData'];
 
 export default surveysApi;

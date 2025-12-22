@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { confirmEmail } from '../../api/auth.api';
+import { confirmEmail } from '../../api/confirm.api';
 import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
 

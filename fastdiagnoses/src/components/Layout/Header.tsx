@@ -22,9 +22,17 @@ const Header: React.FC<HeaderProps> = () => {
     navigate('/account');
   };
 
-  const handleExitClick = () => {
-    logout();
+  const handleExitClick = async() => {
+    try {
+    // Ждем завершения logout
+    await logout();
+  } catch (error) {
+    // Даже если ошибка, все равно редиректим
+    console.error('Ошибка при выходе:', error);
+  } finally {
+    // Всегда редиректим на логин
     navigate('/login');
+  }
   };
 
   const handleBackClick = () => {
