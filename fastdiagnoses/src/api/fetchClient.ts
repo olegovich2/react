@@ -5,7 +5,7 @@ import {
   DiagnosisSearchResponseData,
   SearchDiagnosesBody,
 } from '../components/AccountPage/types/account.types'; 
-import { userDataService } from '../context/AuthContext';
+import { userDataService } from '../services'; // ← НОВЫЙ ИМПОРТ
 
 /**
  * Безопасный HTTP клиент для работы с API
@@ -23,7 +23,10 @@ class FetchClient {
    * Настройка глобальных обработчиков ошибок
    */
   private setupGlobalHandlers() {
+    console.log('🔄 fetchClient: настройка глобальных обработчиков');
+    
     window.addEventListener('auth-required', () => {
+      console.log('🔐 fetchClient: получено событие auth-required');
       userDataService.clearAuthData();
       
       if (window.location.pathname !== '/login' && 
@@ -33,7 +36,7 @@ class FetchClient {
     });
 
     window.addEventListener('offline', () => {
-      console.warn('Соединение потеряно');
+      console.warn('🌐 fetchClient: соединение потеряно');
     });
   }
 
@@ -46,6 +49,7 @@ class FetchClient {
   ): Promise<APIResponse & { data?: T; field?: string }> {
     const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`;
     
+    // Используем единый сервис для получения токена
     const token = userDataService.getToken();
     
     const headers: Record<string, string> = {
@@ -60,7 +64,10 @@ class FetchClient {
     }
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔗 ${options.method || 'GET'} ${fullUrl}`);
+      console.log(`🔗 fetchClient.request: ${options.method || 'GET'} ${fullUrl}`, {
+        hasToken: !!token,
+        bodyType: options.body instanceof FormData ? 'FormData' : 'JSON'
+      });
     }
 
     try {
@@ -91,7 +98,7 @@ class FetchClient {
       }
 
       if (responseTime > 3000) {
-        console.warn(`⚠️ Медленный запрос ${url}: ${responseTime}ms`);
+        console.warn(`⚠️ fetchClient: медленный запрос ${url}: ${responseTime}ms`);
       }
 
       if (!response.ok) {
@@ -114,6 +121,8 @@ class FetchClient {
    * Обработка HTTP ошибок
    */
   private handleErrorResponse(status: number, data: any, url: string) {
+    console.error(`❌ fetchClient.handleErrorResponse: ${status} ${url}`, data.message);
+
     const errorResult: APIResponse & { field?: string } = {
       success: false,
       message: data.message || `Ошибка ${status}`,
@@ -123,37 +132,37 @@ class FetchClient {
 
     switch (status) {
       case 400:
-        console.error(`❌ Ошибка валидации (400) ${url}:`, data.message);
+        console.error('❌ Ошибка валидации (400)');
         break;
 
       case 401:
-        console.warn(`🔐 Требуется авторизация (401) ${url}`);
+        console.warn('🔐 Требуется авторизация (401)');
         window.dispatchEvent(new CustomEvent('auth-required'));
         break;
 
       case 403:
-        console.error(`⛔ Доступ запрещен (403) ${url}:`, data.message);
+        console.error('⛔ Доступ запрещен (403)');
         if (data.message?.includes('не активирован')) {
           window.dispatchEvent(new CustomEvent('account-not-activated'));
         }
         break;
 
       case 404:
-        console.error(`🔍 Не найдено (404) ${url}`);
+        console.error('🔍 Не найдено (404)');
         break;
 
       case 429:
-        console.error(`🐌 Слишком много запросов (429) ${url}`);
+        console.error('🐌 Слишком много запросов (429)');
         errorResult.message = 'Слишком много запросов. Подождите немного.';
         break;
 
       case 500:
-        console.error(`💥 Ошибка сервера (500) ${url}:`, data.message);
+        console.error('💥 Ошибка сервера (500)');
         errorResult.message = 'Внутренняя ошибка сервера. Попробуйте позже.';
         break;
 
       default:
-        console.error(`❓ Неизвестная ошибка (${status}) ${url}:`, data.message);
+        console.error(`❓ Неизвестная ошибка (${status})`);
     }
 
     return errorResult;
@@ -163,7 +172,7 @@ class FetchClient {
    * Обработка сетевых ошибок
    */
   private handleNetworkError(error: any, url: string): APIResponse {
-    console.error(`🌐 Сетевая ошибка ${url}:`, error);
+    console.error(`🌐 fetchClient.handleNetworkError: ${url}`, error);
 
     let message = 'Неизвестная ошибка сети';
 
@@ -185,7 +194,7 @@ class FetchClient {
     };
   }
 
-  // ==================== БАЗОВЫЕ HTTP МЕТОДЫ (ТОЛЬКО ЭТО!) ====================
+  // ==================== БАЗОВЫЕ HTTP МЕТОДЫ ====================
 
   async get<T = any>(url: string): Promise<APIResponse & { data?: T }> {
     return this.request<T>(url, { method: 'GET' });
@@ -212,26 +221,25 @@ class FetchClient {
     });
   }
 
-  // ==================== АУТЕНТИФИКАЦИЯ (основные методы) ====================
+  // ==================== АУТЕНТИФИКАЦИЯ ====================
 
   async login(login: string, password: string) {
+    console.log(`🔐 fetchClient.login: запрос для ${login}`);
+    
     const response = await this.post<AuthLoginResponseData>('/auth/login', { login, password });
     
     if (response.success && response.data) {
-      userDataService.saveUserData(
-        {
-          login: response.data.user?.login || login,
-          email: response.data.user?.email || '',
-          token: response.data.token
-        },
-        response.data.token || ''
-      );
+      console.log('✅ fetchClient.login: успешно');
+    } else {
+      console.error('❌ fetchClient.login: ошибка', response.message);
     }
     
     return response;
   }
 
   async register(login: string, password: string, email: string) {
+    console.log(`📝 fetchClient.register: запрос для ${login}`);
+    
     return this.post<{ message: string }>('/auth/register', {
       login,
       password,
@@ -240,35 +248,48 @@ class FetchClient {
   }
 
   async confirmEmail(token: string) {
+    console.log(`📧 fetchClient.confirmEmail: подтверждение`);
+    
     return this.get<{ message: string }>(`/auth/confirm/${token}`);
   }
 
   async verifyToken() {
+    console.log(`🔐 fetchClient.verifyToken: проверка токена`);
+    
     return this.post<AuthVerifyResponseData>('/auth/verify', {});
   }
 
   async logout() {
+    console.log(`🚪 fetchClient.logout: запрос выхода`);
+    
     const response = await this.post<{ message: string }>('/auth/logout', {});
     if (response.success) {
+      console.log('✅ fetchClient.logout: успешно');
       window.dispatchEvent(new CustomEvent('user-logged-out'));
+    } else {
+      console.error('❌ fetchClient.logout: ошибка', response.message);
     }
     return response;
   }
 
-  // ==================== СПЕЦИАЛЬНЫЕ МЕТОДЫ (только если нет в API модулях) ====================
+  // ==================== СПЕЦИАЛЬНЫЕ МЕТОДЫ ====================
 
   /**
-   * Поиск диагнозов и рекомендаций (публичный эндпоинт, без аутентификации)
+   * Поиск диагнозов и рекомендаций
    */
   async searchDiagnoses(titles: string[]) {
+    console.log(`🔍 fetchClient.searchDiagnoses: поиск для ${titles.length} диагнозов`);
+    
     const body: SearchDiagnosesBody = { titles };
     return this.post<DiagnosisSearchResponseData>('/diagnoses/search', body);
   }
 
   /**
-   * Получение всех данных с пагинацией и поиском (общий метод)
+   * Получение всех данных с пагинацией и поиском
    */
   async getPaginatedData(params?: any) {
+    console.log(`📊 fetchClient.getPaginatedData: запрос пагинации`);
+    
     return this.post<{
       data: Array<{
         id: number;
@@ -325,7 +346,7 @@ class FetchClient {
    */
   setBaseURL(url: string) {
     this.baseURL = url;
-    console.log(`🔧 Base URL изменен на: ${url}`);
+    console.log(`🔧 fetchClient: Base URL изменен на: ${url}`);
   }
 
   /**
@@ -339,7 +360,7 @@ class FetchClient {
    * Проверка авторизации
    */
   isAuthenticated(): boolean {
-    return !!userDataService.getToken();
+    return userDataService.isAuthenticated();
   }
 
   /**
@@ -367,11 +388,7 @@ class FetchClient {
    * Получение заголовков с авторизацией
    */
   getAuthHeaders(): Record<string, string> {
-    const token = userDataService.getToken();
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    };
+    return userDataService.getAuthHeaders();
   }
 }
 

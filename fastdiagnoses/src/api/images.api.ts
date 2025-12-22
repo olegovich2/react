@@ -1,6 +1,6 @@
 import { fetchClient } from './fetchClient';
 import { BaseApiService, APIResponse, PaginationInfo } from './BaseApiService';
-import { userDataService } from '../context/AuthContext';
+import { userDataService } from '../services';
 import { 
   UploadedImage,
   ImageUploadResponse,
