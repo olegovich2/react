@@ -83,7 +83,7 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
 
   // Прокрутка к галерее после смены страницы
   const scrollToGallery = useCallback(() => {
-    const gallery = document.querySelector('.allDownloadImages');
+    const gallery = document.querySelector('.images-container-all-download-images');
     if (gallery) {
       gallery.scrollIntoView({ 
         behavior: 'smooth', 
@@ -189,8 +189,8 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     if (!isLoading) return null;
     
     return (
-      <div className="loading-overlay">
-        <div className="loading-spinner">
+      <div className="images-container-loading-overlay">
+        <div className="images-container-loading-spinner">
           <i className="fas fa-spinner fa-spin fa-2x"></i>
           <p>Загрузка изображений...</p>
         </div>
@@ -203,18 +203,18 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     if (!error) return null;
     
     return (
-      <div className="error-message">
+      <div className="images-container-error-message">
         <i className="fas fa-exclamation-triangle"></i>
         <p>{error}</p>
-        <div className="error-actions">
+        <div className="images-container-error-actions">
           <button 
-            className="buttonFromTemplate error-close"
+            className="buttonFromTemplate images-container-error-close"
             onClick={() => setError(null)}
           >
             <i className="fas fa-times"></i> Закрыть
           </button>
           <button 
-            className="buttonFromTemplate error-retry"
+            className="buttonFromTemplate images-container-error-retry"
             onClick={() => loadImages(currentPage)}
           >
             <i className="fas fa-redo"></i> Повторить
@@ -232,39 +232,39 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
     const readableSize = Math.round(totalSize / 1024 / 1024 * 100) / 100;
 
     return (
-      <div className="image-stats">
+      <div className="images-container-stats">
         <p>
           <strong>📊 Статистика страницы {currentPage}:</strong> 
-          <span className="stat-item">Показано: {localImages.length} изображений</span>
-          <span className="stat-item">Размер: {readableSize} MB</span>
-          <span className="stat-item">Всего изображений: {imagesPagination.totalItems}</span>
-          <span className="stat-item">Страниц: {imagesPagination.totalPages}</span>
+          <span className="images-container-stat-item">Показано: {localImages.length} изображений</span>
+          <span className="images-container-stat-item">Размер: {readableSize} MB</span>
+          <span className="images-container-stat-item">Всего изображений: {imagesPagination.totalItems}</span>
+          <span className="images-container-stat-item">Страниц: {imagesPagination.totalPages}</span>
         </p>
       </div>
     );
   }, [localImages, currentPage, imagesPagination.totalItems, imagesPagination.totalPages]);
 
   return (
-    <div className="formForImageAndResult">
+    <div className="images-container-form">
       {renderLoading}
       {renderError}
       
       {/* Компонент загрузки изображений */}
-      <div className="upload-section-container">
+      <div className="images-container-upload-section">
         <h2>Загрузка нового изображения</h2>
         <ImageUpload onUploadSuccess={handleImageUploadSuccess} />
       </div>
 
       {/* Список изображений с пагинацией */}
-      <div className="allDownloadImages" id="images-gallery">
-        <div className="images-header">
+      <div className="images-container-all-download-images" id="images-container-gallery">
+        <div className="images-container-header">
           <h2>Загруженные изображения</h2>
-          <div className="images-controls">
-            <div className="page-info">
+          <div className="images-container-controls">
+            <div className="images-container-page-info">
               Страница <strong>{currentPage}</strong> из <strong>{imagesPagination.totalPages}</strong>
             </div>
             <button 
-              className="buttonFromTemplate refresh-button"
+              className="buttonFromTemplate images-container-refresh-button"
               onClick={() => loadImages(currentPage)}
               disabled={isLoading}
               title="Обновить список"
@@ -277,16 +277,16 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
         {imageStats}
         
         {localImages.length === 0 && !isLoading ? (
-          <div className="empty-images-message">
-            <div className="empty-icon">
+          <div className="images-container-empty-message">
+            <div className="images-container-empty-icon">
               <i className="fas fa-images fa-3x"></i>
             </div>
             <h3>Нет загруженных изображений</h3>
             <p>Загрузите первое изображение с помощью формы выше</p>
             <button 
-              className="buttonFromTemplate go-to-upload-button"
+              className="buttonFromTemplate images-container-go-to-upload-button"
               onClick={() => {
-                const uploadSection = document.querySelector('.upload-section-container');
+                const uploadSection = document.querySelector('.images-container-upload-section');
                 uploadSection?.scrollIntoView({ behavior: 'smooth' });
               }}
             >
@@ -304,13 +304,13 @@ const ImagesContainerPaginated: React.FC = React.memo(() => {
             {/* Пагинация снизу */}
             {imagesPagination.totalPages > 1 && paginationComponent}
             
-            <div className="images-footer">
-              <p className="images-count">
+            <div className="images-container-footer">
+              <p className="images-container-count">
                 Показано: <strong>{(currentPage - 1) * imagesPagination.itemsPerPage + 1}-{Math.min(currentPage * imagesPagination.itemsPerPage, imagesPagination.totalItems)}</strong> из <strong>{imagesPagination.totalItems}</strong> изображений
               </p>
               {localImages.length > 10 && (
                 <button 
-                  className="buttonFromTemplate scroll-to-top-button"
+                  className="buttonFromTemplate images-container-scroll-to-top-button"
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                 >
                   <i className="fas fa-arrow-up"></i> Вернуться к началу

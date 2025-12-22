@@ -1,12 +1,15 @@
 /* ImagesContainer.css */
 
-.formForImageAndResult {
+.images-container-form {
     position: relative;
     min-height: 500px;
+    box-sizing: border-box;
+    max-width: 100%; 
+    overflow-x: hidden; 
 }
 
 /* Шапка с заголовком и управлением */
-.images-header {
+.images-container-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -19,21 +22,21 @@
     gap: 15px;
 }
 
-.images-header h2 {
+.images-container-header h2 {
     margin: 0;
     font-size: 20px;
     font-weight: 700;
     color: rgb(88, 96, 98);
 }
 
-.images-controls {
+.images-container-controls {
     display: flex;
     gap: 15px;
     align-items: center;
     flex-wrap: wrap;
 }
 
-.page-info {
+.images-container-page-info {
     background-color: rgb(255, 255, 255);
     padding: 8px 15px;
     border-radius: 6px;
@@ -43,11 +46,11 @@
     font-size: 14px;
 }
 
-.page-info strong {
+.images-container-page-info strong {
     color: rgb(60, 65, 70);
 }
 
-.refresh-button {
+.images-container-refresh-button {
     background-color: rgb(88, 96, 98);
     color: white;
     padding: 10px 20px;
@@ -63,27 +66,27 @@
     gap: 8px;
 }
 
-.refresh-button:hover:not(:disabled) {
+.images-container-refresh-button:hover:not(:disabled) {
     background-color: rgb(60, 65, 70);
     border-color: rgb(60, 65, 70);
     transform: translateY(-2px);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.refresh-button:disabled {
+.images-container-refresh-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     background-color: rgb(184, 198, 202);
     border-color: rgb(184, 198, 202);
 }
 
-.refresh-button:disabled:hover {
+.images-container-refresh-button:disabled:hover {
     transform: none;
     box-shadow: none;
 }
 
 /* Статистика изображений */
-.image-stats {
+.images-container-stats {
     background-color: rgba(183, 222, 234, 0.3);
     border-radius: 10px;
     padding: 15px 20px;
@@ -93,7 +96,7 @@
     color: rgb(88, 96, 98);
 }
 
-.image-stats p {
+.images-container-stats p {
     margin: 0;
     display: flex;
     flex-wrap: wrap;
@@ -101,19 +104,19 @@
     align-items: center;
 }
 
-.image-stats strong {
+.images-container-stats strong {
     color: rgb(60, 65, 70);
     margin-right: 5px;
 }
 
-.stat-item {
+.images-container-stat-item {
     display: flex;
     align-items: center;
     gap: 5px;
 }
 
 /* Контейнер загрузки */
-.upload-section-container {
+.images-container-upload-section {
     background-color: rgba(255, 255, 255, 0.9);
     border-radius: 10px;
     padding: 25px;
@@ -123,7 +126,7 @@
     width: 100%;
 }
 
-.upload-section-container h2 {
+.images-container-upload-section h2 {
     margin: 0 0 20px 0;
     font-size: 20px;
     font-weight: 700;
@@ -133,7 +136,7 @@
 }
 
 /* Контейнер всех изображений */
-.allDownloadImages {
+.images-container-all-download-images {
     background-color: rgb(255, 255, 255);
     padding: 25px;
     border: 2px solid black;
@@ -141,11 +144,14 @@
     min-height: 40vh;
     margin: 0;
     width: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-x: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* Сообщение об отсутствии изображений */
-.empty-images-message {
+.images-container-empty-message {
     text-align: center;
     padding: 50px 20px;
     color: rgb(88, 96, 98);
@@ -155,30 +161,30 @@
     margin: 20px 0;
 }
 
-.empty-icon {
+.images-container-empty-icon {
     margin-bottom: 20px;
 }
 
-.empty-icon i {
+.images-container-empty-icon i {
     font-size: 48px;
     color: rgb(183, 222, 234);
     opacity: 0.7;
 }
 
-.empty-images-message h3 {
+.images-container-empty-message h3 {
     font-size: 18px;
     font-weight: 700;
     color: rgb(88, 96, 98);
     margin: 0 0 10px 0;
 }
 
-.empty-images-message p {
+.images-container-empty-message p {
     font-size: 16px;
     color: rgb(88, 96, 98);
     margin: 0 0 25px 0;
 }
 
-.go-to-upload-button {
+.images-container-go-to-upload-button {
     background-color: rgb(76, 175, 80);
     color: white;
     padding: 12px 24px;
@@ -194,7 +200,7 @@
     gap: 10px;
 }
 
-.go-to-upload-button:hover {
+.images-container-go-to-upload-button:hover {
     background-color: rgb(56, 142, 60);
     border-color: rgb(56, 142, 60);
     transform: translateY(-2px);
@@ -202,7 +208,7 @@
 }
 
 /* Футер с информацией */
-.images-footer {
+.images-container-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -213,17 +219,17 @@
     gap: 15px;
 }
 
-.images-count {
+.images-container-count {
     font-size: 14px;
     color: rgb(88, 96, 98);
     font-weight: 500;
 }
 
-.images-count strong {
+.images-container-count strong {
     color: rgb(60, 65, 70);
 }
 
-.scroll-to-top-button {
+.images-container-scroll-to-top-button {
     background-color: rgb(88, 96, 98);
     color: white;
     padding: 10px 20px;
@@ -239,7 +245,7 @@
     gap: 8px;
 }
 
-.scroll-to-top-button:hover {
+.images-container-scroll-to-top-button:hover {
     background-color: rgb(60, 65, 70);
     border-color: rgb(60, 65, 70);
     transform: translateY(-2px);
@@ -247,7 +253,7 @@
 }
 
 /* Оверлей загрузки */
-.loading-overlay {
+.images-container-loading-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -260,7 +266,7 @@
     z-index: 1000;
 }
 
-.loading-spinner {
+.images-container-loading-spinner {
     text-align: center;
     padding: 40px;
     background: white;
@@ -269,27 +275,27 @@
     border: 2px solid rgb(88, 96, 98);
 }
 
-.loading-spinner i {
+.images-container-loading-spinner i {
     color: rgb(88, 96, 98);
     margin-bottom: 20px;
     font-size: 32px;
-    animation: spin 1s linear infinite;
+    animation: images-container-spin 1s linear infinite;
 }
 
-.loading-spinner p {
+.images-container-loading-spinner p {
     color: rgb(88, 96, 98);
     font-size: 18px;
     font-weight: 700;
     margin: 0;
 }
 
-@keyframes spin {
+@keyframes images-container-spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
 
 /* Сообщение об ошибке */
-.error-message {
+.images-container-error-message {
     background-color: rgba(249, 144, 144, 0.1);
     border: 2px solid rgb(249, 144, 144);
     border-radius: 10px;
@@ -299,10 +305,10 @@
     align-items: center;
     gap: 15px;
     flex-wrap: wrap;
-    animation: slideIn 0.3s ease-out;
+    animation: images-container-slide-in 0.3s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes images-container-slide-in {
     from {
         opacity: 0;
         transform: translateY(-20px);
@@ -313,13 +319,13 @@
     }
 }
 
-.error-message i {
+.images-container-error-message i {
     color: rgb(249, 144, 144);
     font-size: 24px;
     flex-shrink: 0;
 }
 
-.error-message p {
+.images-container-error-message p {
     color: rgb(90, 30, 30);
     margin: 0;
     flex: 1;
@@ -327,12 +333,13 @@
     font-size: 14px;
 }
 
-.error-actions {
+.images-container-error-actions {
     display: flex;
     gap: 10px;
     flex-shrink: 0;
 }
 
+/* Общий класс buttonFromTemplate остается глобальным */
 .buttonFromTemplate {
     display: flex;
     align-items: center;
@@ -349,109 +356,109 @@
     min-width: 120px;
 }
 
-.error-close {
+.images-container-error-close {
     background-color: rgb(184, 198, 202);
     color: rgb(88, 96, 98);
     border-color: rgb(88, 96, 98);
 }
 
-.error-retry {
+.images-container-error-retry {
     background-color: rgb(88, 96, 98);
     color: white;
     border-color: rgb(88, 96, 98);
 }
 
-.error-close:hover {
+.images-container-error-close:hover {
     background-color: rgb(88, 96, 98);
     color: white;
 }
 
-.error-retry:hover {
+.images-container-error-retry:hover {
     background-color: rgb(60, 65, 70);
     border-color: rgb(60, 65, 70);
 }
 
 /* Адаптивность */
 @media (max-width: 768px) {
-    .images-header {
+    .images-container-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
     }
     
-    .images-controls {
+    .images-container-controls {
         width: 100%;
         justify-content: space-between;
         flex-wrap: wrap;
         gap: 10px;
     }
     
-    .page-info {
+    .images-container-page-info {
         order: 1;
         width: 100%;
         text-align: center;
     }
     
-    .refresh-button {
+    .images-container-refresh-button {
         order: 2;
     }
     
-    .upload-section-container,
-    .allDownloadImages {
+    .images-container-upload-section,
+    .images-container-all-download-images {
         padding: 15px;
     }
     
-    .image-stats p {
+    .images-container-stats p {
         flex-direction: column;
         gap: 10px;
         align-items: flex-start;
     }
     
-    .stat-item {
+    .images-container-stat-item {
         justify-content: flex-start;
     }
     
-    .images-footer {
+    .images-container-footer {
         flex-direction: column;
         gap: 15px;
         text-align: center;
     }
     
-    .empty-images-message {
+    .images-container-empty-message {
         padding: 30px 15px;
     }
     
-    .empty-icon i {
+    .images-container-empty-icon i {
         font-size: 36px;
     }
     
-    .empty-images-message h3 {
+    .images-container-empty-message h3 {
         font-size: 16px;
     }
     
-    .empty-images-message p {
+    .images-container-empty-message p {
         font-size: 14px;
     }
 }
 
 @media (max-width: 480px) {
-    .page-info {
+    .images-container-page-info {
         font-size: 13px;
         padding: 6px 12px;
     }
     
-    .images-header h2 {
+    .images-container-header h2 {
         font-size: 18px;
     }
     
-    .refresh-button,
-    .scroll-to-top-button,
-    .go-to-upload-button {
+    .images-container-refresh-button,
+    .images-container-scroll-to-top-button,
+    .images-container-go-to-upload-button {
         padding: 8px 16px;
         font-size: 13px;
     }
     
-    .upload-section-container h2 {
+    .images-container-upload-section h2 {
         font-size: 18px;
     }
     
@@ -461,15 +468,15 @@
         font-size: 13px;
     }
     
-    .error-message {
+    .images-container-error-message {
         padding: 15px;
     }
     
-    .error-message i {
+    .images-container-error-message i {
         font-size: 20px;
     }
     
-    .error-message p {
+    .images-container-error-message p {
         font-size: 13px;
     }
 }
