@@ -2,6 +2,7 @@
  * Базовые типы API для FastDiagnoses
  * Все типы, связанные с аккаунтом (опросы, изображения, пагинация) вынесены в account.types.ts
  * Все типы для регистрации вынесены в register.types.ts
+ * Все типы для входа вынесены в login.types.ts
  */
 
 // ==================== БАЗОВЫЕ ТИПЫ ====================
@@ -15,10 +16,7 @@ export interface APIResponse {
 }
 
 // ==================== АУТЕНТИФИКАЦИЯ ====================
-export interface LoginCredentials {
-  login: string;
-  password: string;
-}
+// LoginCredentials УДАЛЕН - теперь в login.types.ts
 
 export interface AuthResponse {
   success: boolean;
@@ -170,18 +168,6 @@ export interface AppSettings {
   fontSize: 'small' | 'medium' | 'large';
 }
 
-// ==================== ИСТОРИЯ ====================
-export interface HistoryItem {
-  id: number;
-  action: string;
-  entityType: string;
-  entityId: number;
-  changes: Record<string, any>;
-  timestamp: string;
-  userId: number;
-  userName: string;
-}
-
 // ==================== ЭКСПОРТ/ИМПОРТ ====================
 export interface ExportOptions {
   format: 'json' | 'csv' | 'pdf';
@@ -216,17 +202,6 @@ export interface SearchResult<T> {
   total: number;
   query?: string;
   filters?: Record<string, any>;
-}
-
-// ==================== УВЕДОМЛЕНИЯ ====================
-export interface Notification {
-  id: number;
-  type: 'info' | 'warning' | 'error' | 'success';
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
-  actionUrl?: string;
 }
 
 // ==================== КОНФИГУРАЦИЯ ====================

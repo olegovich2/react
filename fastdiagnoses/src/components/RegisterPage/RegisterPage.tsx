@@ -2,7 +2,7 @@ import React from 'react';
 import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
 import RegisterForm from './RegisterForm/RegisterForm';
-import './RegisterPage.css'; // Импортируем стили страницы
+import './RegisterPage.css'; 
 
 const RegisterPage: React.FC = () => {
   const handleRegisterSuccess = () => {

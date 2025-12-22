@@ -1,21 +1,15 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { LoginCredentials } from '../../../types/api.types';
-import './LoginForm.css'; // Импортируем стили
-
-interface LoginFormProps {
-  onSuccess?: () => void;
-  onError?: (message: string) => void;
-  redirectOnSuccess?: boolean;
-}
+import { LoginFormData, LoginFormProps } from '../types/login.types';
+import './LoginForm.css';
 
 const LoginForm: React.FC<LoginFormProps> = ({
   onSuccess,
   onError,
   redirectOnSuccess = true
 }) => {
-  const [formData, setFormData] = useState<LoginCredentials>({
+  const [formData, setFormData] = useState<LoginFormData>({
     login: '',
     password: ''
   });
@@ -42,7 +36,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev: LoginCredentials) => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value
     }));

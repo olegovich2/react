@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
 import LoginForm from './LoginForm/LoginForm';
-import './LoginPage.css'; // Только специфичные стили для страницы
+import './LoginPage.css'; 
 
 const LoginPage: React.FC = () => {
   const location = useLocation();
