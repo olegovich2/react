@@ -1,20 +1,23 @@
 /* SurveysContainer.css */
 
 /* ==================== КОНТЕЙНЕР ОПРОСОВ ==================== */
-.area_inspection_list {
-    overflow-y: visible !important;
+.surveys-container {
     background-color: rgb(255, 255, 255);
     padding: 25px;
     border: 2px solid black;
     border-radius: 10px;
-    max-height: none !important;
-    min-height: auto;
     margin: 0;
     width: 100%;
+    max-width: 100%; /* ← ДОБАВЛЕНО */
+    box-sizing: border-box; /* ← ДОБАВЛЕНО */
+    overflow-x: hidden; /* ← ДОБАВЛЕНО */
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    left: 0;
+    right: 0;
 }
 
-.area_inspection_list h2 {
+.surveys-container h2 {
     margin: 0 0 20px 0;
     font-size: 24px;
     font-weight: bold;
@@ -22,10 +25,12 @@
     text-align: center;
     border-bottom: 2px solid rgb(88, 96, 98);
     padding-bottom: 10px;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 /* Заголовок со статистикой */
-.surveys-header {
+.surveys-container-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -36,21 +41,24 @@
     border: 2px solid rgb(88, 96, 98);
     flex-wrap: wrap;
     gap: 15px;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.surveys-header p {
+.surveys-container-header p {
     margin: 0;
     font-size: 16px;
     font-weight: 500;
     color: rgb(88, 96, 98);
+    max-width: 100%;
 }
 
-.surveys-header strong {
+.surveys-container-header strong {
     color: rgb(60, 65, 70);
     font-weight: 700;
 }
 
-.page-info {
+.surveys-container-page-info {
     background-color: rgb(255, 255, 255);
     padding: 8px 15px;
     border-radius: 6px;
@@ -58,30 +66,35 @@
     font-weight: 700;
     color: rgb(88, 96, 98);
     font-size: 14px;
+    box-sizing: border-box;
+    max-width: 100%;
+    white-space: nowrap;
 }
 
 /* Загрузка */
-.loading-message {
+.surveys-container-loading-message {
     text-align: center;
     padding: 40px 20px;
     color: rgb(88, 96, 98);
     font-size: 18px;
     font-weight: 700;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.loading-message i {
+.surveys-container-loading-message i {
     margin-right: 15px;
     color: rgb(88, 96, 98);
-    animation: spin 1s linear infinite;
+    animation: surveys-container-spin 1s linear infinite;
 }
 
-@keyframes spin {
+@keyframes surveys-container-spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
 
 /* Ошибка */
-.error-message {
+.surveys-container-error-message {
     text-align: center;
     padding: 30px 20px;
     background-color: rgba(249, 144, 144, 0.1);
@@ -89,21 +102,25 @@
     border-radius: 10px;
     color: rgb(90, 30, 30);
     margin: 20px 0;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.error-message i {
+.surveys-container-error-message i {
     font-size: 32px;
     margin-bottom: 15px;
     color: rgb(249, 144, 144);
 }
 
-.error-message p {
+.surveys-container-error-message p {
     font-size: 16px;
     font-weight: 700;
     margin: 0 0 15px 0;
+    max-width: 100%;
+    word-wrap: break-word;
 }
 
-.retry-button {
+.surveys-container-retry-button {
     background-color: rgb(88, 96, 98);
     color: white;
     border: 2px solid rgb(88, 96, 98);
@@ -114,9 +131,11 @@
     cursor: pointer;
     transition: all 0.3s ease;
     font-family: 'Montserrat', sans-serif;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.retry-button:hover {
+.surveys-container-retry-button:hover {
     background-color: rgb(60, 65, 70);
     border-color: rgb(60, 65, 70);
     transform: translateY(-2px);
@@ -124,7 +143,7 @@
 }
 
 /* Сообщение об отсутствии опросов */
-.empty-message {
+.surveys-container-empty-message {
     text-align: center;
     padding: 40px 20px;
     color: rgb(88, 96, 98);
@@ -132,149 +151,204 @@
     border-radius: 10px;
     border: 2px dashed rgb(88, 96, 98);
     margin: 20px 0;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
-.empty-message i {
+.surveys-container-empty-message i {
     font-size: 48px;
     margin-bottom: 20px;
     color: rgb(183, 222, 234);
     opacity: 0.7;
 }
 
-.empty-message p {
+.surveys-container-empty-message p {
     font-size: 18px;
     font-weight: 700;
     margin: 0;
+    max-width: 100%;
 }
 
-/* Контейнер для списка опросов */
-.survey-list-container {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    max-height: none;
+.surveys-container-empty-subtext {
+    font-size: 14px !important;
+    color: #666 !important;
+    margin-top: 10px !important;
+    font-weight: normal !important;
 }
 
 /* ==================== SCROLLBAR CUSTOM ==================== */
-.area_inspection_list::-webkit-scrollbar {
+.surveys-container::-webkit-scrollbar {
     width: 8px;
 }
 
-.area_inspection_list::-webkit-scrollbar-track {
+.surveys-container::-webkit-scrollbar-track {
     background: rgb(184, 198, 202);
     border-radius: 4px;
 }
 
-.area_inspection_list::-webkit-scrollbar-thumb {
+.surveys-container::-webkit-scrollbar-thumb {
     background: rgb(88, 96, 98);
     border-radius: 4px;
 }
 
-.area_inspection_list::-webkit-scrollbar-thumb:hover {
+.surveys-container::-webkit-scrollbar-thumb:hover {
     background: rgb(60, 65, 70);
 }
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
-    .area_inspection_list {
+    .surveys-container {
         padding: 15px;
-        max-height: none;
+        width: 100%;
+        max-width: 100%;
     }
     
-    .area_inspection_list h2 {
+    .surveys-container h2 {
         font-size: 20px;
+        padding-bottom: 8px;
     }
     
-    .surveys-header {
+    .surveys-container-header {
         flex-direction: column;
         gap: 10px;
         text-align: center;
         padding: 12px;
     }
     
-    .surveys-header p {
+    .surveys-container-header p {
         font-size: 14px;
     }
     
-    .page-info {
+    .surveys-container-page-info {
         width: 100%;
         font-size: 13px;
         padding: 6px 12px;
     }
     
-    .loading-message {
+    .surveys-container-loading-message {
         padding: 30px 15px;
         font-size: 16px;
     }
     
-    .error-message {
+    .surveys-container-error-message {
         padding: 20px 15px;
     }
     
-    .error-message i {
+    .surveys-container-error-message i {
         font-size: 24px;
     }
     
-    .error-message p {
+    .surveys-container-error-message p {
         font-size: 14px;
     }
     
-    .retry-button {
+    .surveys-container-retry-button {
         padding: 8px 16px;
         font-size: 13px;
     }
     
-    .empty-message {
+    .surveys-container-empty-message {
         padding: 30px 15px;
     }
     
-    .empty-message i {
+    .surveys-container-empty-message i {
         font-size: 36px;
     }
     
-    .empty-message p {
+    .surveys-container-empty-message p {
         font-size: 16px;
+    }
+    
+    .surveys-container-empty-subtext {
+        font-size: 13px !important;
     }
 }
 
 @media (max-width: 480px) {
-    .area_inspection_list {
+    .surveys-container {
         padding: 12px;
         border-width: 1px;
+        width: calc(100% - 10px); /* ← ДОБАВЛЕНО для отступов */
+        margin: 0 auto; /* ← ДОБАВЛЕНО центрирование */
     }
     
-    .area_inspection_list h2 {
+    .surveys-container h2 {
         font-size: 18px;
-        padding-bottom: 8px;
+        padding-bottom: 6px;
     }
     
-    .page-info {
+    .surveys-container-page-info {
         font-size: 12px;
         padding: 5px 10px;
     }
     
-    .loading-message {
+    .surveys-container-loading-message {
         padding: 25px 10px;
         font-size: 15px;
     }
     
-    .error-message {
+    .surveys-container-error-message {
         padding: 15px 10px;
     }
     
-    .error-message p {
+    .surveys-container-error-message p {
         font-size: 13px;
     }
     
-    .empty-message {
+    .surveys-container-empty-message {
         padding: 25px 10px;
     }
     
-    .empty-message i {
+    .surveys-container-empty-message i {
         font-size: 32px;
     }
     
-    .empty-message p {
+    .surveys-container-empty-message p {
         font-size: 15px;
+    }
+    
+    .surveys-container-empty-subtext {
+        font-size: 12px !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .surveys-container {
+        padding: 10px;
+        width: calc(100% - 8px);
+    }
+    
+    .surveys-container h2 {
+        font-size: 16px;
+    }
+    
+    .surveys-container-page-info {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+    
+    .surveys-container-retry-button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}
+
+/* ЭКСТРЕННЫЙ ФИКС для очень узких экранов */
+@media (max-width: 320px) {
+    .surveys-container {
+        padding: 8px;
+        width: calc(100% - 6px);
+    }
+    
+    .surveys-container h2 {
+        font-size: 15px;
+    }
+    
+    .surveys-container-header {
+        padding: 8px;
+    }
+    
+    .surveys-container-header p {
+        font-size: 12px;
     }
 }

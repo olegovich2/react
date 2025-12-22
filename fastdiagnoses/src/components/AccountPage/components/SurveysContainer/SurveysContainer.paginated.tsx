@@ -1,6 +1,5 @@
-// SurveysContainer.paginated.tsx (исправленная версия)
 import React, { useEffect, useCallback, useMemo, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom'; // <-- Добавляем
+import { useNavigate } from 'react-router-dom';
 import { useAccountContext } from '../../context/AccountContext';
 import { surveysApi } from '../../../../api/surveys.api';
 import SurveyList from '../SurveyList/SurveyList';
@@ -17,7 +16,7 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     updateSurveysPage
   } = useAccountContext();
 
-  const navigate = useNavigate(); // <-- Добавляем навигацию
+  const navigate = useNavigate();
 
   const [localSurveys, setLocalSurveys] = useState<SurveyType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,11 +30,6 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
   // Функция прокрутки к этому блоку
   const scrollToSurveys = useCallback(() => {
     if (surveysContainerRef.current) {
-      surveysContainerRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-      
       const headerHeight = 80;
       const elementPosition = surveysContainerRef.current.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerHeight;
@@ -182,7 +176,7 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     if (!loading) return null;
     
     return (
-      <div className="loading-message">
+      <div className="surveys-container-loading-message">
         <i className="fas fa-spinner fa-spin"></i>
         <p>Загрузка опросов...</p>
       </div>
@@ -194,12 +188,12 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     if (!error) return null;
     
     return (
-      <div className="error-message">
+      <div className="surveys-container-error-message">
         <i className="fas fa-exclamation-triangle"></i>
         <p>{error}</p>
         <button 
           onClick={() => loadPaginatedSurveys(currentPage)}
-          className="retry-button"
+          className="surveys-container-retry-button"
         >
           <i className="fas fa-redo"></i> Попробовать снова
         </button>
@@ -212,10 +206,10 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     if (loading || error || localSurveys.length > 0) return null;
     
     return (
-      <div className="empty-message">
+      <div className="surveys-container-empty-message">
         <i className="fas fa-clipboard-list"></i>
         <p>У вас пока нет опросов</p>
-        <p style={{ fontSize: '14px', color: '#666', marginTop: '10px' }}>
+        <p className="surveys-container-empty-subtext">
           Создайте первый опрос на главной странице
         </p>
       </div>
@@ -227,10 +221,10 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     if (localSurveys.length === 0) return null;
     
     return (
-      <div className="surveys-header">
+      <div className="surveys-container-header">
         <p>Найдено опросов: <strong>{surveysPagination.totalItems || 0}</strong></p>
         {surveysPagination && (
-          <p className="page-info">
+          <p className="surveys-container-page-info">
             Страница <strong>{currentPage}</strong> из <strong>{surveysPagination.totalPages}</strong>
           </p>
         )}
@@ -245,14 +239,14 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
     return (
       <SurveyList
         surveys={localSurveys}
-        onView={handleViewSurvey} // <-- Используем новую функцию
+        onView={handleViewSurvey}
         onDelete={handleDeleteSurvey}
       />
     );
   }, [localSurveys, handleViewSurvey, handleDeleteSurvey]);
 
   return (
-    <div className="area_inspection_list" ref={surveysContainerRef}>
+    <div className="surveys-container" ref={surveysContainerRef}>
       <h2>Все осмотры</h2>
       
       {renderLoading}
@@ -261,8 +255,13 @@ const SurveysContainerPaginated: React.FC = React.memo(() => {
       
       {localSurveys.length > 0 && (
         <>
+          {/* ПАГИНАЦИЯ СВЕРХУ - ДОБАВЛЕНА */}
+          {paginationComponent}
+          
           {renderSurveysHeader}
           {renderSurveyList}
+          
+          {/* ПАГИНАЦИЯ СНИЗУ - ДУБЛИРУЕМ */}
           {paginationComponent}
         </>
       )}
