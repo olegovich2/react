@@ -1,0 +1,93 @@
+/* MainPage.css - Стили для главной страницы */
+
+/* ==================== ОСНОВНОЙ КОНТЕЙНЕР СТРАНИЦЫ ==================== */
+.main-page-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: rgb(184, 198, 202);
+    overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
+}
+
+/* ==================== ОСНОВНОЙ КОНТЕНТ ==================== */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: rgb(184, 198, 202);
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
+}
+
+/* ==================== КОНТЕЙНЕРЫ ДЛЯ ФОРМ ==================== */
+/* Контейнер для формы дыхательной системы */
+.respiratory-form-container {
+    display: none; /* По умолчанию скрыт */
+}
+
+.respiratory-form-container.active {
+    display: block; /* Показываем при активной вкладке */
+    animation: fadeInUp 0.4s ease-out;
+}
+
+/* Контейнеры для остальных систем (в разработке) */
+.forms-content-container {
+    display: none; /* По умолчанию скрыты */
+    animation: fadeInUp 0.4s ease-out;
+}
+
+.forms-content-container.active {
+    display: block; /* Показываем только активную форму */
+}
+
+/* Контейнер для результатов */
+.result-survey-container {
+    display: none; /* По умолчанию скрыт */
+}
+
+.result-survey-container.active {
+    display: block; /* Показываем при наличии результата */
+    animation: fadeInUp 0.4s ease-out;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+    .main-content {
+        padding: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-content {
+        padding: 10px;
+    }
+}
+
+/* ==================== АНИМАЦИИ ==================== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.main-page-container {
+    animation: fadeIn 0.5s ease-out;
+}

@@ -48,7 +48,7 @@ const ConfirmEmailPage: React.FC = () => {
 
   return (
     <div className="general">
-      <Header showBackButton={true} />
+      <Header/>
       <main className="main">
         <div className="auth-form-container">
           <div className="auth-header">

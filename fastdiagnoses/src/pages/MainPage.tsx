@@ -7,6 +7,7 @@ import ResultSurvey from '../components/Main/ResultSurvey';
 import { useNavigate } from 'react-router-dom';
 import { Survey } from '../components/AccountPage/types/account.types';
 import { fetchClient } from '../api/fetchClient';
+import './MainPage.css';
 
 const MainPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('');
@@ -14,7 +15,6 @@ const MainPage: React.FC = () => {
   const [currentSurvey, setCurrentSurvey] = useState<Survey | null>(null);
   const navigate = useNavigate();
 
-  // Проверка JWT при загрузке (как в logicTab.js)
   useEffect(() => {
     const verifyToken = async () => {
       const token = localStorage.getItem('token');
@@ -24,7 +24,6 @@ const MainPage: React.FC = () => {
       }
 
       try {
-        // Используем fetchClient.verifyToken() вместо checkJWT()
         const result = await fetchClient.verifyToken();
         if (!result.success) {
           navigate('/login');
@@ -37,13 +36,10 @@ const MainPage: React.FC = () => {
 
     verifyToken();
 
-    // Очистка localStorage (как в dataFromFormEntry.js)
-    const cleanup = () => {
+    return () => {
       localStorage.removeItem('allSurveys');
       localStorage.removeItem('originImage');
     };
-
-    return cleanup;
   }, [navigate]);
 
   const handleTabChange = (tabId: string) => {
@@ -66,80 +62,75 @@ const MainPage: React.FC = () => {
     localStorage.removeItem('survey');
   };
 
-  // Добавленная функция для сохранения опроса в аккаунт
   const handleSaveToAccount = async () => {
-    try {
-      if (!currentSurvey) {
-        console.error('Нет данных опроса для сохранения');
-        return;
-      }
-
-      // Здесь будет логика сохранения опроса в аккаунт пользователя
-      // Например, вызов API для сохранения
-      console.log('Сохранение опроса в аккаунт:', currentSurvey);
-      
-      // Пример API вызова:
-      // const response = await saveSurveyToAccount(currentSurvey);
-      // if (response.success) {
-      //   alert('Опрос успешно сохранен в вашем аккаунте!');
-      //   handleCloseResult();
-      // } else {
-      //   alert('Ошибка при сохранении опроса: ' + response.message);
-      // }
-
-      // Временно просто показываем сообщение
-      alert('Функция сохранения опроса в аккаунт находится в разработке');
-      
-    } catch (error) {
-      console.error('Ошибка при сохранении опроса:', error);
-      alert('Произошла ошибка при сохранении опроса');
-    }
+    alert('Функция сохранения опроса в аккаунт находится в разработке');
   };
 
   return (
-    <div>
-      <Header 
-        showAccountButton={true} 
-        showExitButton={true} 
-      />
+    <div className="main-page-container">
+      <Header />
       <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
       
-      <main className="main" data-main="mainElement">
+      <main className="main-content">
         {/* Общие формы (в разработке) */}
-        <section className={`forms_content ${activeTab !== 'general' ? 'unvisible' : ''}`} id="general">
-          <form data-form="general">Опрос по всем системам в разработке</form>
-        </section>
+        <div className={`forms-content-container ${activeTab !== 'general' ? '' : 'active'}`}>
+          {activeTab === 'general' && (
+            <div className="respiratory-form">
+              <form data-form="general">Опрос по всем системам в разработке</form>
+            </div>
+          )}
+        </div>
 
         {/* Форма дыхательной системы */}
-        {activeTab === 'respiratory' && (
-          <RespiratoryForm onSubmit={handleSurveySubmit} />
-        )}
+        <div className={`respiratory-form-container ${activeTab === 'respiratory' ? 'active' : ''}`}>
+          {activeTab === 'respiratory' && (
+            <RespiratoryForm onSubmit={handleSurveySubmit} />
+          )}
+        </div>
 
         {/* Остальные формы (в разработке) */}
-        <section className={`forms_content ${activeTab !== 'cardiovascular' ? 'unvisible' : ''}`} id="cardiovascular">
-          <form data-form="cardiovascular">Форма сердечно-сосудистой системы в разработке</form>
-        </section>
+        <div className={`forms-content-container ${activeTab !== 'cardiovascular' ? '' : 'active'}`}>
+          {activeTab === 'cardiovascular' && (
+            <div className="respiratory-form">
+              <form data-form="cardiovascular">Форма сердечно-сосудистой системы в разработке</form>
+            </div>
+          )}
+        </div>
         
-        <section className={`forms_content ${activeTab !== 'digestive' ? 'unvisible' : ''}`} id="digestive">
-          <form data-form="digestive">Форма пищеварительной системы в разработке</form>
-        </section>
+        <div className={`forms-content-container ${activeTab !== 'digestive' ? '' : 'active'}`}>
+          {activeTab === 'digestive' && (
+            <div className="respiratory-form">
+              <form data-form="digestive">Форма пищеварительной системы в разработке</form>
+            </div>
+          )}
+        </div>
         
-        <section className={`forms_content ${activeTab !== 'urinary' ? 'unvisible' : ''}`} id="urinary">
-          <form data-form="urinary">Форма мочеиспускательной системы в разработке</form>
-        </section>
+        <div className={`forms-content-container ${activeTab !== 'urinary' ? '' : 'active'}`}>
+          {activeTab === 'urinary' && (
+            <div className="respiratory-form">
+              <form data-form="urinary">Форма мочеиспускательной системы в разработке</form>
+            </div>
+          )}
+        </div>
         
-        <section className={`forms_content ${activeTab !== 'musculoskeletal' ? 'unvisible' : ''}`} id="musculoskeletal">
-          <form data-form="musculoskeletal">Форма опорно-двигательной системы в разработке</form>
-        </section>
+        <div className={`forms-content-container ${activeTab !== 'musculoskeletal' ? '' : 'active'}`}>
+          {activeTab === 'musculoskeletal' && (
+            <div className="respiratory-form">
+              <form data-form="musculoskeletal">Форма опорно-двигательной системы в разработке</form>
+            </div>
+          )}
+        </div>
 
         {/* Результат опроса */}
-        {showResult && currentSurvey && (
-          <ResultSurvey 
-            survey={currentSurvey} 
-            onClose={handleCloseResult}
-            onSaveToAccount={handleSaveToAccount}
-          />
-        )}
+        <div className={`result-survey-container ${showResult && currentSurvey ? 'active' : ''}`}>
+          {showResult && currentSurvey && (
+            <ResultSurvey 
+              survey={currentSurvey} 
+              onClose={handleCloseResult}
+              onSaveToAccount={handleSaveToAccount}
+            />
+          )}
+        </div>
       </main>
       
       <Footer />

@@ -1,4 +1,5 @@
 import React from 'react';
+import './Navbar.css'; // Импортируем стили
 
 interface NavbarProps {
   activeTab: string;
@@ -24,7 +25,6 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
             data-list={tab.id}
             className={activeTab === tab.id ? 'active' : ''}
             onClick={() => onTabChange(tab.id)}
-            style={{ cursor: 'pointer' }}
           >
             {tab.label}
           </li>

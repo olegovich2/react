@@ -2,6 +2,7 @@ import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { RegisterCredentials } from '../../types/api.types';
+import './RegisterForm.css'; 
 
 interface RegisterFormProps {
   onSuccess?: () => void;

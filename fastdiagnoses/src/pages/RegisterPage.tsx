@@ -2,6 +2,7 @@ import React from 'react';
 import Header from '../components/Layout/Header';
 import Footer from '../components/Layout/Footer';
 import RegisterForm from '../components/Auth/RegisterForm';
+import './RegisterPage.css'; // Импортируем стили страницы
 
 const RegisterPage: React.FC = () => {
   const handleRegisterSuccess = () => {
@@ -13,14 +14,16 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="main" data-main="mainElement">
-      <Header showBackButton={false} />
+    <div className="register-page-container">
+      <Header/>
       
-      <main className="main">
-        <RegisterForm 
-          onSuccess={handleRegisterSuccess}
-          onError={handleRegisterError}
-        />
+      <main className="register-main-content">
+        <div className="register-form-container">
+          <RegisterForm 
+            onSuccess={handleRegisterSuccess}
+            onError={handleRegisterError}
+          />
+        </div>
       </main>
       
       <Footer />

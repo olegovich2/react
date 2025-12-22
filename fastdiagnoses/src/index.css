@@ -1,4 +1,4 @@
-/* App.css - ГЛОБАЛЬНЫЕ И ОСНОВНЫЕ СТИЛИ */
+/* App.css - ГЛОБАЛЬНЫЕ И ОСНОВНЫЕ СТИЛИ (полностью очищенный) */
 @import url('https://fonts.googleapis.com/css?family=Montserrat:100,100i,200,200i,300,300i,400,400i,500,500i,600,600i,700,700i,800,800i,900,900i&display=swap&subset=cyrillic');
 
 /* ==================== ОСНОВНЫЕ СТИЛИ ==================== */
@@ -49,100 +49,6 @@ h3 {
     text-align: center;
     color: rgb(88, 96, 98);
     font-size: 18px;
-}
-
-/* ==================== NAVBAR ==================== */
-.navbar {
-    padding: 0;
-    margin: 0;
-    background-color: rgb(88, 96, 98);
-    border-bottom: 5px solid rgb(88, 96, 98);
-}
-
-.navlist {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 5px;
-    padding: 0;
-    margin: 0;
-    list-style: none;
-}
-
-.navlist li {
-    padding: 20px;
-    margin: 0;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    background-color: rgb(183, 222, 234);
-    color: rgb(88, 96, 98);
-    transition: all 0.3s ease;
-    text-align: center;
-    font-weight: 900;
-    font-size: 16px;
-}
-
-.active {
-    color: rgb(183, 222, 234) !important;
-    background-color: rgb(88, 96, 98) !important;
-}
-
-/* ==================== MAIN CONTENT ==================== */
-.general {
-    background-color: rgb(184, 198, 202);
-    min-height: calc(100vh - 140px);
-    display: grid;
-    grid-template-rows: 1fr;
-    gap: 1%;
-    width: 100%;
-    padding: 0;
-    margin: 0;
-}
-
-.main {
-    min-height: calc(90vh - 140px);
-    background-color: rgb(184, 198, 202);
-    padding: 20px;
-    flex: 1;
-}
-
-/* ==================== FOOTER ==================== */
-.footer {
-    background-color: rgb(183, 222, 234);
-    border-top: 5px solid rgb(88, 96, 98);
-    text-align: center;
-    padding: 20px;
-    margin-top: auto;
-}
-
-.footer_content {
-    padding: 0;
-    margin: 0;
-    font-size: 18px;
-    color: rgb(88, 96, 98);
-    font-weight: 900;
-}
-
-/* ==================== АДАПТИВНОСТЬ (общая) ==================== */
-@media (max-width: 768px) {
-    .navlist {
-        grid-template-columns: 1fr;
-    }
-    
-    h1 {
-        font-size: 20px;
-    }
-}
-
-@media (max-width: 480px) {
-    .navlist li {
-        padding: 15px;
-        font-size: 14px;
-    }
-    
-    .footer_content {
-        font-size: 16px;
-    }
 }
 
 /* ==================== УТИЛИТЫ ==================== */

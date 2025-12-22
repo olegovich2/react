@@ -4,21 +4,19 @@ import { useAuth } from '../../context/AuthContext';
 import './Header.css';
 
 interface HeaderProps {
-  showAccountButton?: boolean;
-  showExitButton?: boolean;
-  showBackButton?: boolean;
-  showSettingsButton?: boolean;
+  // Убираем все пропсы, так как логика будет на основе location
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  showAccountButton = false, 
-  showExitButton = false,
-  showBackButton = false,
-  showSettingsButton = false
-}) => {
+const Header: React.FC<HeaderProps> = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
+
+  // Определяем текущую страницу
+  const isLoginPage = location.pathname === '/login' || location.pathname === '/auth' || location.pathname === '/register';
+  const isAccountPage = location.pathname === '/account';
+  const isSettingsPage = location.pathname.includes('/account/settings');
+  const isHomePage = location.pathname === '/' || location.pathname === '/main';
 
   const handleAccountClick = () => {
     navigate('/account');
@@ -46,6 +44,95 @@ const Header: React.FC<HeaderProps> = ({
     navigate('/account/settings');
   };
 
+  const handleHomeClick = () => {
+    navigate('/');
+  };
+
+  // Рендерим кнопки в зависимости от страницы
+  const renderButtons = () => {
+    // Страница авторизации/аутентификации - БЕЗ кнопок
+    if (isLoginPage) {
+      return null;
+    }
+
+    // Страница настроек - БЕЗ кнопок
+    if (isSettingsPage) {
+      return null;
+    }
+
+    // Главная страница - кнопки "В аккаунт" и "Выход"
+    if (isHomePage) {
+      return (
+        <>
+          <button 
+            className="personal_account" 
+            type="button" 
+            onClick={handleAccountClick}
+            title="В аккаунт"
+            aria-label="Перейти в личный кабинет"
+          >
+            <i className="fa-solid fa-receipt"></i>
+            <span className="button-text">В аккаунт</span>
+          </button>
+          
+          <button 
+            className="exit_button" 
+            type="button" 
+            onClick={handleExitClick}
+            title="Выход"
+            aria-label="Выход из системы"
+          >
+            <i className="fa-solid fa-xmark"></i>
+            <span className="button-text">Выход</span>
+          </button>
+        </>
+      );
+    }
+
+    // Страница аккаунта - кнопки "На главную" и "Настройки"
+    if (isAccountPage) {
+      return (
+        <>
+          <button 
+            className="personal_account home-button" 
+            type="button" 
+            onClick={handleHomeClick}
+            title="На главную"
+            aria-label="Перейти на главную страницу"
+          >
+            <i className="fa-solid fa-home"></i>
+            <span className="button-text">На главную</span>
+          </button>
+          
+          <button 
+            className="personal_account settings-button" 
+            type="button" 
+            onClick={handleSettingsClick}
+            title="Настройки"
+            aria-label="Перейти к настройкам аккаунта"
+          >
+            <i className="fa-solid fa-gear"></i>
+            <span className="button-text">Настройки</span>
+          </button>
+        </>
+      );
+    }
+
+    // Для всех остальных страниц (если есть) - кнопка "Назад"
+    return (
+      <button 
+        className="personal_account back-button" 
+        type="button" 
+        onClick={handleBackClick}
+        title="Назад"
+        aria-label="Вернуться назад"
+      >
+        <i className="fa-solid fa-arrow-left"></i>
+        <span className="button-text">Назад</span>
+      </button>
+    );
+  };
+
   return (
     <header className="header">
       <img 
@@ -58,59 +145,7 @@ const Header: React.FC<HeaderProps> = ({
       <h1>QUICK DIAGNOSIS</h1>
       
       <div className="buttonsLogin" data-container="buttons">
-        {/* Кнопка "Назад" */}
-        {showBackButton && (
-          <button 
-            className="personal_account back-button" 
-            type="button" 
-            onClick={handleBackClick}
-            title="Назад"
-            aria-label="Назад"
-          >
-            <i className="fa-solid fa-arrow-left"></i>
-          </button>
-        )}
-        
-        {/* Кнопка "Настройки" */}
-        {showSettingsButton && !location.pathname.includes('/account/settings') && (
-          <button 
-            className="personal_account settings-button" 
-            type="button" 
-            onClick={handleSettingsClick}
-            title="Настройки"
-            aria-label="Настройки аккаунта"
-          >
-            <i className="fa-solid fa-gear"></i>
-          </button>
-        )}
-        
-        {/* Кнопка аккаунта */}
-        {showAccountButton && (
-          <button 
-            className="personal_account" 
-            type="button" 
-            data-button="toAccount"
-            onClick={handleAccountClick}
-            title="Личный кабинет"
-            aria-label="Личный кабинет"
-          >
-            <i className="fa-solid fa-receipt"></i>
-          </button>
-        )}
-        
-        {/* Кнопка выхода */}
-        {showExitButton && (
-          <button 
-            className="exit_button" 
-            type="button" 
-            data-button="toEntry"
-            onClick={handleExitClick}
-            title="Выход"
-            aria-label="Выход из системы"
-          >
-            <i className="fa-solid fa-xmark"></i>
-          </button>
-        )}
+        {renderButtons()}
       </div>
     </header>
   );

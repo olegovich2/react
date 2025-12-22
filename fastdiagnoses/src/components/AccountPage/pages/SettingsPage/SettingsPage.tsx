@@ -296,7 +296,7 @@ const SettingsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="general">
-        <Header showBackButton={true} />
+        <Header />
         <main className="settings-main">
           <div className="settings-container">
             <div className="settings-loading">
@@ -312,7 +312,7 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="general">
-      <Header showBackButton={true} />
+      <Header/>
       
       <main className="settings-main">
         <div className="settings-container">

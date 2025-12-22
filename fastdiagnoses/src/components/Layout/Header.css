@@ -19,6 +19,22 @@
     margin: 0;
     cursor: pointer;
     object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.svg_param:hover {
+    transform: scale(1.05);
+}
+
+h1 {
+    margin: 0;
+    color: rgb(88, 96, 98);
+    font-size: 22px;
+    font-weight: 900;
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    cursor: default;
 }
 
 /* ==================== КНОПКИ ==================== */
@@ -27,7 +43,7 @@
     justify-content: flex-end;
     align-items: center;
     padding-right: 20px;
-    gap: 12px;
+    gap: 15px;
 }
 
 .personal_account,
@@ -36,82 +52,79 @@
     background-color: rgba(85, 210, 248, 0);
     padding: 10px 15px;
     margin: 0;
-    border: none;
-    font-size: 18px;
+    border: 2px solid rgb(88, 96, 98);
+    font-size: 16px;
     font-weight: 900;
     transition: all 0.3s ease;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: 6px;
     font-family: 'Montserrat', sans-serif;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     min-width: 44px;
     min-height: 44px;
 }
 
-.personal_account i,
-.exit_button i {
-    font-size: 20px;
-}
-
-/* Общие стили для всех кнопок при наведении (из App.css) */
 .personal_account:hover,
-.personal_account:focus,
-.exit_button:hover,
-.exit_button:focus {
-    color: rgb(183, 222, 234) !important;
-    background-color: rgb(88, 96, 98) !important;
+.exit_button:hover {
+    background-color: rgb(88, 96, 98);
+    color: rgb(183, 222, 234);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* Специфичные стили для кнопки настроек */
+/* Текст в кнопках */
+.button-text {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* Специфичные стили для кнопки выхода */
+.exit_button {
+    background-color: rgba(252, 129, 129, 0.1);
+    border-color: #fc8181;
+    color: #c53030;
+}
+
+.exit_button:hover {
+    background-color: #fc8181;
+    color: white;
+    border-color: #fc8181;
+}
+
+/* Специфичные стили для кнопки "На главную" */
+.home-button {
+    background-color: rgba(183, 222, 234, 0.3);
+}
+
+.home-button:hover {
+    background-color: rgb(88, 96, 98);
+}
+
+/* Специфичные стили для кнопки "Настройки" */
 .settings-button {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: #333;
-    padding: 10px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
+    background-color: rgba(183, 222, 234, 0.3);
 }
 
 .settings-button:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgb(88, 96, 98);
 }
 
-.settings-button i {
-    color: rgb(88, 96, 98);
-    font-size: 20px;
-}
-
-/* Специфичные стили для кнопки назад */
+/* Специфичные стили для кнопки "Назад" */
 .back-button {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: #333;
-    padding: 10px;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
+    background-color: rgba(183, 222, 234, 0.3);
 }
 
 .back-button:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgb(88, 96, 98);
 }
 
-.back-button i {
-    color: rgb(88, 96, 98);
-    font-size: 20px;
+/* Иконки в кнопках */
+.personal_account i,
+.exit_button i {
+    font-size: 18px;
 }
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
@@ -119,28 +132,24 @@
     .header {
         grid-template-columns: auto 1fr auto;
         padding: 0 5px;
+        gap: 10px;
     }
     
     .buttonsLogin {
-        gap: 8px;
+        gap: 10px;
         padding-right: 10px;
     }
     
     .personal_account,
-    .exit_button,
-    .settings-button,
-    .back-button {
+    .exit_button {
         padding: 8px 12px;
-        font-size: 16px;
+        font-size: 14px;
         min-width: 40px;
         min-height: 40px;
     }
     
-    .personal_account i,
-    .exit_button i,
-    .settings-button i,
-    .back-button i {
-        font-size: 18px;
+    .button-text {
+        font-size: 12px;
     }
     
     .svg_param {
@@ -153,12 +162,12 @@
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
     .header {
         grid-template-columns: auto 1fr;
         grid-template-rows: auto auto;
-        gap: 10px;
         padding: 10px;
+        gap: 10px;
     }
     
     .svg_param {
@@ -174,6 +183,7 @@
         text-align: center;
         font-size: 16px;
         padding: 5px 0;
+        order: -1;
     }
     
     .buttonsLogin {
@@ -181,40 +191,65 @@
         grid-row: 1;
         justify-content: flex-end;
         padding-right: 0;
-        gap: 5px;
+        gap: 8px;
+    }
+    
+    /* На мобильных скрываем текст в кнопках, оставляем только иконки */
+    .button-text {
+        display: none;
     }
     
     .personal_account,
-    .exit_button,
-    .settings-button,
-    .back-button {
-        padding: 6px 10px;
-        font-size: 14px;
+    .exit_button {
+        padding: 8px;
         min-width: 36px;
         min-height: 36px;
+        gap: 0;
     }
     
     .personal_account i,
-    .exit_button i,
-    .settings-button i,
-    .back-button i {
+    .exit_button i {
         font-size: 16px;
+    }
+
+    .personal_account:hover::after,
+    .exit_button:hover::after {
+        content: attr(title);
+        position: absolute;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgb(88, 96, 98);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 100;
+    }
+    
+    .personal_account,
+    .exit_button {
+        position: relative;
     }
 }
 
 /* Для очень маленьких экранов */
 @media (max-width: 320px) {
     .buttonsLogin {
-        flex-direction: column;
         gap: 5px;
     }
     
     .header {
-        grid-template-columns: auto 1fr;
         padding: 5px;
     }
     
     h1 {
         font-size: 14px;
+    }
+    
+    .svg_param {
+        width: 30px;
+        height: 30px;
     }
 }

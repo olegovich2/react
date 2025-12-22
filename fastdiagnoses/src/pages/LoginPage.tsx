@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import Footer from '../components/Layout/Footer';
 import LoginForm from '../components/Auth/LoginForm';
-import './LoginPage.css';
+import './LoginPage.css'; // Только специфичные стили для страницы
 
 const LoginPage: React.FC = () => {
   const location = useLocation();
@@ -48,10 +48,10 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="main" data-main="mainElement">
-      <Header showBackButton={true} />
+    <div className="login-page-container">
+      <Header/>
       
-      <main className="main">
+      <main className="main-content">
         {/* Баннер с информацией об изменении пароля */}
         {passwordChanged && (
           <div className="password-change-banner">
@@ -81,11 +81,13 @@ const LoginPage: React.FC = () => {
           </div>
         )}
 
-        <LoginForm 
-          onSuccess={handleLoginSuccess}
-          onError={handleLoginError}
-          redirectOnSuccess={true}
-        />
+        <div className="login-form-wrapper">
+          <LoginForm 
+            onSuccess={handleLoginSuccess}
+            onError={handleLoginError}
+            redirectOnSuccess={true}
+          />
+        </div>
       </main>
       
       <Footer />
