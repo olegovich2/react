@@ -1,4 +1,3 @@
-// Копируем ваши константы из allConstants.js
 export const titleStates = {
   acuteRhinitis: "acuteRhinitis",
   acuteTonsillitis: "acuteTonsillitis",
@@ -25,31 +24,4 @@ export const titleStates = {
   respiratoryProtection: "Защита органов дыхания при помощи респиратора.",
   rejectionBadHabits: "Отказ от вредных привычек.",
   noPathology: "noPathology",
-};
-
-export const elementsForSurveys = {
-  baseSurvey: {
-    elementPath: '[data-result="resultSurvey"]',
-    date: '[data-result="dateAndTime"]',
-    name: '[data-result="name"]',
-    age: '[data-result="age"]',
-    temperature: '[data-result="temperature"]',
-    overview: '[data-result="overview"]',
-    listDiagnosis: '[data-result="listDiagnosis"]',
-    diagnostics: '[data-result="diagnostics"]',
-    treatment: '[data-result="treatment"]',
-    otherGuidelines: '[data-result="volumeOfLiquid"]',
-  },
-  surveyFromAccount: {
-    elementPath: '[data-account="resultSurvey"]',
-    date: '[data-account="dateAndTime"]',
-    name: '[data-account="name"]',
-    age: '[data-account="age"]',
-    temperature: '[data-account="temperature"]',
-    overview: '[data-account="overview"]',
-    listDiagnosis: '[data-account="listDiagnosis"]',
-    diagnostics: '[data-account="diagnostics"]',
-    treatment: '[data-account="treatment"]',
-    otherGuidelines: '[data-account="volumeOfLiquid"]',
-  },
 };
