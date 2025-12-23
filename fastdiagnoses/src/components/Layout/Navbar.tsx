@@ -17,13 +17,13 @@ const Navbar: React.FC<NavbarProps> = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <nav className="navbar" data-nav="allTabs">
-      <ul className="navlist">
+    <nav className="nav-navbar" data-nav="allTabs">
+      <ul className="nav-navlist">
         {tabs.map(tab => (
           <li
             key={tab.id}
             data-list={tab.id}
-            className={activeTab === tab.id ? 'active' : ''}
+            className={activeTab === tab.id ? 'nav-active' : ''}
             onClick={() => onTabChange(tab.id)}
           >
             {tab.label}

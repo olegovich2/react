@@ -38,26 +38,6 @@
     display: inline-block;
 }
 
-.footer_content::before {
-    content: '🚀';
-    position: absolute;
-    left: -35px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 16px;
-    opacity: 0.7;
-}
-
-.footer_content::after {
-    content: '🚀';
-    position: absolute;
-    right: -35px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 16px;
-    opacity: 0.7;
-}
-
 /* Эффект при наведении */
 .footer_content:hover {
     color: rgb(66, 73, 75);
@@ -74,13 +54,6 @@
     .footer_content {
         font-size: 16px;
     }
-    
-    .footer_content::before,
-    .footer_content::after {
-        font-size: 14px;
-        left: -25px;
-        right: -25px;
-    }
 }
 
 @media (max-width: 480px) {
@@ -91,20 +64,6 @@
     .footer_content {
         font-size: 14px;
         letter-spacing: 0.3px;
-    }
-    
-    .footer_content::before,
-    .footer_content::after {
-        font-size: 12px;
-        left: -20px;
-        right: -20px;
-    }
-}
-
-@media (max-width: 320px) {
-    .footer_content::before,
-    .footer_content::after {
-        display: none; /* Скрываем эмодзи на очень маленьких экранах */
     }
 }
 
