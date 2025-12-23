@@ -95,4 +95,6 @@ const LoginPage: React.FC = () => {
   );
 };
 
+LoginPage.displayName = 'LoginPage';
+
 export default LoginPage;

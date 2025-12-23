@@ -103,33 +103,33 @@ const LoginForm: React.FC<LoginFormProps> = ({
   };
 
   return (
-    <div className="auth-form-container">
-      <div className="auth-header">
+    <div className="login-form-container">
+      <div className="login-form-header">
         <h3>Вход в систему</h3>
-        <p className="auth-subtitle">Для входа введите ваш логин и пароль</p>
+        <p className="login-form-subtitle">Для входа введите ваш логин и пароль</p>
       </div>
       
       {errors.submit && (
-        <div className="upload-message upload-error">
+        <div className="login-form-message login-form-error">
           <i className="fas fa-exclamation-circle"></i>
           {errors.submit}
         </div>
       )}
       
       <form 
-        className="formForAuth" 
+        className="login-form-for-auth" 
         onSubmit={handleSubmit} 
         data-form="entry"
         noValidate
       >
-        <div className="fields">
+        <div className="login-form-fields">
           <label htmlFor="login">
             <i className="fas fa-user"></i> Логин:
           </label>
-          <div className="input-wrapper">
+          <div className="login-form-input-wrapper">
             <input 
               id="login"
-              className={`input ${errors.login ? 'errors' : ''}`}
+              className={`login-form-input ${errors.login ? 'errors' : ''}`}
               type="text"
               placeholder="Введите ваш логин"
               name="login"
@@ -141,21 +141,21 @@ const LoginForm: React.FC<LoginFormProps> = ({
               autoFocus
             />
             {errors.login && (
-              <span className="input-error">
+              <span className="login-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.login}
               </span>
             )}
           </div>
         </div>
         
-        <div className="fields">
+        <div className="login-form-fields">
           <label htmlFor="password">
             <i className="fas fa-lock"></i> Пароль:
           </label>
-          <div className="input-wrapper">
+          <div className="login-form-input-wrapper">
             <input 
               id="password"
-              className={`input ${errors.password ? 'errors' : ''}`}
+              className={`login-form-input ${errors.password ? 'errors' : ''}`}
               type="password"
               placeholder="Введите ваш пароль"
               name="password"
@@ -166,16 +166,16 @@ const LoginForm: React.FC<LoginFormProps> = ({
               autoComplete="current-password"
             />
             {errors.password && (
-              <span className="input-error">
+              <span className="login-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.password}
               </span>
             )}
           </div>
         </div>
         
-        <div className="form-actions">
+        <div className="login-form-actions">
           <button 
-            className="buttonFromTemplate" 
+            className="login-form-button-primary" 
             type="submit"
             data-button="entry"
             disabled={isLoading}
@@ -192,7 +192,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
           </button>
           
           <button 
-            className="buttonFromTemplateTwo" 
+            className="login-form-button-secondary" 
             type="button"
             onClick={handleForgotPassword}
             disabled={isLoading}
@@ -202,15 +202,15 @@ const LoginForm: React.FC<LoginFormProps> = ({
         </div>
       </form>
       
-      <div className="auth-links">
-        <div className="auth-divider">
+      <div className="login-form-links">
+        <div className="login-form-divider">
           <span>Или</span>
         </div>
         
-        <div className="auth-options">
-          <p className="auth-question">Нет аккаунта?</p>
+        <div className="login-form-options">
+          <p className="login-form-question">Нет аккаунта?</p>
           <button 
-            className="upload-button" 
+            className="login-form-register-button" 
             type="button"
             onClick={handleRegisterClick}
             disabled={isLoading}
@@ -220,7 +220,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
         </div>
       </div>
       
-      <div className="auth-info">
+      <div className="login-form-info">
         <p>
           <i className="fas fa-info-circle"></i> 
           Для доступа к системе требуется предварительная регистрация и подтверждение email.
@@ -229,5 +229,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
     </div>
   );
 };
+
+LoginForm.displayName = 'LoginForm';
 
 export default LoginForm;

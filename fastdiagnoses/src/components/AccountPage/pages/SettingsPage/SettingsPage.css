@@ -402,8 +402,6 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  max-width: 500px;
-  align-self: flex-start;
 }
 
 .set-page-change-password-button:hover:not(:disabled) {

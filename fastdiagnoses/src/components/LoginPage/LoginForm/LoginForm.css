@@ -1,7 +1,7 @@
 /* LoginForm.css - Стили для компонента LoginForm */
 
 /* ==================== КОНТЕЙНЕР ФОРМЫ ==================== */
-.auth-form-container {
+.login-form-container {
     max-width: 450px;
     margin: 40px auto;
     padding: 30px;
@@ -13,19 +13,19 @@
 }
 
 /* ==================== ЗАГОЛОВОК ==================== */
-.auth-header {
+.login-form-header {
     text-align: center;
     margin-bottom: 25px;
 }
 
-.auth-header h3 {
+.login-form-header h3 {
     color: rgb(88, 96, 98);
     font-size: 24px;
     font-weight: 900;
     margin-bottom: 10px;
 }
 
-.auth-subtitle {
+.login-form-subtitle {
     color: rgb(88, 96, 98);
     font-size: 14px;
     font-weight: 500;
@@ -34,7 +34,7 @@
 }
 
 /* ==================== СООБЩЕНИЯ ОБ ОШИБКАХ ==================== */
-.upload-message {
+.login-form-message {
     padding: 12px 15px;
     border-radius: 8px;
     margin-bottom: 20px;
@@ -43,34 +43,34 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    animation: fadeIn 0.3s ease;
+    animation: login-form-fadeIn 0.3s ease;
 }
 
-.upload-error {
+.login-form-error {
     background: linear-gradient(135deg, #fed7d7, #fc8181);
     color: #9b2c2c;
     border: 2px solid #fc8181;
 }
 
-.upload-message i {
+.login-form-message i {
     font-size: 16px;
 }
 
 /* ==================== ФОРМА ==================== */
-.formForAuth {
+.login-form-for-auth {
     display: flex;
     flex-direction: column;
     gap: 20px;
 }
 
 /* Поля формы */
-.fields {
+.login-form-fields {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.fields label {
+.login-form-fields label {
     color: rgb(88, 96, 98);
     font-size: 14px;
     font-weight: 700;
@@ -79,13 +79,13 @@
     gap: 8px;
 }
 
-.fields label i {
+.login-form-fields label i {
     font-size: 16px;
     opacity: 0.8;
 }
 
 /* Обертка для инпута */
-.input-wrapper {
+.login-form-input-wrapper {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -93,7 +93,7 @@
 }
 
 /* Стили инпутов */
-.input {
+.login-form-input {
     padding: 14px 16px;
     border: 2px solid rgb(88, 96, 98);
     border-radius: 8px;
@@ -106,25 +106,25 @@
     outline: none;
 }
 
-.input:focus {
+.login-form-input:focus {
     border-color: rgb(66, 73, 75);
     background-color: rgba(183, 222, 234, 0.2);
     box-shadow: 0 0 0 3px rgba(183, 222, 234, 0.3);
 }
 
-.input.errors {
+.login-form-input.errors {
     border-color: #fc8181;
     background-color: rgba(252, 129, 129, 0.1);
 }
 
-.input:disabled {
+.login-form-input:disabled {
     background-color: #f1f1f1;
     color: #999;
     cursor: not-allowed;
 }
 
 /* Ошибки ввода */
-.input-error {
+.login-form-input-error {
     color: #9b2c2c;
     font-size: 12px;
     font-weight: 600;
@@ -134,20 +134,20 @@
     padding-left: 5px;
 }
 
-.input-error i {
+.login-form-input-error i {
     font-size: 14px;
 }
 
 /* ==================== КНОПКИ ФОРМЫ ==================== */
-.form-actions {
+.login-form-actions {
     display: flex;
     flex-direction: column;
     gap: 12px;
     margin-top: 10px;
 }
 
-.buttonFromTemplate,
-.buttonFromTemplateTwo {
+.login-form-button-primary,
+.login-form-button-secondary {
     padding: 14px 20px;
     border: none;
     border-radius: 8px;
@@ -163,19 +163,19 @@
     text-align: center;
 }
 
-.buttonFromTemplate {
+.login-form-button-primary {
     background: linear-gradient(135deg, rgb(88, 96, 98), rgb(66, 73, 75));
     color: rgb(183, 222, 234);
     border: 2px solid rgb(88, 96, 98);
 }
 
-.buttonFromTemplate:hover:not(:disabled) {
+.login-form-button-primary:hover:not(:disabled) {
     background: linear-gradient(135deg, rgb(66, 73, 75), rgb(88, 96, 98));
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.buttonFromTemplate:disabled {
+.login-form-button-primary:disabled {
     background: #a0aec0;
     color: white;
     cursor: not-allowed;
@@ -183,30 +183,30 @@
     box-shadow: none;
 }
 
-.buttonFromTemplateTwo {
+.login-form-button-secondary {
     background-color: rgb(184, 198, 202);
     color: rgb(88, 96, 98);
     border: 2px solid rgb(88, 96, 98);
 }
 
-.buttonFromTemplateTwo:hover:not(:disabled) {
+.login-form-button-secondary:hover:not(:disabled) {
     background-color: rgb(88, 96, 98);
     color: rgb(183, 222, 234);
     transform: translateY(-2px);
 }
 
-.buttonFromTemplateTwo:disabled {
+.login-form-button-secondary:disabled {
     background-color: #a0aec0;
     color: white;
     cursor: not-allowed;
 }
 
 /* ==================== ССЫЛКИ И ДОПОЛНИТЕЛЬНЫЕ КНОПКИ ==================== */
-.auth-links {
+.login-form-links {
     margin-top: 25px;
 }
 
-.auth-divider {
+.login-form-divider {
     display: flex;
     align-items: center;
     text-align: center;
@@ -215,30 +215,30 @@
     font-weight: 600;
 }
 
-.auth-divider::before,
-.auth-divider::after {
+.login-form-divider::before,
+.login-form-divider::after {
     content: '';
     flex: 1;
     border-bottom: 1px solid rgba(88, 96, 98, 0.3);
 }
 
-.auth-divider span {
+.login-form-divider span {
     padding: 0 15px;
     font-size: 14px;
 }
 
-.auth-options {
+.login-form-options {
     text-align: center;
 }
 
-.auth-question {
+.login-form-question {
     color: rgb(88, 96, 98);
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 15px;
 }
 
-.upload-button {
+.login-form-register-button {
     width: 100%;
     padding: 14px 20px;
     background: linear-gradient(135deg, #4299e1, #3182ce);
@@ -256,19 +256,19 @@
     gap: 10px;
 }
 
-.upload-button:hover:not(:disabled) {
+.login-form-register-button:hover:not(:disabled) {
     background: linear-gradient(135deg, #3182ce, #2b6cb0);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.upload-button:disabled {
+.login-form-register-button:disabled {
     background: #a0aec0;
     cursor: not-allowed;
 }
 
 /* ==================== ИНФОРМАЦИОННЫЙ БЛОК ==================== */
-.auth-info {
+.login-form-info {
     margin-top: 25px;
     padding: 15px;
     background: rgba(183, 222, 234, 0.5);
@@ -276,7 +276,7 @@
     border-left: 4px solid rgb(88, 96, 98);
 }
 
-.auth-info p {
+.login-form-info p {
     margin: 0;
     color: rgb(88, 96, 98);
     font-size: 13px;
@@ -287,7 +287,7 @@
     line-height: 1.4;
 }
 
-.auth-info i {
+.login-form-info i {
     font-size: 14px;
     margin-top: 2px;
     opacity: 0.8;
@@ -295,72 +295,72 @@
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
-    .auth-form-container {
+    .login-form-container {
         margin: 20px auto;
         padding: 25px 20px;
         max-width: 400px;
     }
     
-    .auth-header h3 {
+    .login-form-header h3 {
         font-size: 22px;
     }
     
-    .input {
+    .login-form-input {
         padding: 12px 14px;
         font-size: 15px;
     }
     
-    .buttonFromTemplate,
-    .buttonFromTemplateTwo,
-    .upload-button {
+    .login-form-button-primary,
+    .login-form-button-secondary,
+    .login-form-register-button {
         padding: 12px 18px;
         font-size: 15px;
     }
 }
 
 @media (max-width: 480px) {
-    .auth-form-container {
+    .login-form-container {
         margin: 15px auto;
         padding: 20px 15px;
         max-width: 100%;
         border-radius: 10px;
     }
     
-    .auth-header h3 {
+    .login-form-header h3 {
         font-size: 20px;
     }
     
-    .auth-subtitle {
+    .login-form-subtitle {
         font-size: 13px;
     }
     
-    .input {
+    .login-form-input {
         padding: 10px 12px;
         font-size: 14px;
     }
     
-    .buttonFromTemplate,
-    .buttonFromTemplateTwo,
-    .upload-button {
+    .login-form-button-primary,
+    .login-form-button-secondary,
+    .login-form-register-button {
         padding: 10px 15px;
         font-size: 14px;
     }
     
-    .form-actions {
+    .login-form-actions {
         gap: 10px;
     }
     
-    .auth-divider span {
+    .login-form-divider span {
         font-size: 13px;
     }
     
-    .auth-info p {
+    .login-form-info p {
         font-size: 12px;
     }
 }
 
 /* ==================== АНИМАЦИИ ==================== */
-@keyframes fadeIn {
+@keyframes login-form-fadeIn {
     from {
         opacity: 0;
         transform: translateY(-10px);
@@ -371,17 +371,6 @@
     }
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-    100% { transform: scale(1); }
-}
-
-.auth-form-container {
-    animation: fadeIn 0.5s ease-out;
-}
-
-/* Анимация для кнопки входа при наведении */
-.buttonFromTemplate:hover:not(:disabled) {
-    animation: pulse 2s infinite;
+.login-form-container {
+    animation: login-form-fadeIn 0.5s ease-out;
 }

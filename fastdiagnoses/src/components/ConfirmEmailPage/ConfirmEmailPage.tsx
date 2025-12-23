@@ -1,9 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { confirmEmail } from '../../api/confirm.api';
 import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
+import './ConfirmEmailPage.css';
 
 const ConfirmEmailPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -47,29 +47,29 @@ const ConfirmEmailPage: React.FC = () => {
   }, [token, navigate]);
 
   return (
-    <div className="general">
+    <div className="confirm-email-general">
       <Header/>
-      <main className="main">
-        <div className="auth-form-container">
-          <div className="auth-header">
-            <h3>Подтверждение Email</h3>
+      <main className="confirm-email-main">
+        <div className="confirm-email-container">
+          <div className="confirm-email-header">
+            <h3 className="confirm-email-title">Подтверждение Email</h3>
           </div>
           
           {status === 'loading' && (
-            <div className="loading-message">
-              <i className="fas fa-spinner fa-spin"></i>
-              <p>Подтверждение email...</p>
+            <div className="confirm-email-loading">
+              <i className="fas fa-spinner fa-spin confirm-email-spinner"></i>
+              <p className="confirm-email-loading-text">Подтверждение email...</p>
             </div>
           )}
           
           {status === 'success' && (
-            <div className="success-message">
-              <i className="fas fa-check-circle"></i>
-              <h4>Успешно!</h4>
-              <p>{message}</p>
-              <p>Вы будете перенаправлены на страницу входа...</p>
+            <div className="confirm-email-success">
+              <i className="fas fa-check-circle confirm-email-success-icon"></i>
+              <h4 className="confirm-email-success-title">Успешно!</h4>
+              <p className="confirm-email-message">{message}</p>
+              <p className="confirm-email-redirect">Вы будете перенаправлены на страницу входа...</p>
               <button 
-                className="buttonFromTemplate" 
+                className="confirm-email-button" 
                 onClick={() => navigate('/login')}
               >
                 Перейти к входу
@@ -78,19 +78,19 @@ const ConfirmEmailPage: React.FC = () => {
           )}
           
           {status === 'error' && (
-            <div className="error-message">
-              <i className="fas fa-exclamation-circle"></i>
-              <h4>Ошибка</h4>
-              <p>{message}</p>
-              <div className="action-buttons">
+            <div className="confirm-email-error">
+              <i className="fas fa-exclamation-circle confirm-email-error-icon"></i>
+              <h4 className="confirm-email-error-title">Ошибка</h4>
+              <p className="confirm-email-message">{message}</p>
+              <div className="confirm-email-actions">
                 <button 
-                  className="buttonFromTemplate" 
+                  className="confirm-email-button confirm-email-primary-button" 
                   onClick={() => navigate('/register')}
                 >
                   Зарегистрироваться снова
                 </button>
                 <button 
-                  className="buttonFromTemplate secondary" 
+                  className="confirm-email-button confirm-email-secondary-button" 
                   onClick={() => navigate('/login')}
                 >
                   Войти
@@ -104,5 +104,7 @@ const ConfirmEmailPage: React.FC = () => {
     </div>
   );
 };
+
+ConfirmEmailPage.displayName = 'ConfirmEmailPage';
 
 export default ConfirmEmailPage;

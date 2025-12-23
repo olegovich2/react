@@ -35,6 +35,7 @@ const LoadingSpinner = () => (
 // Ленивая загрузка страниц для оптимизации
 const LoginPage = lazy(() => import("./components/LoginPage/LoginPage"));
 const RegisterPage = lazy(() => import("./components/RegisterPage/RegisterPage"));
+const RegisterSuccessPage = lazy(() => import("./components/RegisterSuccessPage/RegisterSuccessPage"));
 const MainPage = lazy(() => import("./components/MainPage/MainPage"));
 const AccountPage = lazy(() => import("./components/AccountPage/AccountPage"));
 const ImagePage = lazy(
@@ -108,28 +109,6 @@ const App: React.FC = () => {
       console.log("WebSocket URL:", process.env.REACT_APP_WS_URL);
     }
 
-    // Очистка устаревших данных из localStorage
-    const cleanupOldData = () => {
-      const now = Date.now();
-      const oneDay = 24 * 60 * 60 * 1000;
-
-      // Проверяем давность сохраненных данных
-      const lastCleanup = localStorage.getItem("lastCleanup");
-      if (!lastCleanup || now - parseInt(lastCleanup) > oneDay) {
-        // Удаляем старые временные данные
-        const keysToRemove = ["tempSurvey", "tempImage", "uploadProgress"];
-        keysToRemove.forEach((key) => {
-          if (localStorage.getItem(key)) {
-            localStorage.removeItem(key);
-          }
-        });
-
-        localStorage.setItem("lastCleanup", now.toString());
-      }
-    };
-
-    cleanupOldData();
-
     // Обработчик обновления страницы
     const handleBeforeUnload = () => {
       // Сохраняем состояние аутентификации
@@ -166,6 +145,16 @@ const App: React.FC = () => {
               element={
                 <AuthRedirect>
                   <RegisterPage />
+                </AuthRedirect>
+              }
+            />
+
+            {/* Страница успешной регистрации */}
+            <Route
+              path="/register-success"
+              element={
+                <AuthRedirect>
+                  <RegisterSuccessPage />
                 </AuthRedirect>
               }
             />
@@ -246,5 +235,7 @@ const App: React.FC = () => {
     </AuthProvider>
   );
 };
+
+App.displayName = 'App';
 
 export default App;

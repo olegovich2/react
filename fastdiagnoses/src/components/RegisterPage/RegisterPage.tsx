@@ -31,4 +31,6 @@ const RegisterPage: React.FC = () => {
   );
 };
 
+RegisterPage.displayName = 'RegisterPage';
+
 export default RegisterPage;

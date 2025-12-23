@@ -1,12 +1,10 @@
-/* MainPage.css - Стили для главной страницы */
-
 /* ==================== ОСНОВНОЙ КОНТЕЙНЕР СТРАНИЦЫ ==================== */
 .main-page-container {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     background-color: rgb(184, 198, 202);
-    overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
+    overflow-x: hidden; 
 }
 
 /* ==================== ОСНОВНОЙ КОНТЕНТ ==================== */
@@ -20,37 +18,37 @@
     margin: 0 auto;
     width: 100%;
     box-sizing: border-box;
-    overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
+    overflow-x: hidden; 
 }
 
 /* ==================== КОНТЕЙНЕРЫ ДЛЯ ФОРМ ==================== */
 /* Контейнер для формы дыхательной системы */
 .respiratory-form-container {
-    display: none; /* По умолчанию скрыт */
+    display: none; 
 }
 
 .respiratory-form-container.active {
-    display: block; /* Показываем при активной вкладке */
+    display: block; 
     animation: fadeInUp 0.4s ease-out;
 }
 
 /* Контейнеры для остальных систем (в разработке) */
 .forms-content-container {
-    display: none; /* По умолчанию скрыты */
+    display: none;
     animation: fadeInUp 0.4s ease-out;
 }
 
 .forms-content-container.active {
-    display: block; /* Показываем только активную форму */
+    display: block;
 }
 
 /* Контейнер для результатов */
 .result-survey-container {
-    display: none; /* По умолчанию скрыт */
+    display: none; 
 }
 
 .result-survey-container.active {
-    display: block; /* Показываем при наличии результата */
+    display: block; 
     animation: fadeInUp 0.4s ease-out;
 }
 

@@ -13,9 +13,11 @@ import { userDataService } from '../services'; // ← НОВЫЙ ИМПОРТ
  */
 class FetchClient {
   private baseURL: string;
+  displayName?: string;
 
   constructor(baseURL: string = '') {
     this.baseURL = baseURL;
+    this.displayName = 'FetchClient';
     this.setupGlobalHandlers();
   }
 
@@ -398,3 +400,5 @@ const API_URL = process.env.NODE_ENV === 'production'
   : 'http://localhost:5000/api';
 
 export const fetchClient = new FetchClient(API_URL);
+
+fetchClient.displayName = 'FetchClient';

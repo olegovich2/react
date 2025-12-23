@@ -138,6 +138,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           onSuccess();
         }
         
+        // СОХРАНЯЕМ EMAIL В LOCALSTORAGE
+        localStorage.setItem('pendingEmail', formData.email);
+        localStorage.setItem('pendingLogin', formData.login);
+        
+        // Также сохраняем время для очистки через 1 час
+        localStorage.setItem('pendingEmailTimestamp', Date.now().toString());
+        
         if (redirectOnSuccess) {
           navigate('/register-success', { 
             state: { 
@@ -387,5 +394,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     </div>
   );
 };
+
+RegisterForm.displayName = 'RegisterForm';
 
 export default RegisterForm;

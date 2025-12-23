@@ -192,7 +192,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 };
 
-// Добавляем displayName для всех компонентов и хуков
+
 AuthProvider.displayName = 'AuthProvider';
 AuthContext.displayName = 'AuthContext';
 AuthEventContext.displayName = 'AuthEventContext';

@@ -55,7 +55,7 @@ const AccountPage: React.FC = () => {
   );
 };
 
-// Добавляем displayName
+
 AccountPage.displayName = 'AccountPage';
 AccountPageContent.displayName = 'AccountPageContent';
 
