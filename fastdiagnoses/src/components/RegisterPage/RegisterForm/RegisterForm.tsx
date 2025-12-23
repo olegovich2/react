@@ -2,7 +2,7 @@ import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { RegisterFormData, RegisterFormProps, PasswordStrength } from '../types/register.types';
-import './RegisterForm.css'; 
+import './RegisterForm.css';
 
 const RegisterForm: React.FC<RegisterFormProps> = ({
   onSuccess,
@@ -87,9 +87,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
   const getPasswordStrengthClass = (strength: PasswordStrength): string => {
     switch (strength) {
-      case 'weak': return 'password-weak';
-      case 'medium': return 'password-medium';
-      case 'strong': return 'password-strong';
+      case 'weak': return 'reg-form-password-weak';
+      case 'medium': return 'reg-form-password-medium';
+      case 'strong': return 'reg-form-password-strong';
       default: return '';
     }
   };
@@ -184,33 +184,33 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   };
 
   return (
-    <div className="auth-form-container">
-      <div className="auth-header">
+    <div className="reg-form-container">
+      <div className="reg-form-header">
         <h3>Регистрация в системе</h3>
-        <p className="auth-subtitle">Создайте аккаунт для доступа к диагностической системе</p>
+        <p className="reg-form-subtitle">Создайте аккаунт для доступа к диагностической системе</p>
       </div>
       
       {errors.submit && (
-        <div className="upload-message upload-error">
+        <div className="reg-form-message reg-form-error">
           <i className="fas fa-exclamation-circle"></i>
           {errors.submit}
         </div>
       )}
       
       <form 
-        className="formForAuth" 
+        className="reg-form-for-auth" 
         onSubmit={handleSubmit} 
         data-form="register"
         noValidate
       >
-        <div className="fields">
+        <div className="reg-form-fields">
           <label htmlFor="register-login">
             <i className="fas fa-user"></i> Логин:
           </label>
-          <div className="input-wrapper">
+          <div className="reg-form-input-wrapper">
             <input 
               id="register-login"
-              className={`input ${errors.login ? 'errors' : ''}`}
+              className={`reg-form-input ${errors.login ? 'errors' : ''}`}
               type="text"
               placeholder="Придумайте логин (4-20 символов)"
               name="login"
@@ -222,21 +222,21 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               autoFocus
             />
             {errors.login && (
-              <span className="input-error">
+              <span className="reg-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.login}
               </span>
             )}
           </div>
         </div>
         
-        <div className="fields">
+        <div className="reg-form-fields">
           <label htmlFor="register-email">
             <i className="fas fa-envelope"></i> Email:
           </label>
-          <div className="input-wrapper">
+          <div className="reg-form-input-wrapper">
             <input 
               id="register-email"
-              className={`input ${errors.email ? 'errors' : ''}`}
+              className={`reg-form-input ${errors.email ? 'errors' : ''}`}
               type="email"
               placeholder="Введите ваш email"
               name="email"
@@ -247,21 +247,21 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               autoComplete="email"
             />
             {errors.email && (
-              <span className="input-error">
+              <span className="reg-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.email}
               </span>
             )}
           </div>
         </div>
         
-        <div className="fields">
+        <div className="reg-form-fields">
           <label htmlFor="register-password">
             <i className="fas fa-lock"></i> Пароль:
           </label>
-          <div className="input-wrapper">
+          <div className="reg-form-input-wrapper">
             <input 
               id="register-password"
-              className={`input ${errors.password ? 'errors' : ''}`}
+              className={`reg-form-input ${errors.password ? 'errors' : ''}`}
               type="password"
               placeholder="Придумайте пароль (мин. 6 символов)"
               name="password"
@@ -272,37 +272,37 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               autoComplete="new-password"
             />
             {formData.password && (
-              <div className={`password-strength ${getPasswordStrengthClass(passwordStrength)}`}>
-                <div className="strength-bar">
+              <div className={`reg-form-password-strength ${getPasswordStrengthClass(passwordStrength)}`}>
+                <div className="reg-form-strength-bar">
                   <div 
-                    className="strength-fill" 
+                    className="reg-form-strength-fill" 
                     style={{ 
                       width: passwordStrength === 'weak' ? '33%' : 
                              passwordStrength === 'medium' ? '66%' : '100%' 
                     }}
                   ></div>
                 </div>
-                <span className="strength-text">
+                <span className="reg-form-strength-text">
                   Сложность: {getPasswordStrengthText(passwordStrength)}
                 </span>
               </div>
             )}
             {errors.password && (
-              <span className="input-error">
+              <span className="reg-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.password}
               </span>
             )}
           </div>
         </div>
         
-        <div className="fields">
+        <div className="reg-form-fields">
           <label htmlFor="register-confirm-password">
             <i className="fas fa-lock"></i> Подтверждение пароля:
           </label>
-          <div className="input-wrapper">
+          <div className="reg-form-input-wrapper">
             <input 
               id="register-confirm-password"
-              className={`input ${errors.confirmPassword ? 'errors' : ''}`}
+              className={`reg-form-input ${errors.confirmPassword ? 'errors' : ''}`}
               type="password"
               placeholder="Повторите пароль"
               name="confirmPassword"
@@ -313,27 +313,27 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               autoComplete="new-password"
             />
             {errors.confirmPassword && (
-              <span className="input-error">
+              <span className="reg-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.confirmPassword}
               </span>
             )}
             {formData.password && formData.confirmPassword && 
              formData.password === formData.confirmPassword && (
-              <span className="input-success">
+              <span className="reg-form-input-success">
                 <i className="fas fa-check-circle"></i> Пароли совпадают
               </span>
             )}
           </div>
         </div>
         
-        <div className="form-terms">
-          <label className="checkbox-label">
+        <div className="reg-form-terms">
+          <label className="reg-form-checkbox-label">
             <input type="checkbox" required />
             <span>
               Я соглашаюсь с{' '}
               <button 
                 type="button" 
-                className="terms-link"
+                className="reg-form-terms-link"
                 onClick={handleTermsClick}
               >
                 условиями использования
@@ -343,9 +343,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           </label>
         </div>
         
-        <div className="form-actions">
+        <div className="reg-form-actions">
           <button 
-            className="buttonFromTemplate" 
+            className="reg-form-button-primary" 
             type="submit"
             data-button="register"
             disabled={isLoading}
@@ -363,14 +363,14 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         </div>
       </form>
       
-      <div className="auth-links">
-        <div className="auth-divider">
+      <div className="reg-form-links">
+        <div className="reg-form-divider">
           <span>Уже есть аккаунт?</span>
         </div>
         
-        <div className="auth-options">
+        <div className="reg-form-options">
           <button 
-            className="upload-button" 
+            className="reg-form-button-secondary" 
             type="button"
             onClick={handleLoginClick}
             disabled={isLoading}
@@ -380,7 +380,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         </div>
       </div>
       
-      <div className="auth-info">
+      <div className="reg-form-info">
         <p>
           <i className="fas fa-info-circle"></i> 
           После регистрации вам будет отправлено письмо для подтверждения email.

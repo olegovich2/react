@@ -14,11 +14,11 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="register-page-container">
+    <div className="reg-page-container">
       <Header/>
       
-      <main className="register-main-content">
-        <div className="register-form-container">
+      <main className="reg-page-main-content">
+        <div className="reg-page-form-container">
           <RegisterForm 
             onSuccess={handleRegisterSuccess}
             onError={handleRegisterError}

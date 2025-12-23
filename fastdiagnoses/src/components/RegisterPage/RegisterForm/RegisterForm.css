@@ -1,7 +1,7 @@
-/* RegisterForm.css - Стили для компонента RegisterForm */
+/* RegisterForm.css - Стили для компонента RegisterForm с префиксом reg-form- */
 
 /* ==================== ОСНОВНЫЕ СТИЛИ ФОРМЫ ==================== */
-.auth-form-container {
+.reg-form-container {
     max-width: 500px;
     margin: 40px auto;
     padding: 30px;
@@ -12,19 +12,19 @@
     font-family: 'Montserrat', sans-serif;
 }
 
-.auth-header {
+.reg-form-header {
     text-align: center;
     margin-bottom: 25px;
 }
 
-.auth-header h3 {
+.reg-form-header h3 {
     color: rgb(88, 96, 98);
     font-size: 24px;
     font-weight: 900;
     margin-bottom: 10px;
 }
 
-.auth-subtitle {
+.reg-form-subtitle {
     color: rgb(88, 96, 98);
     font-size: 14px;
     font-weight: 500;
@@ -33,7 +33,7 @@
 }
 
 /* ==================== СООБЩЕНИЯ ==================== */
-.upload-message {
+.reg-form-message {
     padding: 12px 15px;
     border-radius: 8px;
     margin-bottom: 20px;
@@ -42,33 +42,33 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    animation: fadeIn 0.3s ease;
+    animation: reg-form-fadeIn 0.3s ease;
 }
 
-.upload-error {
+.reg-form-error {
     background: linear-gradient(135deg, #fed7d7, #fc8181);
     color: #9b2c2c;
     border: 2px solid #fc8181;
 }
 
-.upload-message i {
+.reg-form-message i {
     font-size: 16px;
 }
 
 /* ==================== ФОРМА ==================== */
-.formForAuth {
+.reg-form-for-auth {
     display: flex;
     flex-direction: column;
     gap: 20px;
 }
 
-.fields {
+.reg-form-fields {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.fields label {
+.reg-form-fields label {
     color: rgb(88, 96, 98);
     font-size: 14px;
     font-weight: 700;
@@ -77,19 +77,19 @@
     gap: 8px;
 }
 
-.fields label i {
+.reg-form-fields label i {
     font-size: 16px;
     opacity: 0.8;
 }
 
-.input-wrapper {
+.reg-form-input-wrapper {
     position: relative;
     display: flex;
     flex-direction: column;
     gap: 5px;
 }
 
-.input {
+.reg-form-input {
     padding: 14px 16px;
     border: 2px solid rgb(88, 96, 98);
     border-radius: 8px;
@@ -102,25 +102,25 @@
     outline: none;
 }
 
-.input:focus {
+.reg-form-input:focus {
     border-color: rgb(66, 73, 75);
     background-color: rgba(183, 222, 234, 0.2);
     box-shadow: 0 0 0 3px rgba(183, 222, 234, 0.3);
 }
 
-.input.errors {
+.reg-form-input.errors {
     border-color: #fc8181;
     background-color: rgba(252, 129, 129, 0.1);
 }
 
-.input:disabled {
+.reg-form-input:disabled {
     background-color: #f1f1f1;
     color: #999;
     cursor: not-allowed;
 }
 
 /* ==================== ОШИБКИ И УСПЕХ ==================== */
-.input-error {
+.reg-form-input-error {
     color: #9b2c2c;
     font-size: 12px;
     font-weight: 600;
@@ -130,11 +130,11 @@
     padding-left: 5px;
 }
 
-.input-error i {
+.reg-form-input-error i {
     font-size: 14px;
 }
 
-.input-success {
+.reg-form-input-success {
     color: #38a169;
     font-size: 12px;
     font-weight: 600;
@@ -145,12 +145,12 @@
     margin-top: 5px;
 }
 
-.input-success i {
+.reg-form-input-success i {
     font-size: 14px;
 }
 
 /* ==================== ИНДИКАТОР СЛОЖНОСТИ ПАРОЛЯ ==================== */
-.password-strength {
+.reg-form-password-strength {
     margin-top: 10px;
     padding: 10px;
     background: rgba(255, 255, 255, 0.7);
@@ -160,43 +160,43 @@
     gap: 8px;
 }
 
-.strength-bar {
+.reg-form-strength-bar {
     height: 6px;
     background: #e2e8f0;
     border-radius: 3px;
     overflow: hidden;
 }
 
-.strength-fill {
+.reg-form-strength-fill {
     height: 100%;
     border-radius: 3px;
     transition: width 0.3s ease;
 }
 
-.password-weak .strength-fill {
+.reg-form-password-weak .reg-form-strength-fill {
     background: #fc8181;
 }
 
-.password-medium .strength-fill {
+.reg-form-password-medium .reg-form-strength-fill {
     background: #f6ad55;
 }
 
-.password-strong .strength-fill {
+.reg-form-password-strong .reg-form-strength-fill {
     background: #38a169;
 }
 
-.strength-text {
+.reg-form-strength-text {
     font-size: 12px;
     font-weight: 600;
     color: rgb(88, 96, 98);
 }
 
 /* ==================== УСЛОВИЯ ИСПОЛЬЗОВАНИЯ ==================== */
-.form-terms {
+.reg-form-terms {
     margin: 15px 0;
 }
 
-.checkbox-label {
+.reg-form-checkbox-label {
     display: flex;
     align-items: flex-start;
     gap: 10px;
@@ -207,12 +207,12 @@
     cursor: pointer;
 }
 
-.checkbox-label input[type="checkbox"] {
+.reg-form-checkbox-label input[type="checkbox"] {
     margin-top: 3px;
     flex-shrink: 0;
 }
 
-.terms-link {
+.reg-form-terms-link {
     background: none;
     border: none;
     color: #4299e1;
@@ -224,17 +224,17 @@
     font-size: 13px;
 }
 
-.terms-link:hover {
+.reg-form-terms-link:hover {
     color: #3182ce;
     text-decoration: none;
 }
 
 /* ==================== КНОПКИ ==================== */
-.form-actions {
+.reg-form-actions {
     margin-top: 10px;
 }
 
-.buttonFromTemplate {
+.reg-form-button-primary {
     width: 100%;
     padding: 14px 20px;
     background: linear-gradient(135deg, rgb(88, 96, 98), rgb(66, 73, 75));
@@ -252,13 +252,13 @@
     gap: 10px;
 }
 
-.buttonFromTemplate:hover:not(:disabled) {
+.reg-form-button-primary:hover:not(:disabled) {
     background: linear-gradient(135deg, rgb(66, 73, 75), rgb(88, 96, 98));
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.buttonFromTemplate:disabled {
+.reg-form-button-primary:disabled {
     background: #a0aec0;
     color: white;
     cursor: not-allowed;
@@ -267,11 +267,11 @@
 }
 
 /* ==================== ССЫЛКИ ==================== */
-.auth-links {
+.reg-form-links {
     margin-top: 25px;
 }
 
-.auth-divider {
+.reg-form-divider {
     display: flex;
     align-items: center;
     text-align: center;
@@ -280,23 +280,23 @@
     font-weight: 600;
 }
 
-.auth-divider::before,
-.auth-divider::after {
+.reg-form-divider::before,
+.reg-form-divider::after {
     content: '';
     flex: 1;
     border-bottom: 1px solid rgba(88, 96, 98, 0.3);
 }
 
-.auth-divider span {
+.reg-form-divider span {
     padding: 0 15px;
     font-size: 14px;
 }
 
-.auth-options {
+.reg-form-options {
     text-align: center;
 }
 
-.upload-button {
+.reg-form-button-secondary {
     width: 100%;
     padding: 14px 20px;
     background: linear-gradient(135deg, #4299e1, #3182ce);
@@ -314,19 +314,19 @@
     gap: 10px;
 }
 
-.upload-button:hover:not(:disabled) {
+.reg-form-button-secondary:hover:not(:disabled) {
     background: linear-gradient(135deg, #3182ce, #2b6cb0);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.upload-button:disabled {
+.reg-form-button-secondary:disabled {
     background: #a0aec0;
     cursor: not-allowed;
 }
 
 /* ==================== ИНФОРМАЦИОННЫЙ БЛОК ==================== */
-.auth-info {
+.reg-form-info {
     margin-top: 25px;
     padding: 15px;
     background: rgba(183, 222, 234, 0.5);
@@ -334,7 +334,7 @@
     border-left: 4px solid rgb(88, 96, 98);
 }
 
-.auth-info p {
+.reg-form-info p {
     margin: 0 0 10px 0;
     color: rgb(88, 96, 98);
     font-size: 13px;
@@ -345,11 +345,11 @@
     line-height: 1.4;
 }
 
-.auth-info p:last-child {
+.reg-form-info p:last-child {
     margin-bottom: 0;
 }
 
-.auth-info i {
+.reg-form-info i {
     font-size: 14px;
     margin-top: 2px;
     opacity: 0.8;
@@ -357,80 +357,80 @@
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
-    .auth-form-container {
+    .reg-form-container {
         margin: 20px auto;
         padding: 25px 20px;
         max-width: 450px;
     }
     
-    .auth-header h3 {
+    .reg-form-header h3 {
         font-size: 22px;
     }
     
-    .input {
+    .reg-form-input {
         padding: 12px 14px;
         font-size: 15px;
     }
     
-    .buttonFromTemplate,
-    .upload-button {
+    .reg-form-button-primary,
+    .reg-form-button-secondary {
         padding: 12px 18px;
         font-size: 15px;
     }
     
-    .auth-info p {
+    .reg-form-info p {
         font-size: 12px;
     }
 }
 
 @media (max-width: 480px) {
-    .auth-form-container {
+    .reg-form-container {
         margin: 15px auto;
         padding: 20px 15px;
         max-width: 100%;
         border-radius: 10px;
     }
     
-    .auth-header h3 {
+    .reg-form-header h3 {
         font-size: 20px;
     }
     
-    .auth-subtitle {
+    .reg-form-subtitle {
         font-size: 13px;
     }
     
-    .input {
+    .reg-form-input {
         padding: 10px 12px;
         font-size: 14px;
     }
     
-    .buttonFromTemplate,
-    .upload-button {
+    .reg-form-button-primary,
+    .reg-form-button-secondary {
         padding: 10px 15px;
         font-size: 14px;
     }
     
-    .checkbox-label {
+    .reg-form-checkbox-label {
         font-size: 12px;
     }
     
-    .terms-link {
+    .reg-form-terms-link {
         font-size: 12px;
     }
     
-    .auth-info p {
+    .reg-form-info p {
         font-size: 11px;
         flex-direction: column;
         gap: 5px;
     }
     
-    .auth-info i {
+    .reg-form-info i {
         align-self: flex-start;
     }
 }
 
 /* ==================== АНИМАЦИИ ==================== */
-@keyframes fadeIn {
+@keyframes reg-form-fadeIn {
     from {
         opacity: 0;
         transform: translateY(-10px);
@@ -441,6 +441,6 @@
     }
 }
 
-.auth-form-container {
-    animation: fadeIn 0.5s ease-out;
+.reg-form-container {
+    animation: reg-form-fadeIn 0.5s ease-out;
 }

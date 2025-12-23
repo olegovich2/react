@@ -51,19 +51,19 @@ const LoginPage: React.FC = () => {
     <div className="login-page-container">
       <Header/>
       
-      <main className="main-content">
+      <main className="login-page-main-content">
         {/* Баннер с информацией об изменении пароля */}
         {passwordChanged && (
-          <div className="password-change-banner">
-            <div className="banner-icon">🔐</div>
-            <div className="banner-content">
+          <div className="login-page-password-change-banner">
+            <div className="login-page-banner-icon">🔐</div>
+            <div className="login-page-banner-content">
               <h3>Пароль успешно изменен!</h3>
               <p>
                 {emailSent 
                   ? '📧 На вашу почту отправлено уведомление. Введите НОВЫЙ пароль в поле ниже.'
                   : 'Введите НОВЫЙ пароль в поле ниже.'}
               </p>
-              <div className="banner-instructions">
+              <div className="login-page-banner-instructions">
                 <p><strong>Что делать:</strong></p>
                 <ol>
                   <li>Введите новый пароль (старый больше не работает)</li>
@@ -72,7 +72,7 @@ const LoginPage: React.FC = () => {
               </div>
             </div>
             <button 
-              className="banner-close"
+              className="login-page-banner-close"
               onClick={handleCloseBanner}
               aria-label="Закрыть сообщение"
             >
@@ -81,7 +81,7 @@ const LoginPage: React.FC = () => {
           </div>
         )}
 
-        <div className="login-form-wrapper">
+        <div className="login-page-form-wrapper">
           <LoginForm 
             onSuccess={handleLoginSuccess}
             onError={handleLoginError}

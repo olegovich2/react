@@ -1,7 +1,7 @@
 /* RegisterPage.css - Стили для страницы регистрации */
 
 /* ==================== ОСНОВНОЙ КОНТЕЙНЕР СТРАНИЦЫ ==================== */
-.register-page-container {
+.reg-page-container {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -9,7 +9,7 @@
 }
 
 /* ==================== ОСНОВНОЙ КОНТЕНТ СТРАНИЦЫ ==================== */
-.register-main-content {
+.reg-page-main-content {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -21,7 +21,7 @@
 }
 
 /* ==================== КОНТЕЙНЕР ФОРМЫ НА СТРАНИЦЕ ==================== */
-.register-form-container {
+.reg-page-form-container {
     flex: 1;
     display: flex;
     align-items: center;
@@ -32,29 +32,29 @@
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
-    .register-main-content {
+    .reg-page-main-content {
         padding: 15px;
     }
     
-    .register-form-container {
+    .reg-page-form-container {
         min-height: calc(100vh - 120px);
         padding: 15px 0;
     }
 }
 
 @media (max-width: 480px) {
-    .register-main-content {
+    .reg-page-main-content {
         padding: 10px;
     }
     
-    .register-form-container {
+    .reg-page-form-container {
         min-height: calc(100vh - 100px);
         padding: 10px 0;
     }
 }
 
 /* ==================== АНИМАЦИЯ ПОЯВЛЕНИЯ ==================== */
-@keyframes pageFadeIn {
+@keyframes reg-page-fadeIn {
     from {
         opacity: 0;
         transform: translateY(10px);
@@ -65,6 +65,6 @@
     }
 }
 
-.register-page-container {
-    animation: pageFadeIn 0.4s ease-out;
+.reg-page-container {
+    animation: reg-page-fadeIn 0.4s ease-out;
 }
