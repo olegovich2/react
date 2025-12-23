@@ -107,7 +107,7 @@
 .surv-main-actions {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-top: 30px;
   padding-top: 20px;
   border-top: 2px solid rgb(88, 96, 98);
@@ -127,6 +127,7 @@
   transition: all 0.3s ease;
   min-width: 120px;
   justify-content: center;
+  flex: 1;
 }
 
 .surv-main-print-button {
@@ -210,12 +211,15 @@
   
   .surv-main-actions {
     justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
   }
   
   .surv-main-action-button {
-    flex: 1;
+    flex: 1 1 calc(50% - 12px);
     min-width: auto;
     padding: 10px 15px;
+    font-size: 13px;
   }
 }
 
@@ -251,9 +255,12 @@
   
   .surv-main-actions {
     flex-direction: column;
+    gap: 10px;
   }
   
   .surv-main-action-button {
+    flex: 1 1 100%; 
     width: 100%;
+    font-size: 14px;
   }
 }
