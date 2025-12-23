@@ -3,7 +3,7 @@ import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
 import Navbar from '../Layout/Navbar';
 import RespiratoryForm from './RespiratoryForm/RespiratoryForm';
-import ResultSurvey from './ResultSurvey/ResultSurvey';
+import ResultSurvey from './ResultSurvey/ResultSurveyMain';
 import { useNavigate } from 'react-router-dom';
 import { Survey } from '../AccountPage/types/account.types';
 import { fetchClient } from '../../api/fetchClient';
@@ -137,5 +137,7 @@ const MainPage: React.FC = () => {
     </div>
   );
 };
+
+MainPage.displayName = 'MainPage';
 
 export default MainPage;

@@ -500,7 +500,7 @@ const SurveyPage: React.FC = () => {
             <h3><i className="fas fa-info-circle"></i> Информация об опросе</h3>
             <div className="sur-page-account-info-grid">
               <div className="sur-page-account-info-item">
-                <strong>ID:</strong> {survey.id}
+                <strong>ID:</strong> {id}
               </div>
               <div className="sur-page-account-info-item">
                 <strong>Дата и время:</strong> {survey.date || 'Не указано'}
@@ -534,7 +534,7 @@ const SurveyPage: React.FC = () => {
           <div className="sur-page-account-survey-section">
             <h3><i className="fas fa-diagnoses"></i> Диагноз</h3>
             <div className="sur-page-account-section-content">
-              {Array.isArray(survey.title) ? survey.title.join(', ') : survey.title || "Не указано"}
+              {Array.isArray(survey.title) ? survey.title.join(' ') : survey.title || "Не указано"}
             </div>
           </div>
 
