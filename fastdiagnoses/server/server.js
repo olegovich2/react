@@ -465,6 +465,97 @@ async function cleanupExpiredSessions() {
   }
 }
 
+// ==================== ФУНКЦИИ ВОССТАНОВЛЕНИЯ ПАРОЛЯ ====================
+
+/**
+ * Создание токена для восстановления пароля
+ */
+async function createPasswordResetToken(email) {
+  try {
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 час
+
+    // Удаляем старые токены для этого email
+    await query("DELETE FROM password_resets WHERE email = ?", [email]);
+
+    // Создаем новый токен
+    await query(
+      "INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)",
+      [email, token, expiresAt]
+    );
+
+    console.log(`✅ Токен восстановления создан для ${email}`);
+    return token;
+  } catch (error) {
+    console.error("❌ Ошибка создания токена восстановления:", error);
+    throw error;
+  }
+}
+
+/**
+ * Проверка валидности токена восстановления
+ */
+async function validatePasswordResetToken(token) {
+  try {
+    const results = await query(
+      "SELECT id, email, expires_at FROM password_resets WHERE token = ? AND used = FALSE AND expires_at > NOW()",
+      [token]
+    );
+
+    if (results.length === 0) {
+      return {
+        valid: false,
+        message: "Токен недействителен, использован или устарел",
+      };
+    }
+
+    const resetRecord = results[0];
+
+    return {
+      valid: true,
+      email: resetRecord.email,
+      resetId: resetRecord.id,
+      expiresAt: resetRecord.expires_at,
+    };
+  } catch (error) {
+    console.error("❌ Ошибка проверки токена восстановления:", error);
+    return { valid: false, message: "Ошибка проверки токена" };
+  }
+}
+
+/**
+ * Пометить токен как использованный
+ */
+async function markTokenAsUsed(tokenId) {
+  try {
+    await query("UPDATE password_resets SET used = TRUE WHERE id = ?", [
+      tokenId,
+    ]);
+    console.log(`✅ Токен ${tokenId} помечен как использованный`);
+  } catch (error) {
+    console.error("❌ Ошибка пометки токена как использованного:", error);
+    throw error;
+  }
+}
+
+/**
+ * Очистка устаревших токенов восстановления
+ */
+async function cleanupExpiredResetTokens() {
+  try {
+    const result = await query(
+      "DELETE FROM password_resets WHERE expires_at < NOW() OR used = TRUE"
+    );
+    console.log(
+      `🧹 Очищено устаревших токенов восстановления: ${result.affectedRows}`
+    );
+    return result.affectedRows;
+  } catch (error) {
+    console.error("❌ Ошибка очистки токенов восстановления:", error);
+    return 0;
+  }
+}
+
 function startCleanupSchedule() {
   // 1. Очистка сессий в 02:30 (один раз за ночь)
   cron.schedule("30 2 * * *", async () => {
@@ -489,6 +580,19 @@ function startCleanupSchedule() {
 
     console.log(
       `✅ Очистка аккаунтов завершена за ${duration}ms. Удалено: ${deletedCount}`
+    );
+  });
+
+  // 3. Очистка устаревших токенов восстановления
+  cron.schedule("0 4 * * *", async () => {
+    console.log("⏰ [04:00] Запуск очистки устаревших токенов восстановления");
+
+    const startTime = Date.now();
+    const deletedCount = await cleanupExpiredResetTokens();
+    const duration = Date.now() - startTime;
+
+    console.log(
+      `✅ Очистка токенов восстановления завершена за ${duration}ms. Удалено: ${deletedCount}`
     );
   });
 
@@ -813,7 +917,305 @@ app.get("/api/admin/workers-stats", async (req, res) => {
   });
 });
 
-// 1. Проверка JWT
+// ==================== ВОССТАНОВЛЕНИЕ ПАРОЛЯ API ====================
+
+// 1. Запрос на восстановление пароля (POST /api/auth/forgot-password)
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Валидация email
+    if (!email || !validator.isEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Введите корректный email адрес",
+        field: "email",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Проверяем, есть ли активированный пользователь с таким email
+    const users = await query(
+      "SELECT login, email FROM usersdata WHERE email = ? AND logic = 'true'",
+      [normalizedEmail]
+    );
+
+    // ВАЖНО: Всегда возвращаем одинаковый ответ для безопасности
+    // Это защищает от подбора email'ов
+    if (users.length === 0) {
+      console.log(
+        `📭 Запрос восстановления пароля для несуществующего email: ${normalizedEmail}`
+      );
+      // Имитируем задержку обработки (защита от timing attacks)
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      return res.json({
+        success: true,
+        message:
+          "Если email зарегистрирован в системе, на него отправлена инструкция",
+      });
+    }
+
+    const user = users[0];
+
+    // Создаем токен восстановления
+    const resetToken = await createPasswordResetToken(user.email);
+
+    // Формируем ссылку для сброса пароля
+    const resetUrl = `${
+      process.env.CLIENT_URL || "http://localhost:5000"
+    }/reset-password/${resetToken}`;
+
+    // Отправляем email с инструкцией
+    await transporter.sendMail({
+      from: `"QuickDiagnosis - Восстановление пароля" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "🔐 Восстановление пароля в QuickDiagnosis",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
+          <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
+              🔐 Восстановление пароля
+            </h2>
+            
+            <p style="font-size: 16px; color: #4a5568;">
+              Здравствуйте, <strong>${user.login}</strong>!
+            </p>
+            
+            <p style="font-size: 16px; color: #4a5568;">
+              Мы получили запрос на восстановление пароля для вашего аккаунта в QuickDiagnosis.
+            </p>
+            
+            <div style="background-color: #f0fff4; border: 1px solid #38a169; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
+              <p style="margin: 0; font-weight: bold; color: #22543d;">
+                ⏰ Ссылка действительна 1 час
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" 
+                 style="background-color: #4299e1; color: white; padding: 14px 30px; 
+                        text-decoration: none; border-radius: 6px; font-weight: bold;
+                        font-size: 16px; display: inline-block;">
+                Восстановить пароль
+              </a>
+            </div>
+            
+            <p style="color: #718096; font-size: 14px; margin-bottom: 5px;">
+              Если кнопка не работает, скопируйте ссылку в браузер:
+            </p>
+            <p style="color: #4a5568; font-size: 12px; background-color: #f7fafc; 
+               padding: 10px; border-radius: 4px; word-break: break-all;">
+              ${resetUrl}
+            </p>
+            
+            <div style="background-color: #fff5f5; border: 1px solid #fed7d7; padding: 15px; border-radius: 6px; margin: 25px 0;">
+              <p style="color: #9b2c2c; margin: 0; font-weight: bold;">
+                ⚠️ <strong>Важно!</strong> Если вы не запрашивали сброс пароля, 
+                просто проигнорируйте это письмо.
+              </p>
+              <p style="color: #9b2c2c; margin: 10px 0 0 0;">
+                Ваш пароль останется неизменным.
+              </p>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+            
+            <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
+              Это автоматическое письмо системы QuickDiagnosis.<br>
+              Пожалуйста, не отвечайте на него.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+
+    console.log(
+      `📧 Ссылка для восстановления пароля отправлена на: ${user.email}`
+    );
+
+    res.json({
+      success: true,
+      message:
+        "Если email зарегистрирован в системе, на него отправлена инструкция",
+    });
+  } catch (error) {
+    console.error("❌ Ошибка обработки запроса восстановления пароля:", error);
+
+    // Всегда возвращаем успех для безопасности (не раскрываем информацию)
+    res.json({
+      success: true,
+      message:
+        "Если email зарегистрирован в системе, на него отправлена инструкция",
+    });
+  }
+});
+
+// 2. Проверка валидности токена восстановления (GET /api/auth/validate-reset-token/:token)
+app.get("/api/auth/validate-reset-token/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token || token.length < 10) {
+      return res.status(400).json({
+        success: false,
+        valid: false,
+        message: "Некорректный токен",
+      });
+    }
+
+    const validation = await validatePasswordResetToken(token);
+
+    res.json({
+      success: true,
+      valid: validation.valid,
+      email: validation.valid ? validation.email : undefined,
+      message: validation.message,
+      expiresAt: validation.valid ? validation.expiresAt : undefined,
+    });
+  } catch (error) {
+    console.error("❌ Ошибка проверки токена восстановления:", error);
+    res.status(500).json({
+      success: false,
+      valid: false,
+      message: "Ошибка проверки токена",
+    });
+  }
+});
+
+// 3. Установка нового пароля (POST /api/auth/reset-password)
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    // Валидация входных данных
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Токен и новый пароль обязательны",
+        field: !token ? "token" : "newPassword",
+      });
+    }
+
+    // Валидация пароля
+    try {
+      validatePassword(newPassword);
+    } catch (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError.message,
+        field: "newPassword",
+      });
+    }
+
+    // Проверяем токен
+    const validation = await validatePasswordResetToken(token);
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.message || "Токен недействителен или устарел",
+      });
+    }
+
+    const { email, resetId } = validation;
+
+    // Получаем пользователя по email
+    const users = await query(
+      "SELECT login, password FROM usersdata WHERE email = ? AND logic = 'true'",
+      [email]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Пользователь не найден",
+      });
+    }
+
+    const user = users[0];
+
+    // Проверяем, что новый пароль отличается от текущего
+    const samePassword = await bcrypt.compare(newPassword, user.password);
+    if (samePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Новый пароль должен отличаться от текущего",
+        field: "newPassword",
+      });
+    }
+
+    // Хешируем новый пароль
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Обновляем пароль в базе данных
+    await query(
+      "UPDATE usersdata SET password = ? WHERE email = ? AND logic = 'true'",
+      [hashedPassword, email]
+    );
+
+    // Помечаем токен как использованный
+    await markTokenAsUsed(resetId);
+
+    // Удаляем ВСЕ сессии пользователя
+    await query("DELETE FROM sessionsdata WHERE login = ?", [user.login]);
+
+    // Отправляем email-уведомление об изменении пароля
+    try {
+      await transporter.sendMail({
+        from: `"QuickDiagnosis - Безопасность" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "🔐 Пароль изменен через восстановление",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2d3748;">Пароль успешно изменен</h2>
+            <p>Здравствуйте, ${user.login}!</p>
+            <p>Пароль для вашего аккаунта был успешно изменен через восстановление.</p>
+            <p><strong>Рекомендация:</strong> Войдите в систему с новым паролем и проверьте настройки безопасности.</p>
+            <p style="color: #666; font-size: 12px;">
+              Если это были не вы, немедленно войдите в аккаунт и смените пароль!
+            </p>
+          </div>
+        `,
+      });
+      console.log(`📧 Уведомление об изменении пароля отправлено на ${email}`);
+    } catch (emailError) {
+      console.warn(
+        "⚠️ Не удалось отправить email уведомление:",
+        emailError.message
+      );
+    }
+
+    console.log(`✅ Пароль изменен для пользователя: ${user.login}`);
+
+    res.json({
+      success: true,
+      message:
+        "Пароль успешно изменен. Теперь вы можете войти с новым паролем.",
+      requireReauth: true,
+      emailSent: true,
+    });
+  } catch (error) {
+    console.error("❌ Ошибка установки нового пароля:", error);
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        field: error.field,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Ошибка установки нового пароля. Попробуйте позже.",
+    });
+  }
+});
+
+// 4. Проверка JWT
 app.post("/api/auth/verify", authenticateToken, (req, res) => {
   res.json({
     success: true,
@@ -824,7 +1226,7 @@ app.post("/api/auth/verify", authenticateToken, (req, res) => {
   });
 });
 
-// 2. Регистрация с email подтверждением
+// 5. Регистрация с email подтверждением
 app.post("/api/auth/register", async (req, res) => {
   try {
     const login = validateLogin(req.body.login);
@@ -946,7 +1348,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// 3. Подтверждение email
+// 6. Подтверждение email
 app.get("/api/auth/confirm/:token", async (req, res) => {
   try {
     const { token } = req.params;
@@ -1096,7 +1498,7 @@ app.get("/api/auth/confirm/:token", async (req, res) => {
   }
 });
 
-// 4. Вход пользователя
+// 7. Вход пользователя
 app.post("/api/auth/login", async (req, res) => {
   try {
     const login = validateLogin(req.body.login);
@@ -1184,7 +1586,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// 5. Выход
+// 8. Выход
 app.post("/api/auth/logout", authenticateToken, async (req, res) => {
   try {
     await query("DELETE FROM sessionsdata WHERE jwt_access = ?", [
@@ -1203,7 +1605,7 @@ app.post("/api/auth/logout", authenticateToken, async (req, res) => {
   }
 });
 
-// 6. Сохранение опроса
+// 9. Сохранение опроса
 app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   try {
     const survey = validateSurvey(req.body.survey);
@@ -1245,7 +1647,7 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   }
 });
 
-// 7. Загрузка изображения (ОБНОВЛЕННАЯ версия с Multer)
+// 10. Загрузка изображения (ОБНОВЛЕННАЯ версия с Multer)
 app.post(
   "/api/images/upload",
   authenticateToken,
@@ -1391,7 +1793,7 @@ app.post(
   }
 );
 
-// 8. Поиск диагнозов
+// 11. Поиск диагнозов
 app.post("/api/diagnoses/search", async (req, res) => {
   try {
     const { titles } = req.body;
@@ -1459,7 +1861,7 @@ app.post("/api/diagnoses/search", async (req, res) => {
   }
 });
 
-// 9. Получение опросов с пагинацией
+// 12. Получение опросов с пагинацией
 app.post("/api/surveys/paginated", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1573,7 +1975,7 @@ app.post("/api/surveys/paginated", authenticateToken, async (req, res) => {
   }
 });
 
-// 10. Получение конкретного опроса (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// 13. Получение конкретного опроса (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1619,7 +2021,7 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 11. Получение оригинального изображения (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// 14. Получение оригинального изображения (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
   const login = req.user.login;
   try {
@@ -1723,7 +2125,7 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
   }
 });
 
-// 12. Удаление записи
+// 15. Удаление записи
 app.delete("/api/data/:id", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1777,7 +2179,7 @@ app.delete("/api/data/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 13. Получение изображений с пагинацией (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// 16. Получение изображений с пагинацией (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 app.post("/api/images/paginated", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1959,7 +2361,7 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
   }
 });
 
-// 14. Получение превью изображения
+// 17. Получение превью изображения
 app.get("/api/images/thumbnail/:uuid", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -2002,7 +2404,7 @@ app.get("/api/images/thumbnail/:uuid", authenticateToken, async (req, res) => {
 
 // ==================== НАСТРОЙКИ АККАУНТА API ====================
 
-// 15. Получение информации о пользователе
+// 18. Получение информации о пользователе
 app.get("/api/settings/user-info", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -2036,7 +2438,7 @@ app.get("/api/settings/user-info", authenticateToken, async (req, res) => {
   }
 });
 
-// 16. Смена пароля (с email уведомлением)
+// 19. Смена пароля (с email уведомлением)
 app.post(
   "/api/settings/change-password",
   authenticateToken,
@@ -2250,7 +2652,7 @@ app.post(
   }
 );
 
-// 17. Удаление аккаунта (hard delete)
+// 20. Удаление аккаунта (hard delete)
 app.delete(
   "/api/settings/delete-account",
   authenticateToken,
@@ -2334,7 +2736,7 @@ app.delete(
   }
 );
 
-// 18. Отправка запроса на смену email администратору
+// 21. Отправка запроса на смену email администратору
 app.post(
   "/api/settings/email-change-request",
   authenticateToken,

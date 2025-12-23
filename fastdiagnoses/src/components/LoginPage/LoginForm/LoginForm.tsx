@@ -98,8 +98,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
   };
 
   const handleForgotPassword = () => {
-    // TODO: Реализовать восстановление пароля
-    alert('Функция восстановления пароля в разработке');
+    navigate('/forgot-password');
   };
 
   return (

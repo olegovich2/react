@@ -34,8 +34,18 @@ const LoadingSpinner = () => (
 
 // Ленивая загрузка страниц для оптимизации
 const LoginPage = lazy(() => import("./components/LoginPage/LoginPage"));
-const RegisterPage = lazy(() => import("./components/RegisterPage/RegisterPage"));
-const RegisterSuccessPage = lazy(() => import("./components/RegisterSuccessPage/RegisterSuccessPage"));
+const ForgotPasswordPage = lazy(
+  () => import("./components/ForgotPasswordPage/ForgotPasswordPage")
+);
+const ResetPasswordPage = lazy(
+  () => import("./components/ResetPasswordPage/ResetPasswordPage")
+);
+const RegisterPage = lazy(
+  () => import("./components/RegisterPage/RegisterPage")
+);
+const RegisterSuccessPage = lazy(
+  () => import("./components/RegisterSuccessPage/RegisterSuccessPage")
+);
 const MainPage = lazy(() => import("./components/MainPage/MainPage"));
 const AccountPage = lazy(() => import("./components/AccountPage/AccountPage"));
 const ImagePage = lazy(
@@ -141,6 +151,24 @@ const App: React.FC = () => {
             />
 
             <Route
+              path="/forgot-password"
+              element={
+                <AuthRedirect>
+                  <ForgotPasswordPage />
+                </AuthRedirect>
+              }
+            />
+
+            <Route
+              path="/reset-password/:token"
+              element={
+                <AuthRedirect>
+                  <ResetPasswordPage />
+                </AuthRedirect>
+              }
+            />
+
+            <Route
               path="/register"
               element={
                 <AuthRedirect>
@@ -236,6 +264,6 @@ const App: React.FC = () => {
   );
 };
 
-App.displayName = 'App';
+App.displayName = "App";
 
 export default App;
