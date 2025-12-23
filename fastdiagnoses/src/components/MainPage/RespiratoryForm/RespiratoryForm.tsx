@@ -3,7 +3,7 @@ import { titleStates } from '../constants/allConstants';
 import { getDiagnosisRecommendations } from '../../../api/surveys.api';
 import { Survey } from '../../AccountPage/types/account.types';
 import { historyTaking, formatedSymbolInName } from '../utils/formatters';
-import './RespiratoryForm.css'; // Импорт стилей
+import './RespiratoryForm.css';
 
 interface RespiratoryFormProps {
   onSubmit: (survey: Survey) => void;
@@ -49,7 +49,6 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
     setIsSubmitting(true);
 
     try {
-      // 1. Сбор данных и создание персональных данных (полная копия из respiratory.js)
       const personalData: any = {};
       const mixDiagnoses: string[] = [];
       const otherGuidelines: string[] = [];
@@ -65,7 +64,6 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
         otherGuidelines.push(`Обильное питье в объеме ${weightBody * 30}мл в сутки.`);
       }
 
-      // Логика определения диагнозов (полная копия из respiratory.js)
       const soreThroat = Number(formData.soreThroat);
       const plaquesTonsils = Number(formData.plaquesTonsils);
       const runnyNose = Number(formData.runnyNose);
@@ -85,7 +83,6 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
       const powder = Number(formData.powder);
       const vape = Number(formData.vape);
 
-      // Логика из respiratory.js
       if (sputum > 0) cough = 2;
       
       if (daysDisease <= 28) {
@@ -157,15 +154,12 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
       const uniqueDiagnoses = Array.from(new Set(mixDiagnoses));
       personalData.title = uniqueDiagnoses;
       
-      // 2. Создание анамнеза
       personalData.anamnesis = historyTaking(formData);
       personalData.otherGuidelines = otherGuidelines;
 
-      // 3. Отправляем на сервер для получения рекомендаций
       const result = await getDiagnosisRecommendations(personalData.title);
 
       if (result.success && result.data) {
-        // 4. Объединяем данные с рекомендациями
         const completeSurvey: Survey = {
           ...personalData,
           title: result.data.title || [],
@@ -173,7 +167,6 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
           treatment: result.data.treatment || [],
         };
 
-        // 5. Вызываем callback с результатом
         onSubmit(completeSurvey);
       }
 
@@ -186,14 +179,13 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
   };
 
   return (
-    <section className="forms_content" id="respiratory">
+    <section className="resp-forms_content" id="respiratory">
       <form data-form="respiratory" onSubmit={handleSubmit}>
-        {/* Все поля точно как в вашем HTML */}
         
         <fieldset data-fieldset="nameSurname">
           <legend>Фамилия Имя Отчество</legend>
           <input 
-            className="input_length" 
+            className="resp-input_length" 
             type="text" 
             id="nameSurname" 
             name="nameSurname"
@@ -251,7 +243,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="soreThroat">
           <legend>Боль в горле</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="soreThroatNone" 
@@ -262,7 +254,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="soreThroatNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="soreThroatYes" 
@@ -277,7 +269,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="plaquesTonsils">
           <legend>Налеты на миндалинах</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="plaquesTonsilsNone" 
@@ -288,7 +280,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="plaquesTonsilsNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="plaquesTonsilsYes" 
@@ -303,7 +295,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="runnyNose">
           <legend>Насморк</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="runnyNoseNone" 
@@ -314,7 +306,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="runnyNoseNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="runnyNoseYes" 
@@ -329,7 +321,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="pollinosis">
           <legend>Есть ли у Вас аллергическая реакция на цветение растений, на пыль, на домашних животных?</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="pollinosisNone" 
@@ -340,7 +332,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="pollinosisNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="pollinosisYes" 
@@ -355,7 +347,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="cough">
           <legend>Кашель</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="coughNone" 
@@ -366,7 +358,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="coughNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="coughDry" 
@@ -377,7 +369,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="coughDry">Сухой</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="coughWet" 
@@ -406,7 +398,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="sputum">
           <legend>Мокрота</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="sputumNone" 
@@ -417,7 +409,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="sputumNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="sputumWhite" 
@@ -428,7 +420,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="sputumWhite">Мокрота прозрачная или белая</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="sputumBacterial" 
@@ -443,7 +435,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="hemoptysis">
           <legend>Кровохарканье</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="hemoptysisNone" 
@@ -454,7 +446,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="hemoptysisNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="hemoptysisPink" 
@@ -465,7 +457,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="hemoptysisPink">Мокрота розовая, или прожилки крови в мокроте</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="hemoptysisBlood" 
@@ -480,7 +472,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="chestPainBreathing">
           <legend>Боль в грудной клетке при дыхании</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="chestPainBreathingNone" 
@@ -491,7 +483,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="chestPainBreathingNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="chestPainBreathingYes" 
@@ -520,7 +512,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="frequentPneumonia">
           <legend>Вы ранее болели пневмонией?</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="frequentPneumoniaNone" 
@@ -531,7 +523,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="frequentPneumoniaNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="frequentPneumoniaYes" 
@@ -546,7 +538,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="bronchialAsthmaAnamnesis">
           <legend>Выставлен ли у родственников диагноз: "Бронхиальная астма"?</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="bronchialAsthmaAnamnesisNone" 
@@ -557,7 +549,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="bronchialAsthmaAnamnesisNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="bronchialAsthmaAnamnesisYes" 
@@ -572,7 +564,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="bronchialAsthmaConfirmed">
           <legend>Выставлен ли у Вас диагноз: "Бронхиальная астма"?</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="bronchialAsthmaConfirmedNone" 
@@ -583,7 +575,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="bronchialAsthmaConfirmedNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="bronchialAsthmaConfirmedYes" 
@@ -598,7 +590,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="asthmaAttacks">
           <legend>Были ли у Вас приступы удушья?</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="asthmaAttacksNone" 
@@ -609,7 +601,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="asthmaAttacksNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="asthmaAttacksYes" 
@@ -624,7 +616,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="smoking">
           <legend>Табакокурение</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="smokingNone" 
@@ -635,7 +627,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="smokingNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="smokingYes" 
@@ -650,7 +642,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="powder">
           <legend>Работа на производстве, где присутствует пыль или аэрозоль(металлообработка, окрашивание, фасовка удобрений, деревообработка и др.)</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="powderNone" 
@@ -661,7 +653,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="powderNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="powderYes" 
@@ -676,7 +668,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
 
         <fieldset data-fieldset="vape">
           <legend>Использование систем для употребления никотина без горения</legend>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="vapeNone" 
@@ -687,7 +679,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
             />
             <label htmlFor="vapeNone">Нет</label>
           </div>
-          <div className="radio-option">
+          <div className="resp-radio-option">
             <input 
               type="radio" 
               id="vapeYes" 
@@ -701,7 +693,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
         </fieldset>
 
         <button 
-          className="buttonFromAnamnesis" 
+          className="resp-buttonFromAnamnesis" 
           type="submit" 
           data-button="respiratory"
           disabled={isSubmitting}
@@ -712,5 +704,7 @@ const RespiratoryForm: React.FC<RespiratoryFormProps> = ({ onSubmit }) => {
     </section>
   );
 };
+
+RespiratoryForm.displayName = 'RespiratoryForm';
 
 export default RespiratoryForm;
