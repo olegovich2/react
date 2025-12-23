@@ -73,25 +73,25 @@ const Header: React.FC<HeaderProps> = () => {
       return (
         <>
           <button 
-            className="personal_account" 
+            className="head-personal_account" 
             type="button" 
             onClick={handleAccountClick}
             title="В аккаунт"
             aria-label="Перейти в личный кабинет"
           >
             <i className="fa-solid fa-receipt"></i>
-            <span className="button-text">В аккаунт</span>
+            <span className="head-button-text">В аккаунт</span>
           </button>
           
           <button 
-            className="exit_button" 
+            className="head-exit_button" 
             type="button" 
             onClick={handleExitClick}
             title="Выход"
             aria-label="Выход из системы"
           >
             <i className="fa-solid fa-xmark"></i>
-            <span className="button-text">Выход</span>
+            <span className="head-button-text">Выход</span>
           </button>
         </>
       );
@@ -102,25 +102,25 @@ const Header: React.FC<HeaderProps> = () => {
       return (
         <>
           <button 
-            className="personal_account home-button" 
+            className="head-personal_account head-home-button" 
             type="button" 
             onClick={handleHomeClick}
             title="На главную"
             aria-label="Перейти на главную страницу"
           >
             <i className="fa-solid fa-home"></i>
-            <span className="button-text">На главную</span>
+            <span className="head-button-text">На главную</span>
           </button>
           
           <button 
-            className="personal_account settings-button" 
+            className="head-personal_account head-settings-button" 
             type="button" 
             onClick={handleSettingsClick}
             title="Настройки"
             aria-label="Перейти к настройкам аккаунта"
           >
             <i className="fa-solid fa-gear"></i>
-            <span className="button-text">Настройки</span>
+            <span className="head-button-text">Настройки</span>
           </button>
         </>
       );
@@ -129,30 +129,30 @@ const Header: React.FC<HeaderProps> = () => {
     // Для всех остальных страниц (если есть) - кнопка "Назад"
     return (
       <button 
-        className="personal_account back-button" 
+        className="head-personal_account head-back-button" 
         type="button" 
         onClick={handleBackClick}
         title="Назад"
         aria-label="Вернуться назад"
       >
         <i className="fa-solid fa-arrow-left"></i>
-        <span className="button-text">Назад</span>
+        <span className="head-button-text">Назад</span>
       </button>
     );
   };
 
   return (
-    <header className="header">
+    <header className="head-header">
       <img 
-        className="svg_param" 
+        className="head-svg_param" 
         src="/images/icon.png" 
         alt="иконка" 
         title="иконка"
         onClick={handleLogoClick}
       />
-      <h1>QUICK DIAGNOSIS</h1>
+      <h1 className="head-title">QUICK DIAGNOSIS</h1>
       
-      <div className="buttonsLogin" data-container="buttons">
+      <div className="head-buttonsLogin" data-container="buttons">
         {renderButtons()}
       </div>
     </header>

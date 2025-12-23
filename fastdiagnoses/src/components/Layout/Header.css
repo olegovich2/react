@@ -1,32 +1,36 @@
 /* Header.css - Специфичные стили для компонента Header */
 
 /* ==================== HEADER ==================== */
-.header {
+.head-header {
     background-color: rgb(183, 222, 234);
     padding: 0;
     margin: 0;
     border-bottom: 5px solid rgb(88, 96, 98);
     display: grid;
-    grid-template-columns: 1fr 1fr 30%;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     min-height: 60px;
+    gap: 15px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    width: 100%;
+    overflow: hidden;
 }
 
-.svg_param {
+.head-svg_param {
     width: 50px;
     height: 50px;
-    padding: 0 10px;
-    margin: 0;
     cursor: pointer;
     object-fit: contain;
     transition: transform 0.3s ease;
+    flex-shrink: 0;
 }
 
-.svg_param:hover {
+.head-svg_param:hover {
     transform: scale(1.05);
 }
 
-h1 {
+.head-title {
     margin: 0;
     color: rgb(88, 96, 98);
     font-size: 22px;
@@ -35,19 +39,25 @@ h1 {
     font-family: 'Montserrat', sans-serif;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
     cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    padding: 0 5px;
 }
 
 /* ==================== КНОПКИ ==================== */
-.buttonsLogin {
+.head-buttonsLogin {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    padding-right: 20px;
-    gap: 15px;
+    gap: 10px;
+    flex-shrink: 0;
+    min-width: 0; /* Разрешаем сжатие */
 }
 
-.personal_account,
-.exit_button {
+.head-personal_account,
+.head-exit_button {
     color: rgb(88, 96, 98);
     background-color: rgba(85, 210, 248, 0);
     padding: 10px 15px;
@@ -65,10 +75,11 @@ h1 {
     gap: 8px;
     min-width: 44px;
     min-height: 44px;
+    flex-shrink: 0; /* Не сжимать кнопки */
 }
 
-.personal_account:hover,
-.exit_button:hover {
+.head-personal_account:hover,
+.head-exit_button:hover {
     background-color: rgb(88, 96, 98);
     color: rgb(183, 222, 234);
     transform: translateY(-2px);
@@ -76,144 +87,150 @@ h1 {
 }
 
 /* Текст в кнопках */
-.button-text {
+.head-button-text {
     font-size: 14px;
     font-weight: 700;
+    white-space: nowrap;
 }
 
 /* Специфичные стили для кнопки выхода */
-.exit_button {
+.head-exit_button {
     background-color: rgba(252, 129, 129, 0.1);
     border-color: #fc8181;
     color: #c53030;
 }
 
-.exit_button:hover {
+.head-exit_button:hover {
     background-color: #fc8181;
     color: white;
     border-color: #fc8181;
 }
 
 /* Специфичные стили для кнопки "На главную" */
-.home-button {
+.head-home-button {
     background-color: rgba(183, 222, 234, 0.3);
 }
 
-.home-button:hover {
+.head-home-button:hover {
     background-color: rgb(88, 96, 98);
 }
 
 /* Специфичные стили для кнопки "Настройки" */
-.settings-button {
+.head-settings-button {
     background-color: rgba(183, 222, 234, 0.3);
 }
 
-.settings-button:hover {
+.head-settings-button:hover {
     background-color: rgb(88, 96, 98);
 }
 
 /* Специфичные стили для кнопки "Назад" */
-.back-button {
+.head-back-button {
     background-color: rgba(183, 222, 234, 0.3);
 }
 
-.back-button:hover {
+.head-back-button:hover {
     background-color: rgb(88, 96, 98);
 }
 
 /* Иконки в кнопках */
-.personal_account i,
-.exit_button i {
+.head-personal_account i,
+.head-exit_button i {
     font-size: 18px;
 }
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
-    .header {
+    .head-header {
         grid-template-columns: auto 1fr auto;
-        padding: 0 5px;
+        padding: 0 10px;
         gap: 10px;
+        min-height: 50px;
     }
     
-    .buttonsLogin {
-        gap: 10px;
-        padding-right: 10px;
+    .head-buttonsLogin {
+        gap: 8px;
     }
     
-    .personal_account,
-    .exit_button {
+    .head-personal_account,
+    .head-exit_button {
         padding: 8px 12px;
         font-size: 14px;
         min-width: 40px;
         min-height: 40px;
     }
     
-    .button-text {
+    .head-button-text {
         font-size: 12px;
     }
     
-    .svg_param {
+    .head-svg_param {
         width: 40px;
         height: 40px;
     }
     
-    h1 {
+    .head-title {
         font-size: 18px;
     }
 }
 
 @media (max-width: 600px) {
-    .header {
-        grid-template-columns: auto 1fr;
-        grid-template-rows: auto auto;
-        padding: 10px;
-        gap: 10px;
+    .head-header {
+        grid-template-columns: auto 1fr auto;
+        grid-template-rows: 1fr;
+        padding: 5px 8px;
+        gap: 5px;
+        min-height: 45px;
     }
     
-    .svg_param {
+    .head-svg_param {
         width: 35px;
         height: 35px;
         grid-column: 1;
         grid-row: 1;
     }
     
-    h1 {
-        grid-column: 1 / -1;
+    .head-title {
+        grid-column: 2;
         grid-row: 1;
         text-align: center;
         font-size: 16px;
-        padding: 5px 0;
-        order: -1;
+        padding: 0 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        max-width: 100%;
     }
     
-    .buttonsLogin {
-        grid-column: 2;
+    .head-buttonsLogin {
+        grid-column: 3;
         grid-row: 1;
         justify-content: flex-end;
-        padding-right: 0;
-        gap: 8px;
+        gap: 5px;
+        padding-left: 5px;
     }
     
     /* На мобильных скрываем текст в кнопках, оставляем только иконки */
-    .button-text {
+    .head-button-text {
         display: none;
     }
     
-    .personal_account,
-    .exit_button {
-        padding: 8px;
+    .head-personal_account,
+    .head-exit_button {
+        padding: 6px 8px;
         min-width: 36px;
         min-height: 36px;
         gap: 0;
     }
     
-    .personal_account i,
-    .exit_button i {
+    .head-personal_account i,
+    .head-exit_button i {
         font-size: 16px;
     }
 
-    .personal_account:hover::after,
-    .exit_button:hover::after {
+    .head-personal_account:hover::after,
+    .head-exit_button:hover::after {
         content: attr(title);
         position: absolute;
         bottom: -30px;
@@ -228,28 +245,103 @@ h1 {
         z-index: 100;
     }
     
-    .personal_account,
-    .exit_button {
+    .head-personal_account,
+    .head-exit_button {
         position: relative;
     }
 }
 
-/* Для очень маленьких экранов */
-@media (max-width: 320px) {
-    .buttonsLogin {
-        gap: 5px;
-    }
-    
-    .header {
+/* Исправление для экранов 340-360px (где было наложение) */
+@media (max-width: 400px) and (min-width: 320px) {
+    .head-header {
+        grid-template-columns: 35px 1fr auto;
         padding: 5px;
+        gap: 3px;
     }
     
-    h1 {
+    .head-title {
         font-size: 14px;
+        letter-spacing: -0.5px;
+        padding: 0 3px;
     }
     
-    .svg_param {
+    .head-svg_param {
         width: 30px;
         height: 30px;
+    }
+    
+    .head-buttonsLogin {
+        gap: 3px;
+    }
+    
+    .head-personal_account,
+    .head-exit_button {
+        padding: 5px 6px;
+        min-width: 32px;
+        min-height: 32px;
+    }
+    
+    .head-personal_account i,
+    .head-exit_button i {
+        font-size: 14px;
+    }
+}
+
+/* Для очень маленьких экранов (320px и меньше) */
+@media (max-width: 320px) {
+    .head-header {
+        grid-template-columns: 30px 1fr auto;
+        padding: 3px;
+        gap: 2px;
+        min-height: 40px;
+    }
+    
+    .head-title {
+        font-size: 13px;
+        letter-spacing: -0.5px;
+    }
+    
+    .head-buttonsLogin {
+        gap: 2px;
+    }
+    
+    .head-svg_param {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .head-personal_account,
+    .head-exit_button {
+        padding: 4px 5px;
+        min-width: 30px;
+        min-height: 30px;
+    }
+    
+    .head-personal_account i,
+    .head-exit_button i {
+        font-size: 13px;
+    }
+}
+
+/* Фикс для горизонтальной ориентации на мобильных */
+@media (max-height: 500px) and (orientation: landscape) {
+    .head-header {
+        min-height: 40px;
+        padding: 2px 10px;
+    }
+    
+    .head-svg_param {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .head-title {
+        font-size: 16px;
+    }
+    
+    .head-personal_account,
+    .head-exit_button {
+        padding: 6px 8px;
+        min-height: 30px;
     }
 }
