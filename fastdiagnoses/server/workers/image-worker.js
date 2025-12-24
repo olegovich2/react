@@ -1,20 +1,42 @@
-const { parentPort, workerData } = require("worker_threads");
+const { parentPort, workerData, threadId } = require("worker_threads");
 const sharp = require("sharp");
 const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs").promises;
 
-// Получаем ID воркера из данных или генерируем
-const workerId = workerData?.workerId || Math.floor(Math.random() * 1000);
-console.log(`🔄 Image Worker #${workerId} запущен (PID: ${process.pid})`);
+// Получаем ID воркера из данных
+const workerId =
+  workerData && typeof workerData.workerId !== "undefined"
+    ? workerData.workerId
+    : "unknown";
+const threadIdValue = threadId || "main";
 
+console.log(
+  `🔄 Image Worker #${workerId} запущен (Thread: ${threadIdValue}, PID: ${process.pid})`
+);
+
+// Отправляем сообщение о готовности родительскому процессу
+if (parentPort) {
+  parentPort.postMessage({
+    workerReady: true,
+    workerId,
+    threadId: threadIdValue,
+    pid: process.pid,
+    timestamp: Date.now(),
+  });
+}
+
+// Обработчик сообщений от родительского процесса
 parentPort.on("message", async (task) => {
+  const taskStartTime = Date.now();
   console.log(
-    `📥 Worker #${workerId} получил задачу: ${task.fileUuid || "unknown"}`
+    `📥 Worker #${workerId} получил задачу: ${
+      task.fileUuid || "unknown"
+    } (Thread: ${threadIdValue})`
   );
 
   try {
-    const { buffer, originalFilename, userDir, fileUuid } = task;
+    const { buffer, originalFilename, userDir, fileUuid, taskId } = task;
 
     // Проверка обязательных данных
     if (!buffer || !originalFilename || !userDir || !fileUuid) {
@@ -40,6 +62,8 @@ parentPort.on("message", async (task) => {
 
     // 2. Создаем превью
     let thumbnailBuffer;
+    let thumbnailCreated = true;
+
     try {
       thumbnailBuffer = await sharp(buffer)
         .resize(300, 300, {
@@ -55,6 +79,7 @@ parentPort.on("message", async (task) => {
       );
       // Используем оригинал как превью
       thumbnailBuffer = buffer;
+      thumbnailCreated = false;
     }
 
     const thumbnailPath = path.join(thumbnailsDir, filename);
@@ -76,11 +101,12 @@ parentPort.on("message", async (task) => {
 
     // Получаем размер файла
     const fileStats = await fs.stat(originalPath);
+    const processingTime = Date.now() - taskStartTime;
 
     console.log(
       `✅ Worker #${workerId} обработал ${filename} (${Math.round(
         fileStats.size / 1024
-      )}KB)`
+      )}KB) за ${processingTime}ms`
     );
 
     // Отправляем результат обратно
@@ -95,10 +121,17 @@ parentPort.on("message", async (task) => {
       mimeType: `image/${metadata.format || "jpeg"}`,
       fileHash: crypto.createHash("sha256").update(buffer).digest("hex"),
       workerId: workerId,
-      processingTime: Date.now() - task.timestamp,
+      threadId: threadIdValue,
+      taskId: taskId,
+      processingTime: processingTime,
+      thumbnailCreated: thumbnailCreated,
+      fallback: false,
     });
   } catch (error) {
-    console.error(`❌ Worker #${workerId} ошибка:`, error.message);
+    console.error(
+      `❌ Worker #${workerId} ошибка (Thread: ${threadIdValue}):`,
+      error.message
+    );
 
     // Fallback: пробуем сохранить хотя бы оригинал
     try {
@@ -120,7 +153,7 @@ parentPort.on("message", async (task) => {
         await fs.writeFile(fallbackPath, task.buffer);
 
         console.log(
-          `⚠️ Worker #${workerId}: Использован fallback для ${task.fileUuid}`
+          `⚠️ Worker #${workerId}: Использован fallback для ${task.fileUuid} (Thread: ${threadIdValue})`
         );
 
         parentPort.postMessage({
@@ -138,13 +171,15 @@ parentPort.on("message", async (task) => {
             .digest("hex"),
           fallback: true,
           workerId: workerId,
+          threadId: threadIdValue,
+          taskId: task.taskId,
           error: error.message,
         });
         return;
       }
     } catch (fallbackError) {
       console.error(
-        `❌ Worker #${workerId}: Fallback тоже не удался:`,
+        `❌ Worker #${workerId}: Fallback тоже не удался (Thread: ${threadIdValue}):`,
         fallbackError.message
       );
     }
@@ -154,17 +189,35 @@ parentPort.on("message", async (task) => {
       error: error.message,
       fileUuid: task.fileUuid,
       workerId: workerId,
+      threadId: threadIdValue,
+      taskId: task.taskId,
     });
   }
 });
 
 // Обработка выхода
 process.on("SIGTERM", () => {
-  console.log(`🛑 Worker #${workerId} получает SIGTERM, завершаюсь...`);
+  console.log(
+    `🛑 Worker #${workerId} получает SIGTERM, завершаюсь... (Thread: ${threadIdValue})`
+  );
   process.exit(0);
 });
 
 process.on("SIGINT", () => {
-  console.log(`🛑 Worker #${workerId} получает SIGINT, завершаюсь...`);
+  console.log(
+    `🛑 Worker #${workerId} получает SIGINT, завершаюсь... (Thread: ${threadIdValue})`
+  );
   process.exit(0);
 });
+
+// Обработка сообщений от родителя для graceful shutdown
+if (parentPort) {
+  parentPort.on("message", (msg) => {
+    if (msg === "shutdown") {
+      console.log(
+        `🛑 Worker #${workerId} получает команду shutdown (Thread: ${threadIdValue})`
+      );
+      process.exit(0);
+    }
+  });
+}
