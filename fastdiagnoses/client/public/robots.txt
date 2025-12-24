@@ -1,3 +1,85 @@
-# https://www.robotstxt.org/robotstxt.html
+# FastDiagnoses - Robots.txt
+# Версия: 3.0
+# Дата: 2026-01-01
+# Только /login и /register доступны для поисковых систем
+
+# Основное правило для всех роботов
 User-agent: *
-Disallow:
+# Разрешаем ТОЛЬКО эти две страницы
+Allow: /login$
+Allow: /register$
+# Запрещаем всё остальное
+Disallow: /
+
+# Google
+User-agent: Googlebot
+Allow: /login$
+Allow: /register$
+Disallow: /
+Crawl-delay: 3
+
+# Яндекс
+User-agent: Yandex
+Allow: /login$
+Allow: /register$
+Disallow: /
+Crawl-delay: 3
+
+# Bing
+User-agent: Bingbot
+Allow: /login$
+Allow: /register$
+Disallow: /
+Crawl-delay: 5
+
+# Блокировка всех парсер-ботов и мониторинга
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: MegaIndex
+Disallow: /
+
+User-agent: Google-InspectionTool
+Disallow: /
+
+User-agent: YandexMetrika
+Disallow: /
+
+User-agent: GooglePageSpeedInsights
+Disallow: /
+
+User-agent: GTmetrix
+Disallow: /
+
+User-agent: Pingdom
+Disallow: /
+
+User-agent: UptimeRobot
+Disallow: /
+
+User-agent: Applebot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Twitterbot
+Disallow: /
+
+# Sitemap не требуется - SPA приложение с авторизацией
+# Все страницы кроме /login и /register требуют аутентификации

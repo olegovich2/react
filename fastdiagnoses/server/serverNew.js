@@ -54,7 +54,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
-const buildPath = path.join(__dirname, "..", "build");
+const buildPath = path.join(__dirname, "..", "client", "build");
 app.use(express.static(buildPath));
 
 // ==================== API ENDPOINTS ====================

@@ -1,6 +1,6 @@
 {
-  "short_name": "FastDiagnoses",
-  "name": "FastDiagnoses",
+  "short_name": "FastDiagnoses Admin",
+  "name": "FastDiagnoses Админ-панель",
   "icons": [
     {
       "src": "favicon.ico",
