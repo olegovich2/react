@@ -30,6 +30,9 @@ const { startCleanupSchedule } = require("./src/utils/cron");
 const { query, getConnection } = require("./src/services/databaseService");
 const { HTML_TEMPLATES } = require("./src/templates/htmlTemplates");
 
+// ==================== АДМИН ИМПОРТЫ ====================
+const adminRoutes = require("./src/admin/routes/adminRoutes");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -56,6 +59,9 @@ app.use("/uploads", express.static(UPLOAD_DIR));
 
 const buildPath = path.join(__dirname, "..", "client", "build");
 app.use(express.static(buildPath));
+
+const adminBuildPath = path.join(__dirname, "..", "client-admin", "build");
+app.use("/admin", express.static(adminBuildPath));
 
 // ==================== API ENDPOINTS ====================
 
@@ -1630,6 +1636,9 @@ app.post(
   }
 );
 
+// ==================== АДМИН API ====================
+app.use("/api/admin", adminRoutes);
+
 // ==================== ОБРАБОТКА ОШИБОК ====================
 app.use((err, req, res, next) => {
   console.error("Global error handler:", err);
@@ -1656,6 +1665,10 @@ app.use((err, req, res, next) => {
 });
 
 // ==================== ВСЕ ОСТАЛЬНЫЕ ЗАПРОСЫ → REACT ====================
+app.get("/admin*", (req, res) => {
+  res.sendFile(path.join(adminBuildPath, "index.html"));
+});
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });

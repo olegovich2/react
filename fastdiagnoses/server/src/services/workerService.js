@@ -22,13 +22,7 @@ class WorkerService {
     console.log(`🔄 Инициализация сервиса из ${this.WORKER_COUNT} воркеров...`);
 
     // ПУТЬ К ВАШЕМУ ФАЙЛУ image-worker.js
-    const workerPath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "workers",
-      "image-worker.js"
-    );
+    const workerPath = path.join(__dirname, "..", "workers", "image-worker.js");
 
     try {
       await fs.access(workerPath);
