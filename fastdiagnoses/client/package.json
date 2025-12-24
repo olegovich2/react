@@ -1,6 +1,6 @@
 {
   "name": "fastdiagnoses",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
@@ -22,12 +22,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "server": "cd server && npm start",
-    "server:dev": "cd server && npm run dev",
-    "dev": "concurrently \"npm start\" \"npm run server:dev\"",
-    "deploy": "npm run build && npm run server"
+    "eject": "react-scripts eject"    
   },
+  "homepage": ".",
   "eslintConfig": {
     "extends": [
       "react-app",
