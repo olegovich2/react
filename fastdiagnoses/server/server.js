@@ -1,768 +1,46 @@
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
-const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
+const emailService = require("./src/utils/emailService");
 const validator = require("validator");
-const cron = require("node-cron");
 const fs = require("fs").promises;
 const crypto = require("crypto");
-const multer = require("multer");
+const workerService = require("./src/services/workerService");
 require("dotenv").config();
+const { authenticateToken } = require("./src/middleware/auth");
+const passwordResetService = require("./src/services/passwordResetService");
+const userTableService = require("./src/services/userTableService");
+const config = require("./src/config");
+const {
+  ValidationError,
+  validateLogin,
+  validatePassword,
+  validateEmail,
+  validateSurvey,
+  validateImageBuffer,
+} = require("./src/utils/validators");
+const {
+  ensureUploadDirs,
+  deleteImageFromDisk,
+} = require("./src/utils/fileSystem");
+const { uploadSingleImage } = require("./src/utils/uploadConfig");
+const { startCleanupSchedule } = require("./src/utils/cron");
+const { query, getConnection } = require("./src/services/databaseService");
+const { HTML_TEMPLATES } = require("./src/templates/htmlTemplates");
+
+// ==================== АДМИН ИМПОРТЫ ====================
+const adminRoutes = require("./src/admin/routes/adminRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ==================== КОНФИГУРАЦИЯ MULTER ====================
-const upload = multer({
-  storage: multer.memoryStorage(), // Храним в памяти перед сохранением на диск
-  limits: {
-    fileSize: 15 * 1024 * 1024, // 15MB максимум
-    files: 1, // Только один файл за раз
-  },
-  fileFilter: (req, file, cb) => {
-    // Валидация MIME-типов
-    const allowedMimes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/gif",
-      "image/bmp",
-      "image/webp",
-      "image/tiff",
-      "image/svg+xml",
-    ];
-
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(
-        new ValidationError(
-          `Недопустимый тип файла: ${file.mimetype}. Разрешены: JPEG, PNG, GIF, BMP, WebP, TIFF, SVG`,
-          "file"
-        )
-      );
-    }
-  },
-});
-
-// ==================== КОНФИГУРАЦИЯ WORKER POOL ====================
-const { Worker } = require("worker_threads");
-const WORKER_COUNT = parseInt(process.env.IMAGE_WORKERS) || 2;
-
-class WorkerPool {
-  constructor() {
-    this.workers = [];
-    this.queue = [];
-    this.initialized = false;
-    this.taskCounter = 0;
-  }
-
-  async initWorkers() {
-    // Если уже инициализирован - не делаем снова
-    if (this.initialized) {
-      console.log("⚠️ Worker pool уже инициализирован");
-      return;
-    }
-
-    console.log(`🔄 Инициализация пула из ${WORKER_COUNT} воркеров...`);
-
-    // Абсолютный путь к worker файлу
-    const workerPath = path.join(__dirname, "workers", "image-worker.js");
-
-    // Проверяем существование worker файла
-    try {
-      await fs.access(workerPath);
-      console.log(`✅ Worker файл найден: ${workerPath}`);
-    } catch (error) {
-      console.error(`❌ Worker файл не найден: ${workerPath}`);
-      throw new Error(`Worker файл не найден: ${workerPath}`);
-    }
-
-    for (let i = 0; i < WORKER_COUNT; i++) {
-      try {
-        const worker = new Worker(workerPath, {
-          workerData: { workerId: i },
-        });
-
-        worker.on("message", (result) => {
-          // Находим worker по объекту
-          const workerIndex = this.workers.findIndex(
-            (w) => w.worker === worker
-          );
-          if (workerIndex !== -1) {
-            const workerObj = this.workers[workerIndex];
-            workerObj.busy = false;
-            workerObj.currentTask = null;
-
-            // Вызываем коллбек если есть
-            if (workerObj.currentCallback) {
-              workerObj.currentCallback(result);
-              workerObj.currentCallback = null;
-            }
-          }
-
-          // Обрабатываем очередь
-          this.processQueue();
-        });
-
-        worker.on("error", (error) => {
-          console.error(`❌ Worker ${i} ошибка:`, error.message);
-          const workerIndex = this.workers.findIndex(
-            (w) => w.worker === worker
-          );
-          if (workerIndex !== -1) {
-            const workerObj = this.workers[workerIndex];
-            workerObj.busy = false;
-            workerObj.currentTask = null;
-
-            if (workerObj.currentCallback) {
-              workerObj.currentCallback({
-                success: false,
-                error: `Worker ошибка: ${error.message}`,
-                workerId: i,
-              });
-              workerObj.currentCallback = null;
-            }
-          }
-          this.processQueue();
-        });
-
-        worker.on("exit", (code) => {
-          console.log(`ℹ️ Worker ${i} завершился с кодом ${code}`);
-          const workerIndex = this.workers.findIndex(
-            (w) => w.worker === worker
-          );
-          if (workerIndex !== -1) {
-            this.workers.splice(workerIndex, 1);
-          }
-        });
-
-        worker.on("online", () => {
-          console.log(`✅ Worker ${i} запущен и готов`);
-        });
-
-        this.workers.push({
-          id: i,
-          worker,
-          busy: false,
-          currentCallback: null,
-          currentTask: null,
-        });
-      } catch (workerError) {
-        console.error(
-          `❌ Не удалось создать worker ${i}:`,
-          workerError.message
-        );
-      }
-    }
-
-    this.initialized = true;
-    console.log(`✅ Пул из ${this.workers.length} воркеров готов`);
-    console.log(`📊 Доступно worker'ов: ${this.workers.length}`);
-  }
-
-  processQueue() {
-    if (this.queue.length === 0) return;
-
-    const freeWorkerIndex = this.workers.findIndex((w) => !w.busy);
-    if (freeWorkerIndex === -1) return;
-
-    const task = this.queue.shift();
-    const worker = this.workers[freeWorkerIndex];
-
-    worker.busy = true;
-    worker.currentCallback = task.callback;
-    worker.currentTask = task.data.fileUuid;
-
-    try {
-      // Добавляем timestamp для отслеживания времени обработки
-      const taskWithTimestamp = {
-        ...task.data,
-        timestamp: Date.now(),
-        taskId: ++this.taskCounter,
-      };
-
-      worker.worker.postMessage(taskWithTimestamp);
-      console.log(
-        `📤 Задача ${taskWithTimestamp.taskId} отправлена worker ${worker.id} (${taskWithTimestamp.fileUuid})`
-      );
-    } catch (error) {
-      console.error(`❌ Ошибка отправки задачи worker ${worker.id}:`, error);
-      worker.busy = false;
-      worker.currentCallback = null;
-      worker.currentTask = null;
-
-      // Возвращаем задачу в начало очереди
-      this.queue.unshift(task);
-    }
-  }
-
-  addTask(data) {
-    return new Promise((resolve) => {
-      const taskId = ++this.taskCounter;
-      const task = {
-        data: {
-          ...data,
-          taskId,
-          timestamp: Date.now(),
-        },
-        callback: resolve,
-      };
-
-      // Ищем свободного worker'а
-      const freeWorkerIndex = this.workers.findIndex((w) => !w.busy);
-
-      if (freeWorkerIndex !== -1) {
-        const worker = this.workers[freeWorkerIndex];
-        worker.busy = true;
-        worker.currentCallback = resolve;
-        worker.currentTask = data.fileUuid;
-
-        try {
-          worker.worker.postMessage(task.data);
-          console.log(
-            `📤 Задача ${taskId} отправлена напрямую worker ${worker.id} (${data.fileUuid})`
-          );
-        } catch (error) {
-          console.error(`❌ Ошибка отправки worker ${worker.id}:`, error);
-          worker.busy = false;
-          worker.currentCallback = null;
-          worker.currentTask = null;
-
-          // Добавляем в очередь
-          this.queue.push(task);
-          console.log(
-            `📝 Задача ${taskId} добавлена в очередь. Размер очереди: ${this.queue.length}`
-          );
-        }
-      } else {
-        // Все worker'ы заняты - добавляем в очередь
-        this.queue.push(task);
-        console.log(
-          `📝 Задача ${taskId} добавлена в очередь. Размер очереди: ${this.queue.length}`
-        );
-      }
-    });
-  }
-
-  getStats() {
-    const busyWorkers = this.workers.filter((w) => w.busy).length;
-    const currentTasks = this.workers.map((w) => w.currentTask).filter(Boolean);
-
-    return {
-      total: this.workers.length,
-      busy: busyWorkers,
-      available: this.workers.length - busyWorkers,
-      queue: this.queue.length,
-      currentTasks,
-      initialized: this.initialized,
-      totalProcessed: this.taskCounter,
-    };
-  }
-
-  async shutdown() {
-    console.log("🛑 Завершение работы пула worker'ов...");
-
-    // Отменяем все задачи в очереди
-    this.queue = [];
-
-    // Завершаем всех worker'ов
-    const terminationPromises = this.workers.map(async (workerObj) => {
-      try {
-        console.log(`🛑 Завершение worker ${workerObj.id}...`);
-        await workerObj.worker.terminate();
-        console.log(`✅ Worker ${workerObj.id} завершен`);
-      } catch (error) {
-        console.error(
-          `❌ Ошибка завершения worker ${workerObj.id}:`,
-          error.message
-        );
-      }
-    });
-
-    await Promise.allSettled(terminationPromises);
-
-    this.workers = [];
-    this.initialized = false;
-    console.log("✅ Пул worker'ов завершен");
-  }
-
-  // Метод для проверки состояния воркеров
-  healthCheck() {
-    const stats = this.getStats();
-    const healthStatus = {
-      status: stats.total > 0 ? "healthy" : "unhealthy",
-      ...stats,
-      timestamp: new Date().toISOString(),
-    };
-
-    return healthStatus;
-  }
-}
-
-const workerPool = new WorkerPool();
-
-// ==================== КОНФИГУРАЦИЯ ====================
-const poolConfig = {
-  connectionLimit: 10,
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT || 3306,
-  database: process.env.DB_DATABASE || "diagnoses",
-};
-
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_SECRET_TWO = process.env.JWT_SECRET_TWO;
-const MAX_USERS_PER_EMAIL = 4;
-
-// Пути для файлов
-const UPLOAD_DIR = path.join(__dirname, "UploadIMG");
-
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// ==================== УТИЛИТЫ ФАЙЛОВОЙ СИСТЕМЫ ====================
-async function ensureUploadDirs() {
-  try {
-    await fs.access(UPLOAD_DIR);
-  } catch {
-    await fs.mkdir(UPLOAD_DIR, { recursive: true });
-  }
-}
-
-async function getUserUploadDirs(login) {
-  const userDir = path.join(UPLOAD_DIR, login);
-  const originalsDir = path.join(userDir, "originals");
-  const thumbnailsDir = path.join(userDir, "thumbnails");
-
-  return { userDir, originalsDir, thumbnailsDir };
-}
-
-async function ensureUserUploadDirs(login) {
-  const { originalsDir, thumbnailsDir } = await getUserUploadDirs(login);
-
-  await fs.mkdir(originalsDir, { recursive: true });
-  await fs.mkdir(thumbnailsDir, { recursive: true });
-
-  return { originalsDir, thumbnailsDir };
-}
-
-async function deleteImageFromDisk(fileUuid, login) {
-  try {
-    const { originalsDir, thumbnailsDir } = await getUserUploadDirs(login);
-
-    // Ищем файл по UUID (имя файла содержит UUID)
-    const files = await fs.readdir(originalsDir);
-    const fileToDelete = files.find((f) => f.includes(fileUuid));
-
-    if (fileToDelete) {
-      await fs.unlink(path.join(originalsDir, fileToDelete));
-
-      // Пытаемся удалить превью
-      try {
-        await fs.unlink(path.join(thumbnailsDir, fileToDelete));
-      } catch (error) {
-        // Если превью нет, это не критично
-        console.warn("Не удалось удалить превью:", error.message);
-      }
-
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error("Ошибка удаления файла:", error);
-    return false;
-  }
-}
-
-// ==================== БАЗА ДАННЫХ ====================
-const pool = mysql.createPool(poolConfig);
-
-async function getConnection() {
-  return await pool.getConnection();
-}
-
-async function query(sql, params = []) {
-  const connection = await getConnection();
-  try {
-    const [results] = await connection.execute(sql, params);
-    return results;
-  } finally {
-    connection.release();
-  }
-}
-
-// ==================== ФУНКЦИИ ОЧИСТКИ ====================
-async function cleanupExpiredRegistrations() {
-  try {
-    const users = await query(
-      "SELECT login, email, jwt FROM usersdata WHERE logic = 'false'"
-    );
-
-    let deletedCount = 0;
-
-    for (const user of users) {
-      try {
-        jwt.verify(user.jwt, JWT_SECRET);
-      } catch (tokenError) {
-        await query(
-          "DELETE FROM usersdata WHERE login = ? AND logic = 'false'",
-          [user.login]
-        );
-        deletedCount++;
-      }
-    }
-
-    return deletedCount;
-  } catch (error) {
-    console.error("Ошибка при очистке неактивированных аккаунтов:", error);
-    return 0;
-  }
-}
-
-async function cleanupExpiredSessions() {
-  try {
-    const sessions = await query(
-      "SELECT id, login, jwt_access FROM sessionsdata"
-    );
-
-    let deletedCount = 0;
-
-    for (const session of sessions) {
-      try {
-        jwt.verify(session.jwt_access, JWT_SECRET_TWO);
-      } catch (tokenError) {
-        await query("DELETE FROM sessionsdata WHERE id = ?", [session.id]);
-        deletedCount++;
-      }
-    }
-
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    const result = await query("DELETE FROM sessionsdata WHERE date < ?", [
-      twoHoursAgo,
-    ]);
-
-    if (result.affectedRows > 0) {
-      deletedCount += result.affectedRows;
-    }
-
-    return deletedCount;
-  } catch (error) {
-    console.error("Ошибка при очистке сессий:", error);
-    return 0;
-  }
-}
-
-// ==================== ФУНКЦИИ ВОССТАНОВЛЕНИЯ ПАРОЛЯ ====================
-
-/**
- * Создание токена для восстановления пароля
- */
-async function createPasswordResetToken(email) {
-  try {
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 час
-
-    // Удаляем старые токены для этого email
-    await query("DELETE FROM password_resets WHERE email = ?", [email]);
-
-    // Создаем новый токен
-    await query(
-      "INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)",
-      [email, token, expiresAt]
-    );
-
-    console.log(`✅ Токен восстановления создан для ${email}`);
-    return token;
-  } catch (error) {
-    console.error("❌ Ошибка создания токена восстановления:", error);
-    throw error;
-  }
-}
-
-/**
- * Проверка валидности токена восстановления
- */
-async function validatePasswordResetToken(token) {
-  try {
-    const results = await query(
-      "SELECT id, email, expires_at FROM password_resets WHERE token = ? AND used = FALSE AND expires_at > NOW()",
-      [token]
-    );
-
-    if (results.length === 0) {
-      return {
-        valid: false,
-        message: "Токен недействителен, использован или устарел",
-      };
-    }
-
-    const resetRecord = results[0];
-
-    return {
-      valid: true,
-      email: resetRecord.email,
-      resetId: resetRecord.id,
-      expiresAt: resetRecord.expires_at,
-    };
-  } catch (error) {
-    console.error("❌ Ошибка проверки токена восстановления:", error);
-    return { valid: false, message: "Ошибка проверки токена" };
-  }
-}
-
-/**
- * Пометить токен как использованный
- */
-async function markTokenAsUsed(tokenId) {
-  try {
-    await query("UPDATE password_resets SET used = TRUE WHERE id = ?", [
-      tokenId,
-    ]);
-    console.log(`✅ Токен ${tokenId} помечен как использованный`);
-  } catch (error) {
-    console.error("❌ Ошибка пометки токена как использованного:", error);
-    throw error;
-  }
-}
-
-/**
- * Очистка устаревших токенов восстановления
- */
-async function cleanupExpiredResetTokens() {
-  try {
-    const result = await query(
-      "DELETE FROM password_resets WHERE expires_at < NOW() OR used = TRUE"
-    );
-    console.log(
-      `🧹 Очищено устаревших токенов восстановления: ${result.affectedRows}`
-    );
-    return result.affectedRows;
-  } catch (error) {
-    console.error("❌ Ошибка очистки токенов восстановления:", error);
-    return 0;
-  }
-}
-
-function startCleanupSchedule() {
-  // 1. Очистка сессий в 02:30 (один раз за ночь)
-  cron.schedule("30 2 * * *", async () => {
-    console.log("⏰ [02:30] Запуск ночной очистки сессий");
-
-    const startTime = Date.now();
-    const deletedCount = await cleanupExpiredSessions();
-    const duration = Date.now() - startTime;
-
-    console.log(
-      `✅ Очистка сессий завершена за ${duration}ms. Удалено: ${deletedCount}`
-    );
-  });
-
-  // 2. Очистка неактивированных аккаунтов в 03:00
-  cron.schedule("0 3 * * *", async () => {
-    console.log("⏰ [03:00] Запуск очистки неактивированных аккаунтов");
-
-    const startTime = Date.now();
-    const deletedCount = await cleanupExpiredRegistrations();
-    const duration = Date.now() - startTime;
-
-    console.log(
-      `✅ Очистка аккаунтов завершена за ${duration}ms. Удалено: ${deletedCount}`
-    );
-  });
-
-  // 3. Очистка устаревших токенов восстановления
-  cron.schedule("0 4 * * *", async () => {
-    console.log("⏰ [04:00] Запуск очистки устаревших токенов восстановления");
-
-    const startTime = Date.now();
-    const deletedCount = await cleanupExpiredResetTokens();
-    const duration = Date.now() - startTime;
-
-    console.log(
-      `✅ Очистка токенов восстановления завершена за ${duration}ms. Удалено: ${deletedCount}`
-    );
-  });
-
-  console.log("📅 Расписание очистки активировано:");
-  console.log("   • Истекшие сессии: каждый день в 02:30");
-  console.log("   • Неактивированные аккаунты: каждый день в 03:00");
-  console.log("   • Время сервера: " + new Date().toString());
-}
-
-// ==================== ВАЛИДАЦИЯ ====================
-const ValidationError = class extends Error {
-  constructor(message, field) {
-    super(message);
-    this.name = "ValidationError";
-    this.field = field;
-  }
-};
-
-function validateLogin(login) {
-  if (!login || login.trim().length === 0) {
-    throw new ValidationError("Логин обязателен", "login");
-  }
-
-  if (login.length < 4) {
-    throw new ValidationError("Логин должен быть не менее 4 символов", "login");
-  }
-
-  if (login.length > 20) {
-    throw new ValidationError(
-      "Логин должен быть не более 20 символов",
-      "login"
-    );
-  }
-
-  const dangerousChars = new RegExp("[<>/\\\\&'\"]");
-  if (dangerousChars.test(login)) {
-    throw new ValidationError("Логин содержит недопустимые символы", "login");
-  }
-
-  const sqlKeywords = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|EXEC)\b)/i;
-  if (sqlKeywords.test(login)) {
-    throw new ValidationError("Логин содержит недопустимые слова", "login");
-  }
-
-  return login.trim();
-}
-
-function validatePassword(password) {
-  if (!password || password.length === 0) {
-    throw new ValidationError("Пароль обязателен", "password");
-  }
-
-  if (password.length < 6) {
-    throw new ValidationError(
-      "Пароль должен быть не менее 6 символов",
-      "password"
-    );
-  }
-
-  if (password.length > 50) {
-    throw new ValidationError(
-      "Пароль должен быть не более 50 символов",
-      "password"
-    );
-  }
-
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
-
-  if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
-    throw new ValidationError(
-      "Пароль должен содержать заглавные, строчные буквы и цифры",
-      "password"
-    );
-  }
-
-  const cyrillic = /[а-яА-ЯёЁ]/;
-  if (cyrillic.test(password)) {
-    throw new ValidationError(
-      "Пароль не должен содержать кириллицу",
-      "password"
-    );
-  }
-
-  return password;
-}
-
-function validateEmail(email) {
-  if (!email || email.trim().length === 0) {
-    throw new ValidationError("Email обязателен", "email");
-  }
-
-  if (!validator.isEmail(email)) {
-    throw new ValidationError("Некорректный формат email", "email");
-  }
-
-  const disposableDomains = [
-    "tempmail",
-    "throwaway",
-    "guerrillamail",
-    "mailinator",
-    "yopmail",
-    "trashmail",
-    "fakeinbox",
-    "10minutemail",
-  ];
-
-  const domain = email.split("@")[1];
-  if (disposableDomains.some((d) => domain.includes(d))) {
-    throw new ValidationError("Временные email не поддерживаются", "email");
-  }
-
-  return email.trim().toLowerCase();
-}
-
-function validateSurvey(survey) {
-  if (!survey || typeof survey !== "object") {
-    throw new ValidationError("Некорректные данные опроса", "survey");
-  }
-
-  const surveyStr = JSON.stringify(survey);
-  if (surveyStr.length > 100000) {
-    throw new ValidationError("Данные опроса слишком большие", "survey");
-  }
-
-  return survey;
-}
-
-// ДОБАВЛЕНА функция для валидации Buffer (для multer)
-function validateImageBuffer(buffer, filename) {
-  if (!buffer || !Buffer.isBuffer(buffer)) {
-    throw new ValidationError("Некорректные данные изображения", "file");
-  }
-
-  if (!filename || filename.trim().length === 0) {
-    throw new ValidationError("Имя файла обязательно", "filename");
-  }
-
-  if (buffer.length > 15 * 1024 * 1024) {
-    throw new ValidationError("Файл слишком большой (максимум 15MB)", "file");
-  }
-
-  if (buffer.length === 0) {
-    throw new ValidationError("Файл пустой", "file");
-  }
-
-  const allowedExtensions = [
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-    ".bmp",
-    ".tiff",
-    ".webp",
-    ".svg",
-  ];
-  const fileExtension = path.extname(filename).toLowerCase();
-
-  if (!allowedExtensions.includes(fileExtension)) {
-    throw new ValidationError(
-      `Недопустимый формат файла. Разрешенные форматы: ${allowedExtensions.join(
-        ", "
-      )}`,
-      "filename"
-    );
-  }
-
-  return { buffer, filename };
-}
+// ==================== ИСПОЛЬЗУЕМ КОНФИГИ ====================
+const MAX_USERS_PER_EMAIL = config.MAX_USERS_PER_EMAIL;
+const UPLOAD_DIR = config.UPLOAD_DIR;
+const JWT_SECRET = config.JWT_SECRET;
+const JWT_SECRET_TWO = config.JWT_SECRET_TWO;
 
 // ==================== MIDDLEWARE ====================
 app.use(
@@ -777,114 +55,13 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
-
-// Обслуживание загруженных изображений
 app.use("/uploads", express.static(UPLOAD_DIR));
 
-const buildPath = path.join(__dirname, "..", "build");
+const buildPath = path.join(__dirname, "..", "client", "build");
 app.use(express.static(buildPath));
 
-// ==================== АУТЕНТИФИКАЦИЯ ====================
-const authenticateToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        success: false,
-        message: "Токен отсутствует или имеет неверный формат",
-      });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET_TWO);
-
-    const session = await query(
-      "SELECT * FROM sessionsdata WHERE jwt_access = ? AND login = ?",
-      [token, decoded.login]
-    );
-
-    if (session.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: "Сессия не найдена или устарела",
-      });
-    }
-
-    const sessionAge = Date.now() - new Date(session[0].date).getTime();
-    const MAX_SESSION_AGE = 2 * 60 * 60 * 1000;
-
-    if (sessionAge > MAX_SESSION_AGE) {
-      await query("DELETE FROM sessionsdata WHERE jwt_access = ?", [token]);
-      return res.status(401).json({
-        success: false,
-        message: "Сессия истекла",
-      });
-    }
-
-    req.user = {
-      login: decoded.login,
-      token,
-      sessionId: session[0].id,
-    };
-
-    next();
-  } catch (error) {
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({
-        success: false,
-        message: "Неверный токен",
-      });
-    }
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({
-        success: false,
-        message: "Токен истек",
-      });
-    }
-
-    console.error("Auth middleware error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Ошибка аутентификации",
-    });
-  }
-};
-
-// ==================== СОЗДАНИЕ ТАБЛИЦЫ ПОЛЬЗОВАТЕЛЯ ====================
-async function createUserTable(login) {
-  try {
-    await query(
-      `CREATE TABLE IF NOT EXISTS \`${login}\` (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        file_uuid VARCHAR(36) NOT NULL,
-        fileNameOriginIMG VARCHAR(255) NOT NULL,
-        file_path VARCHAR(500) NOT NULL,
-        thumbnail_path VARCHAR(500) NOT NULL,
-        comment TEXT,
-        file_size BIGINT NOT NULL,
-        mime_type VARCHAR(100) NOT NULL,
-        file_hash VARCHAR(64) NOT NULL,
-        width INT NOT NULL,
-        height INT NOT NULL,
-        survey LONGTEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        type ENUM('survey', 'image') DEFAULT 'survey',
-        UNIQUE KEY idx_file_uuid_unique (file_uuid),
-        INDEX idx_filename (fileNameOriginIMG),
-        INDEX idx_created_at (created_at DESC),
-        INDEX idx_type (type),
-        INDEX idx_created_type (created_at, type)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
-    );
-
-    await ensureUserUploadDirs(login);
-
-    return true;
-  } catch (error) {
-    console.error(`Ошибка создания таблицы для ${login}:`, error);
-    throw error;
-  }
-}
+const adminBuildPath = path.join(__dirname, "..", "client-admin", "build");
+app.use("/admin", express.static(adminBuildPath));
 
 // ==================== API ENDPOINTS ====================
 
@@ -899,9 +76,8 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Добавляем мониторинг (опционально)
+// Мониторинг worker'ов
 app.get("/api/admin/workers-stats", async (req, res) => {
-  // Только для админа или разработки
   if (
     process.env.NODE_ENV !== "development" &&
     req.headers["x-admin-key"] !== process.env.ADMIN_KEY
@@ -911,20 +87,17 @@ app.get("/api/admin/workers-stats", async (req, res) => {
 
   res.json({
     success: true,
-    workers: workerPool.getStats(),
+    workers: workerService.getStats(),
     memory: process.memoryUsage(),
     uptime: process.uptime(),
   });
 });
 
-// ==================== ВОССТАНОВЛЕНИЕ ПАРОЛЯ API ====================
-
-// 1. Запрос на восстановление пароля (POST /api/auth/forgot-password)
+// Восстановление пароля - запрос
 app.post("/api/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Валидация email
     if (!email || !validator.isEmail(email)) {
       return res.status(400).json({
         success: false,
@@ -935,19 +108,15 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Проверяем, есть ли активированный пользователь с таким email
     const users = await query(
       "SELECT login, email FROM usersdata WHERE email = ? AND logic = 'true'",
       [normalizedEmail]
     );
 
-    // ВАЖНО: Всегда возвращаем одинаковый ответ для безопасности
-    // Это защищает от подбора email'ов
     if (users.length === 0) {
       console.log(
         `📭 Запрос восстановления пароля для несуществующего email: ${normalizedEmail}`
       );
-      // Имитируем задержку обработки (защита от timing attacks)
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       return res.json({
@@ -958,77 +127,12 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     }
 
     const user = users[0];
+    const resetToken = await passwordResetService.createToken(user.email);
 
-    // Создаем токен восстановления
-    const resetToken = await createPasswordResetToken(user.email);
-
-    // Формируем ссылку для сброса пароля
-    const resetUrl = `${
-      process.env.CLIENT_URL || "http://localhost:5000"
-    }/reset-password/${resetToken}`;
-
-    // Отправляем email с инструкцией
-    await transporter.sendMail({
-      from: `"QuickDiagnosis - Восстановление пароля" <${process.env.EMAIL_USER}>`,
-      to: user.email,
-      subject: "🔐 Восстановление пароля в QuickDiagnosis",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-          <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-              🔐 Восстановление пароля
-            </h2>
-            
-            <p style="font-size: 16px; color: #4a5568;">
-              Здравствуйте, <strong>${user.login}</strong>!
-            </p>
-            
-            <p style="font-size: 16px; color: #4a5568;">
-              Мы получили запрос на восстановление пароля для вашего аккаунта в QuickDiagnosis.
-            </p>
-            
-            <div style="background-color: #f0fff4; border: 1px solid #38a169; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
-              <p style="margin: 0; font-weight: bold; color: #22543d;">
-                ⏰ Ссылка действительна 1 час
-              </p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetUrl}" 
-                 style="background-color: #4299e1; color: white; padding: 14px 30px; 
-                        text-decoration: none; border-radius: 6px; font-weight: bold;
-                        font-size: 16px; display: inline-block;">
-                Восстановить пароль
-              </a>
-            </div>
-            
-            <p style="color: #718096; font-size: 14px; margin-bottom: 5px;">
-              Если кнопка не работает, скопируйте ссылку в браузер:
-            </p>
-            <p style="color: #4a5568; font-size: 12px; background-color: #f7fafc; 
-               padding: 10px; border-radius: 4px; word-break: break-all;">
-              ${resetUrl}
-            </p>
-            
-            <div style="background-color: #fff5f5; border: 1px solid #fed7d7; padding: 15px; border-radius: 6px; margin: 25px 0;">
-              <p style="color: #9b2c2c; margin: 0; font-weight: bold;">
-                ⚠️ <strong>Важно!</strong> Если вы не запрашивали сброс пароля, 
-                просто проигнорируйте это письмо.
-              </p>
-              <p style="color: #9b2c2c; margin: 10px 0 0 0;">
-                Ваш пароль останется неизменным.
-              </p>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-            
-            <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-              Это автоматическое письмо системы QuickDiagnosis.<br>
-              Пожалуйста, не отвечайте на него.
-            </p>
-          </div>
-        </div>
-      `,
+    await emailService.sendPasswordReset({
+      login: user.login,
+      email: user.email,
+      resetToken: resetToken,
     });
 
     console.log(
@@ -1042,8 +146,6 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Ошибка обработки запроса восстановления пароля:", error);
-
-    // Всегда возвращаем успех для безопасности (не раскрываем информацию)
     res.json({
       success: true,
       message:
@@ -1052,7 +154,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   }
 });
 
-// 2. Проверка валидности токена восстановления (GET /api/auth/validate-reset-token/:token)
+// Проверка токена восстановления
 app.get("/api/auth/validate-reset-token/:token", async (req, res) => {
   try {
     const { token } = req.params;
@@ -1065,7 +167,7 @@ app.get("/api/auth/validate-reset-token/:token", async (req, res) => {
       });
     }
 
-    const validation = await validatePasswordResetToken(token);
+    const validation = await passwordResetService.validateToken(token);
 
     res.json({
       success: true,
@@ -1084,12 +186,11 @@ app.get("/api/auth/validate-reset-token/:token", async (req, res) => {
   }
 });
 
-// 3. Установка нового пароля (POST /api/auth/reset-password)
+// Установка нового пароля
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
     const { token, newPassword } = req.body;
 
-    // Валидация входных данных
     if (!token || !newPassword) {
       return res.status(400).json({
         success: false,
@@ -1098,7 +199,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
       });
     }
 
-    // Валидация пароля
     try {
       validatePassword(newPassword);
     } catch (validationError) {
@@ -1109,8 +209,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
       });
     }
 
-    // Проверяем токен
-    const validation = await validatePasswordResetToken(token);
+    const validation = await passwordResetService.validateToken(token);
 
     if (!validation.valid) {
       return res.status(400).json({
@@ -1121,7 +220,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     const { email, resetId } = validation;
 
-    // Получаем пользователя по email
     const users = await query(
       "SELECT login, password FROM usersdata WHERE email = ? AND logic = 'true'",
       [email]
@@ -1135,8 +233,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
     }
 
     const user = users[0];
-
-    // Проверяем, что новый пароль отличается от текущего
     const samePassword = await bcrypt.compare(newPassword, user.password);
     if (samePassword) {
       return res.status(400).json({
@@ -1146,39 +242,23 @@ app.post("/api/auth/reset-password", async (req, res) => {
       });
     }
 
-    // Хешируем новый пароль
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Обновляем пароль в базе данных
     await query(
       "UPDATE usersdata SET password = ? WHERE email = ? AND logic = 'true'",
       [hashedPassword, email]
     );
 
-    // Помечаем токен как использованный
-    await markTokenAsUsed(resetId);
-
-    // Удаляем ВСЕ сессии пользователя
+    await passwordResetService.markAsUsed(resetId);
     await query("DELETE FROM sessionsdata WHERE login = ?", [user.login]);
 
-    // Отправляем email-уведомление об изменении пароля
     try {
-      await transporter.sendMail({
-        from: `"QuickDiagnosis - Безопасность" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "🔐 Пароль изменен через восстановление",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2d3748;">Пароль успешно изменен</h2>
-            <p>Здравствуйте, ${user.login}!</p>
-            <p>Пароль для вашего аккаунта был успешно изменен через восстановление.</p>
-            <p><strong>Рекомендация:</strong> Войдите в систему с новым паролем и проверьте настройки безопасности.</p>
-            <p style="color: #666; font-size: 12px;">
-              Если это были не вы, немедленно войдите в аккаунт и смените пароль!
-            </p>
-          </div>
-        `,
+      await emailService.sendPasswordChanged({
+        login: user.login,
+        email: email,
+        userIp: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers["user-agent"] || "Неизвестное устройство",
       });
       console.log(`📧 Уведомление об изменении пароля отправлено на ${email}`);
     } catch (emailError) {
@@ -1215,7 +295,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
   }
 });
 
-// 4. Проверка JWT
+// Проверка JWT
 app.post("/api/auth/verify", authenticateToken, (req, res) => {
   res.json({
     success: true,
@@ -1226,7 +306,7 @@ app.post("/api/auth/verify", authenticateToken, (req, res) => {
   });
 });
 
-// 5. Регистрация с email подтверждением
+// Регистрация
 app.post("/api/auth/register", async (req, res) => {
   try {
     const login = validateLogin(req.body.login);
@@ -1241,7 +321,8 @@ app.post("/api/auth/register", async (req, res) => {
     const userCount = emailUsage[0].count || 0;
 
     if (userCount >= MAX_USERS_PER_EMAIL) {
-      await cleanupExpiredRegistrations();
+      // Вызываем функцию очистки из вынесенного модуля (пока оставляем как есть)
+      // await cleanupExpiredRegistrations();
 
       const updatedEmailUsage = await query(
         "SELECT COUNT(*) as count FROM usersdata WHERE email = ? AND logic = 'true'",
@@ -1290,35 +371,12 @@ app.post("/api/auth/register", async (req, res) => {
 
     const activeUserCount = updatedCount[0].count || 0;
 
-    const confirmUrl = `${
-      process.env.CLIENT_URL || "http://localhost:5000"
-    }/confirm/${confirmToken}`;
-
-    await transporter.sendMail({
-      from: `"QuickDiagnosis" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Подтверждение регистрации в QuickDiagnosis",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Подтверждение регистрации</h2>
-          <p>Здравствуйте, ${login}!</p>
-          <p>Для завершения регистрации в медицинской системе QuickDiagnosis, пожалуйста, подтвердите ваш email.</p>
-          <p><strong>Информация о лимите:</strong> На этот email активно ${activeUserCount} из ${MAX_USERS_PER_EMAIL} возможных пользователей.</p>
-          <p style="text-align: center; margin: 30px 0;">
-            <a href="${confirmUrl}" 
-               style="background-color: #4CAF50; color: white; padding: 12px 24px; 
-                      text-decoration: none; border-radius: 4px; font-weight: bold;">
-              Подтвердить Email
-            </a>
-          </p>
-          <p>Ссылка действительна в течение 24 часов.</p>
-          <p>Если вы не регистрировались в QuickDiagnosis, проигнорируйте это письмо.</p>
-          <hr>
-          <p style="color: #666; font-size: 12px;">
-            Это автоматическое письмо, пожалуйста, не отвечайте на него.
-          </p>
-        </div>
-      `,
+    await emailService.sendRegistrationConfirm({
+      login: login,
+      email: email,
+      activeUserCount: activeUserCount,
+      maxUsers: MAX_USERS_PER_EMAIL,
+      confirmToken: confirmToken,
     });
 
     res.json({
@@ -1348,35 +406,14 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// 6. Подтверждение email
+// Подтверждение email
 app.get("/api/auth/confirm/:token", async (req, res) => {
   try {
     const { token } = req.params;
     const decoded = jwt.verify(token, JWT_SECRET);
 
     if (decoded.purpose !== "registration") {
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Ошибка подтверждения</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .error { color: #d32f2f; }
-            .success { color: #4caf50; }
-            a { color: #2196f3; text-decoration: none; }
-            a:hover { text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <h1 class="error">Ошибка подтверждения</h1>
-          <p>Неверный тип токена</p>
-          <p><a href="${
-            process.env.CLIENT_URL || "http://localhost:5000"
-          }/register">Зарегистрироваться снова</a></p>
-        </body>
-        </html>
-      `);
+      return res.send(HTML_TEMPLATES.ERROR_INVALID_TOKEN);
     }
 
     const result = await query(
@@ -1385,120 +422,26 @@ app.get("/api/auth/confirm/:token", async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Ошибка подтверждения</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .error { color: #d32f2f; }
-            .success { color: #4caf50; }
-            a { color: #2196f3; text-decoration: none; }
-            a:hover { text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <h1 class="error">Ошибка подтверждения</h1>
-          <p>Пользователь не найден или уже активирован</p>
-          <p><a href="${
-            process.env.CLIENT_URL || "http://localhost:5000"
-          }/login">Перейти к входу</a></p>
-        </body>
-        </html>
-      `);
+      return res.send(HTML_TEMPLATES.ERROR_USER_NOT_FOUND);
     }
 
-    await createUserTable(decoded.login);
+    await userTableService.createUserTable(decoded.login);
 
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Email подтвержден</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-          .error { color: #d32f2f; }
-          .success { color: #4caf50; }
-          a { color: #2196f3; text-decoration: none; }
-          a:hover { text-decoration: underline; }
-          .loader { margin: 20px auto; width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #4caf50; border-radius: 50%; animation: spin 1s linear infinite; }
-          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        </style>
-      </head>
-      <body>
-        <h1 class="success">Email подтвержден!</h1>
-        <p>Теперь вы можете войти в систему</p>
-        <div class="loader"></div>
-        <p>Автоматический переход через 5 секунд...</p>
-        <p><a href="${
-          process.env.CLIENT_URL || "http://localhost:5000"
-        }/login">Перейти к входу сейчас</a></p>
-        <script>
-          setTimeout(() => {
-            window.location.href = '${
-              process.env.CLIENT_URL || "http://localhost:5000"
-            }/login';
-          }, 5000);
-        </script>
-      </body>
-      </html>
-    `);
+    res.send(HTML_TEMPLATES.SUCCESS_CONFIRMED);
   } catch (error) {
     if (
       error.name === "JsonWebTokenError" ||
       error.name === "TokenExpiredError"
     ) {
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Ошибка подтверждения</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .error { color: #d32f2f; }
-            .success { color: #4caf50; }
-            a { color: #2196f3; text-decoration: none; }
-            a:hover { text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <h1 class="error">Ссылка устарела</h1>
-          <p>Ссылка подтверждения недействительна или устарела</p>
-          <p><a href="${
-            process.env.CLIENT_URL || "http://localhost:5000"
-          }/register">Зарегистрироваться снова</a></p>
-        </body>
-        </html>
-      `);
+      return res.send(HTML_TEMPLATES.ERROR_EXPIRED_TOKEN);
     }
 
     console.error("Confirm email error:", error);
-    res.status(500).send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Ошибка сервера</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-          .error { color: #d32f2f; }
-          a { color: #2196f3; text-decoration: none; }
-          a:hover { text-decoration: underline; }
-        </style>
-      </head>
-      <body>
-        <h1 class="error">Ошибка подтверждения email</h1>
-        <p>Попробуйте позже</p>
-        <p><a href="${
-          process.env.CLIENT_URL || "http://localhost:5000"
-        }">Вернуться на главную</a></p>
-      </body>
-      </html>
-    `);
+    res.send(HTML_TEMPLATES.ERROR_SERVER);
   }
 });
 
-// 7. Вход пользователя
+// Вход пользователя
 app.post("/api/auth/login", async (req, res) => {
   try {
     const login = validateLogin(req.body.login);
@@ -1586,7 +529,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// 8. Выход
+// Выход
 app.post("/api/auth/logout", authenticateToken, async (req, res) => {
   try {
     await query("DELETE FROM sessionsdata WHERE jwt_access = ?", [
@@ -1605,7 +548,7 @@ app.post("/api/auth/logout", authenticateToken, async (req, res) => {
   }
 });
 
-// 9. Сохранение опроса
+// Сохранение опроса
 app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   try {
     const survey = validateSurvey(req.body.survey);
@@ -1618,17 +561,11 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
       });
     }
 
-    // Проверяем существование таблицы
-    const tableExists = await query(
-      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
-      [process.env.DB_DATABASE || "diagnoses", login]
-    );
-
-    if (tableExists[0].count === 0) {
-      await createUserTable(login);
+    const tableExists = await userTableService.tableExists(login);
+    if (!tableExists) {
+      await userTableService.createUserTable(login);
     }
 
-    // Сохраняем опрос
     await query(
       `INSERT INTO \`${login}\` (survey, type) VALUES (?, 'survey')`,
       [JSON.stringify(survey)]
@@ -1647,11 +584,11 @@ app.post("/api/surveys/save", authenticateToken, async (req, res) => {
   }
 });
 
-// 10. Загрузка изображения (ОБНОВЛЕННАЯ версия с Multer)
+// Загрузка изображения
 app.post(
   "/api/images/upload",
   authenticateToken,
-  upload.single("image"),
+  uploadSingleImage,
   async (req, res) => {
     const login = req.user.login;
     const startTime = Date.now();
@@ -1673,28 +610,22 @@ app.post(
       const { filename, comment } = req.body;
       const file = req.file;
 
-      // Валидация
       const validated = validateImageBuffer(
         file.buffer,
         filename || file.originalname
       );
 
-      // Проверяем/создаем таблицу пользователя
-      const tableExists = await query(
-        "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
-        [process.env.DB_DATABASE || "diagnoses", login]
-      );
+      const tableExists = await userTableService.tableExists(login);
 
-      if (tableExists[0].count === 0) {
-        await createUserTable(login);
+      if (!tableExists) {
+        await userTableService.createUserTable(login);
       }
 
       fileUuid = crypto.randomUUID();
 
-      // СОЗДАЕМ ПРЕВЬЮ ЧЕРЕЗ WORKER
       console.log(`🔄 Отправка задачи в воркер: ${fileUuid}`);
 
-      const workerResult = await workerPool.addTask({
+      const workerResult = await workerService.addTask({
         buffer: file.buffer,
         originalFilename: validated.filename,
         userDir: path.join(UPLOAD_DIR, login),
@@ -1712,7 +643,6 @@ app.post(
         workerResult.filename
       );
 
-      // Сохраняем информацию в БД
       await query(
         `INSERT INTO \`${login}\` (
         file_uuid, fileNameOriginIMG, file_path, thumbnail_path, 
@@ -1737,7 +667,7 @@ app.post(
       const totalTime = Date.now() - startTime;
 
       console.log(`✅ Изображение полностью обработано за ${totalTime}ms`);
-      console.log(`📊 Статистика воркеров:`, workerPool.getStats());
+      console.log(`📊 Статистика воркеров:`, workerService.getStats());
 
       res.json({
         success: true,
@@ -1759,7 +689,6 @@ app.post(
     } catch (error) {
       console.error("❌ Ошибка загрузки изображения:", error);
 
-      // Очищаем временные файлы
       if (req.file && login) {
         try {
           const userDir = path.join(UPLOAD_DIR, login);
@@ -1793,7 +722,7 @@ app.post(
   }
 );
 
-// 11. Поиск диагнозов
+// Поиск диагнозов
 app.post("/api/diagnoses/search", async (req, res) => {
   try {
     const { titles } = req.body;
@@ -1861,7 +790,7 @@ app.post("/api/diagnoses/search", async (req, res) => {
   }
 });
 
-// 12. Получение опросов с пагинацией
+// Получение опросов с пагинацией
 app.post("/api/surveys/paginated", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1886,12 +815,9 @@ app.post("/api/surveys/paginated", authenticateToken, async (req, res) => {
 
     const offset = (pageNum - 1) * limitNum;
 
-    const tableExists = await query(
-      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
-      [process.env.DB_DATABASE || "diagnoses", login]
-    );
+    const tableExists = await userTableService.tableExists(login);
 
-    if (tableExists[0].count === 0) {
+    if (!tableExists) {
       return res.json({
         success: true,
         surveys: [],
@@ -1975,7 +901,7 @@ app.post("/api/surveys/paginated", authenticateToken, async (req, res) => {
   }
 });
 
-// 13. Получение конкретного опроса (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// Получение конкретного опроса
 app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -1988,7 +914,6 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
       });
     }
 
-    // ВАЖНО: Используем правильную подготовку запроса
     const sql = `SELECT survey FROM \`${login}\` WHERE id = ? AND survey IS NOT NULL`;
     const results = await query(sql, [parseInt(id)]);
 
@@ -2006,7 +931,6 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Ошибка получения опроса:", error);
 
-    // Обработка специфических ошибок
     if (error.code === "ER_NO_SUCH_TABLE") {
       return res.status(404).json({
         success: false,
@@ -2021,7 +945,7 @@ app.get("/api/surveys/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 14. Получение оригинального изображения (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// Получение оригинального изображения
 app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
   const login = req.user.login;
   try {
@@ -2041,7 +965,6 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
       id
      FROM \`${login}\` WHERE file_uuid = ? AND fileNameOriginIMG IS NOT NULL`;
 
-    // Только один параметр - uuid
     const results = await query(sql, [uuid]);
 
     if (results.length === 0) {
@@ -2053,10 +976,8 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
 
     const row = results[0];
 
-    // Извлекаем имя файла из пути
     let filename = row.file_path || "";
 
-    // Если путь содержит слеши, берем только имя файла
     if (filename.includes("/") || filename.includes("\\")) {
       filename = path.basename(filename);
     }
@@ -2076,7 +997,6 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
     } catch (fsError) {
       console.error(`❌ Файл не найден на диске: ${filePath}`, fsError);
 
-      // Пробуем найти файл по UUID в имени
       try {
         const files = await fs.readdir(
           path.join(UPLOAD_DIR, login, "originals")
@@ -2104,7 +1024,6 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Ошибка получения оригинального изображения:", error);
 
-    // Подробная информация об ошибке
     if (error.code === "ER_NO_SUCH_TABLE") {
       return res.status(404).json({
         success: false,
@@ -2125,7 +1044,7 @@ app.get("/api/images/original/:uuid", authenticateToken, async (req, res) => {
   }
 });
 
-// 15. Удаление записи
+// Удаление записи
 app.delete("/api/data/:id", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -2138,7 +1057,6 @@ app.delete("/api/data/:id", authenticateToken, async (req, res) => {
       });
     }
 
-    // Сначала получаем информацию о файле
     const fileInfo = await query(
       `SELECT file_uuid, type FROM \`${login}\` WHERE id = ?`,
       [id]
@@ -2151,12 +1069,10 @@ app.delete("/api/data/:id", authenticateToken, async (req, res) => {
       });
     }
 
-    // Если это изображение, удаляем файл с диска
     if (fileInfo[0].type === "image" && fileInfo[0].file_uuid) {
       await deleteImageFromDisk(fileInfo[0].file_uuid, login);
     }
 
-    // Удаляем запись из БД
     const result = await query(`DELETE FROM \`${login}\` WHERE id = ?`, [id]);
 
     if (result.affectedRows === 0) {
@@ -2179,7 +1095,7 @@ app.delete("/api/data/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// 16. Получение изображений с пагинацией (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+// Получение изображений с пагинацией
 app.post("/api/images/paginated", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -2204,12 +1120,9 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
 
     const offset = (pageNum - 1) * limitNum;
 
-    const tableExists = await query(
-      "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
-      [process.env.DB_DATABASE || "diagnoses", login]
-    );
+    const tableExists = await userTableService.tableExists(login);
 
-    if (tableExists[0].count === 0) {
+    if (!tableExists) {
       return res.json({
         success: true,
         images: [],
@@ -2224,15 +1137,12 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
       });
     }
 
-    // Получаем общее количество изображений
     const countResult = await query(
       `SELECT COUNT(*) as total FROM \`${login}\` WHERE fileNameOriginIMG IS NOT NULL`
     );
     const totalItems = countResult[0].total || 0;
     const totalPages = Math.ceil(totalItems / limitNum);
 
-    // ВАЖНО: НЕ используем подготовленные параметры для LIMIT и OFFSET
-    // Вместо этого формируем SQL строку
     const sql = `
       SELECT 
         id, 
@@ -2251,18 +1161,14 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
       LIMIT ${limitNum} OFFSET ${offset}
     `;
 
-    // Выполняем запрос БЕЗ параметров
     const connection = await getConnection();
     try {
       const [images] = await connection.execute(sql);
 
-      // Обрабатываем изображения
       const parsedImages = images.map((row) => {
-        // Извлекаем имя файла из пути
         let storedFilename = row.file_path || "";
         let thumbnailFilename = row.thumbnail_path || "";
 
-        // Если file_path содержит полный путь, извлекаем только имя файла
         if (
           storedFilename &&
           (storedFilename.includes("/") || storedFilename.includes("\\"))
@@ -2271,7 +1177,6 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
           storedFilename = path.basename(storedFilename);
         }
 
-        // Если thumbnail_path содержит полный путь
         if (
           thumbnailFilename &&
           (thumbnailFilename.includes("/") || thumbnailFilename.includes("\\"))
@@ -2280,7 +1185,6 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
           thumbnailFilename = path.basename(thumbnailFilename);
         }
 
-        // Если имя файла не определено, создаем его из UUID и оригинального имени
         if (!storedFilename && row.file_uuid && row.fileNameOriginIMG) {
           const extension = path.extname(row.fileNameOriginIMG) || ".jpg";
           const baseName = path.basename(row.fileNameOriginIMG, extension);
@@ -2291,12 +1195,10 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
           storedFilename = `${row.file_uuid}_${safeBaseName}${extension}`;
         }
 
-        // Для thumbnail используем то же имя, если не задано отдельно
         if (!thumbnailFilename && storedFilename) {
           thumbnailFilename = storedFilename;
         }
 
-        // Формируем URL
         const originalUrl = storedFilename
           ? `/uploads/${login}/originals/${storedFilename}`
           : null;
@@ -2361,7 +1263,7 @@ app.post("/api/images/paginated", authenticateToken, async (req, res) => {
   }
 });
 
-// 17. Получение превью изображения
+// Получение превью изображения
 app.get("/api/images/thumbnail/:uuid", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
@@ -2402,14 +1304,11 @@ app.get("/api/images/thumbnail/:uuid", authenticateToken, async (req, res) => {
   }
 });
 
-// ==================== НАСТРОЙКИ АККАУНТА API ====================
-
-// 18. Получение информации о пользователе
+// Получение информации о пользователе
 app.get("/api/settings/user-info", authenticateToken, async (req, res) => {
   try {
     const login = req.user.login;
 
-    // Получаем логин и email пользователя
     const userInfo = await query(
       "SELECT login, email FROM usersdata WHERE login = ? AND logic = 'true'",
       [login]
@@ -2438,7 +1337,7 @@ app.get("/api/settings/user-info", authenticateToken, async (req, res) => {
   }
 });
 
-// 19. Смена пароля (с email уведомлением)
+// Смена пароля
 app.post(
   "/api/settings/change-password",
   authenticateToken,
@@ -2446,10 +1345,7 @@ app.post(
     try {
       const { currentPassword, newPassword } = req.body;
       const login = req.user.login;
-      const userIp = req.ip || req.connection.remoteAddress;
-      const userAgent = req.headers["user-agent"] || "Неизвестное устройство";
 
-      // Валидация обязательных полей
       if (!currentPassword || !newPassword) {
         return res.status(400).json({
           success: false,
@@ -2458,7 +1354,6 @@ app.post(
         });
       }
 
-      // Используем существующую функцию валидации пароля
       try {
         validatePassword(newPassword);
       } catch (validationError) {
@@ -2469,7 +1364,6 @@ app.post(
         });
       }
 
-      // Получаем текущий пароль и email пользователя
       const user = await query(
         "SELECT password, email FROM usersdata WHERE login = ? AND logic = 'true'",
         [login]
@@ -2484,13 +1378,11 @@ app.post(
 
       const userEmail = user[0].email;
 
-      // Проверяем текущий пароль
       const validPassword = await bcrypt.compare(
         currentPassword,
         user[0].password
       );
       if (!validPassword) {
-        // Небольшая задержка для защиты от brute force
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         return res.status(401).json({
@@ -2500,7 +1392,6 @@ app.post(
         });
       }
 
-      // Проверяем, что новый пароль отличается от текущего
       const samePassword = await bcrypt.compare(newPassword, user[0].password);
       if (samePassword) {
         return res.status(400).json({
@@ -2510,109 +1401,22 @@ app.post(
         });
       }
 
-      // Хешируем новый пароль
       const salt = await bcrypt.genSalt(12);
       const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-      // Обновляем пароль в БД
       await query(
         "UPDATE usersdata SET password = ? WHERE login = ? AND logic = 'true'",
         [hashedPassword, login]
       );
 
-      // Удаляем ВСЕ сессии пользователя
       await query("DELETE FROM sessionsdata WHERE login = ?", [login]);
 
-      // ==================== ОТПРАВКА EMAIL УВЕДОМЛЕНИЯ ====================
       try {
-        const loginUrl = `${
-          process.env.CLIENT_URL || "http://localhost:5000"
-        }/login`;
-        const timestamp = new Date().toLocaleString("ru-RU", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-
-        // Определяем тип устройства из user-agent
-        let deviceType = "Неизвестное устройство";
-        if (userAgent.includes("Mobile")) deviceType = "Мобильное устройство";
-        else if (userAgent.includes("Tablet")) deviceType = "Планшет";
-        else if (userAgent.includes("Windows"))
-          deviceType = "Компьютер (Windows)";
-        else if (userAgent.includes("Mac")) deviceType = "Компьютер (Mac)";
-        else if (userAgent.includes("Linux")) deviceType = "Компьютер (Linux)";
-
-        // Формируем email
-        const emailHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-          <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #2d3748; margin-top: 0; text-align: center;">
-              🔐 Пароль изменен в QuickDiagnosis
-            </h2>
-            
-            <p style="font-size: 16px; color: #4a5568;">
-              Здравствуйте, <strong>${login}</strong>!
-            </p>
-            
-            <p style="font-size: 16px; color: #4a5568;">
-              <strong>Пароль для вашего аккаунта был успешно изменен.</strong>
-            </p>
-            
-            <div style="background-color: #f0fff4; border-left: 4px solid #38a169; padding: 15px; margin: 20px 0;">
-              <p style="margin: 5px 0; color: #2d3748;">
-                <strong>📅 Дата изменения:</strong> ${timestamp}
-              </p>
-              <p style="margin: 5px 0; color: #2d3748;">
-                <strong>🌐 IP адрес:</strong> ${userIp}
-              </p>
-              <p style="margin: 5px 0; color: #2d3748;">
-                <strong>🖥️ Устройство:</strong> ${deviceType}
-              </p>
-            </div>
-            
-            <h3 style="color: #2d3748; margin-top: 25px;">📋 Что нужно сделать:</h3>
-            <ol style="color: #4a5568; font-size: 16px; padding-left: 20px;">
-              <li style="margin-bottom: 10px;">Перейдите на <a href="${loginUrl}" style="color: #4299e1;">страницу входа</a></li>
-              <li style="margin-bottom: 10px;">Введите ваш <strong style="color: #2d3748;">НОВЫЙ пароль</strong></li>
-              <li>Сохраните пароль в менеджере паролей для удобства</li>
-            </ol>
-            
-            <div style="background-color: #fff5f5; border: 1px solid #fed7d7; padding: 15px; border-radius: 6px; margin: 25px 0;">
-              <p style="color: #9b2c2c; margin: 0; font-weight: bold;">
-                ⚠️ <strong>Важно!</strong> Пароль в этом письме <strong>НЕ указан</strong> в целях безопасности.
-              </p>
-              <p style="color: #9b2c2c; margin: 10px 0 0 0;">
-                Если это были не вы, немедленно войдите в аккаунт и смените пароль!
-              </p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${loginUrl}" 
-                 style="background-color: #4299e1; color: white; padding: 12px 30px; 
-                        text-decoration: none; border-radius: 6px; font-weight: bold;
-                        font-size: 16px; display: inline-block;">
-                Перейти на страницу входа
-              </a>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-            
-            <p style="color: #718096; font-size: 14px; text-align: center; margin: 0;">
-              Это автоматическое уведомление системы безопасности QuickDiagnosis.<br>
-              Пожалуйста, не отвечайте на это письмо.
-            </p>
-          </div>
-        </div>
-      `;
-
-        await transporter.sendMail({
-          from: `"QuickDiagnosis - Безопасность" <${process.env.EMAIL_USER}>`,
-          to: userEmail,
-          subject: "🔐 Пароль изменен в QuickDiagnosis",
-          html: emailHtml,
+        await emailService.sendPasswordChanged({
+          login: login,
+          email: userEmail,
+          userIp: req.ip || req.connection.remoteAddress,
+          userAgent: req.headers["user-agent"] || "Неизвестное устройство",
         });
 
         console.log(`📧 Уведомление о смене пароля отправлено на ${userEmail}`);
@@ -2621,7 +1425,6 @@ app.post(
           "❌ Ошибка отправки email уведомления:",
           emailError.message
         );
-        // НЕ прерываем процесс, если email не отправился
       }
 
       console.log(`🔐 Пароль изменен для пользователя: ${login}`);
@@ -2631,7 +1434,7 @@ app.post(
         success: true,
         message: "Пароль успешно изменен",
         requireReauth: true,
-        emailSent: true, // Флаг что email отправлен
+        emailSent: true,
       });
     } catch (error) {
       console.error("Ошибка смены пароля:", error);
@@ -2652,7 +1455,7 @@ app.post(
   }
 );
 
-// 20. Удаление аккаунта (hard delete)
+// Удаление аккаунта
 app.delete(
   "/api/settings/delete-account",
   authenticateToken,
@@ -2664,10 +1467,8 @@ app.delete(
 
       console.log(`🗑️ Начало удаления аккаунта: ${login}`);
 
-      // Начинаем транзакцию для атомарности
       await connection.beginTransaction();
 
-      // 1. Удаляем таблицу пользователя (если существует)
       try {
         await connection.execute(`DROP TABLE IF EXISTS \`${login}\``);
         console.log(`✅ Таблица пользователя ${login} удалена`);
@@ -2676,17 +1477,14 @@ app.delete(
           `⚠️ Таблица пользователя ${login} не найдена:`,
           tableError.message
         );
-        // Продолжаем, даже если таблицы нет
       }
 
-      // 2. Удаляем все сессии пользователя
       const sessionResult = await connection.execute(
         "DELETE FROM sessionsdata WHERE login = ?",
         [login]
       );
       console.log(`✅ Удалено сессий: ${sessionResult[0].affectedRows}`);
 
-      // 3. Удаляем пользователя из usersdata
       const userResult = await connection.execute(
         "DELETE FROM usersdata WHERE login = ? AND logic = 'true'",
         [login]
@@ -2697,7 +1495,6 @@ app.delete(
       }
       console.log(`✅ Пользователь ${login} удален из usersdata`);
 
-      // 4. Удаляем директорию пользователя с файлами
       const userDir = path.join(UPLOAD_DIR, login);
       try {
         await fs.access(userDir);
@@ -2709,7 +1506,6 @@ app.delete(
         );
       }
 
-      // Коммитим транзакцию
       await connection.commit();
 
       console.log(`✅ Аккаунт ${login} полностью удален`);
@@ -2719,7 +1515,6 @@ app.delete(
         message: "Аккаунт успешно удален",
       });
     } catch (error) {
-      // Откатываем транзакцию в случае ошибки
       await connection.rollback();
 
       console.error("❌ Ошибка удаления аккаунта:", error);
@@ -2736,7 +1531,7 @@ app.delete(
   }
 );
 
-// 21. Отправка запроса на смену email администратору
+// Отправка запроса на смену email администратору
 app.post(
   "/api/settings/email-change-request",
   authenticateToken,
@@ -2744,11 +1539,7 @@ app.post(
     try {
       const { currentEmail, newEmail, reason } = req.body;
       const login = req.user.login;
-      const userIp = req.ip || req.connection.remoteAddress;
-      const userAgent = req.headers["user-agent"] || "Неизвестное устройство";
-      const timestamp = new Date().toLocaleString("ru-RU");
 
-      // Валидация
       if (!currentEmail || !newEmail || !reason) {
         return res.status(400).json({
           success: false,
@@ -2756,7 +1547,6 @@ app.post(
         });
       }
 
-      // Проверка формата email
       try {
         validateEmail(currentEmail);
         validateEmail(newEmail);
@@ -2768,7 +1558,6 @@ app.post(
         });
       }
 
-      // Получаем данные пользователя для проверки
       const user = await query(
         "SELECT email FROM usersdata WHERE login = ? AND logic = 'true'",
         [login]
@@ -2783,7 +1572,6 @@ app.post(
 
       const actualEmail = user[0].email;
 
-      // Проверяем, что введенный текущий email совпадает с системным
       if (actualEmail !== currentEmail) {
         return res.status(400).json({
           success: false,
@@ -2792,7 +1580,6 @@ app.post(
         });
       }
 
-      // Проверяем, что новый email отличается
       if (currentEmail === newEmail) {
         return res.status(400).json({
           success: false,
@@ -2801,138 +1588,15 @@ app.post(
         });
       }
 
-      // ==================== ОТПРАВКА EMAIL АДМИНИСТРАТОРУ ====================
       try {
-        const adminEmail = process.env.EMAIL_USER; // trmailforupfile@gmail.com
-
-        const emailHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Запрос на смену email</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 20px 0; }
-        .info-box { background: #f8f9fa; border-left: 4px solid #4a90e2; padding: 15px; margin: 15px 0; }
-        .info-item { margin: 10px 0; }
-        .label { font-weight: bold; color: #333; }
-        .value { color: #666; }
-        .reason-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
-        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; text-align: center; }
-        .action-buttons { margin-top: 20px; text-align: center; }
-        .button { display: inline-block; background: #4a90e2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 0 10px; }
-        .warning { color: #e74c3c; font-weight: bold; background: #fdf2f2; padding: 10px; border-radius: 5px; margin: 15px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔧 Запрос на смену email</h1>
-            <p>QuickDiagnosis - Административная панель</p>
-        </div>
-        
-        <div class="content">
-            <div class="warning">
-                ⚠️ ТРЕБУЕТСЯ РУЧНОЕ ВМЕШАТЕЛЬСТВО
-            </div>
-            
-            <div class="info-box">
-                <div class="info-item">
-                    <span class="label">👤 Пользователь:</span>
-                    <span class="value">${login}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">📅 Дата запроса:</span>
-                    <span class="value">${timestamp}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">🌐 IP адрес:</span>
-                    <span class="value">${userIp}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">🖥️ Устройство:</span>
-                    <span class="value">${userAgent.substring(0, 100)}</span>
-                </div>
-            </div>
-            
-            <div class="info-box">
-                <h3>📧 Данные для смены email</h3>
-                <div class="info-item">
-                    <span class="label">Текущий email (в системе):</span>
-                    <span class="value">${actualEmail}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Подтверждённый текущий email:</span>
-                    <span class="value">${currentEmail}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Запрошенный новый email:</span>
-                    <span class="value" style="color: #27ae60; font-weight: bold;">${newEmail}</span>
-                </div>
-            </div>
-            
-            <div class="reason-box">
-                <h3>📝 Причина смены email:</h3>
-                <p>${reason.replace(/\n/g, "<br>")}</p>
-            </div>
-            
-            <div class="action-buttons">
-                <p><strong>Действия администратора:</strong></p>
-                <p>1. Проверьте, что новый email не занят другим пользователем</p>
-                <p>2. Обновите email в таблице usersdata</p>
-                <p>3. Уведомите пользователя о выполнении</p>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <p>Это автоматическое уведомление от системы QuickDiagnosis</p>
-            <p>Email сгенерирован: ${new Date().toISOString()}</p>
-        </div>
-    </div>
-</body>
-</html>
-      `;
-
-        const textVersion = `
-ЗАПРОС НА СМЕНУ EMAIL - QuickDiagnosis
-
-ТРЕБУЕТСЯ РУЧНОЕ ВМЕШАТЕЛЬСТВО
-
-ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
-- Пользователь: ${login}
-- Дата запроса: ${timestamp}
-- IP адрес: ${userIp}
-- Устройство: ${userAgent}
-
-ДАННЫЕ ДЛЯ СМЕНЫ EMAIL:
-- Текущий email (в системе): ${actualEmail}
-- Подтверждённый текущий email: ${currentEmail}
-- Запрошенный новый email: ${newEmail}
-
-ПРИЧИНА СМЕНЫ EMAIL:
-${reason}
-
-ИНСТРУКЦИЯ ДЛЯ АДМИНИСТРАТОРА:
-1. Проверьте, что новый email не занят другим пользователем
-2. Обновите email в таблице usersdata
-3. Уведомите пользователя о выполнении
-
-Это автоматическое уведомление от системы QuickDiagnosis
-Email сгенерирован: ${new Date().toISOString()}
-      `;
-
-        await transporter.sendMail({
-          from: `"QuickDiagnosis - Система уведомлений" <${process.env.EMAIL_USER}>`,
-          to: adminEmail, // Отправляем администратору
-          cc: actualEmail, // Копия текущему email пользователя (опционально)
-          subject: `🔧 Запрос на смену email: ${login}`,
-          text: textVersion,
-          html: emailHtml,
+        await emailService.sendEmailChangeRequest({
+          login: login,
+          actualEmail: actualEmail,
+          currentEmail: currentEmail,
+          newEmail: newEmail,
+          reason: reason,
+          userIp: req.ip || req.connection.remoteAddress,
+          userAgent: req.headers["user-agent"] || "Неизвестное устройство",
         });
 
         console.log(
@@ -2944,7 +1608,6 @@ Email сгенерирован: ${new Date().toISOString()}
           "❌ Ошибка отправки email администратору:",
           emailError.message
         );
-        // НЕ прерываем процесс, если email не отправился
       }
 
       res.json({
@@ -2973,6 +1636,9 @@ Email сгенерирован: ${new Date().toISOString()}
   }
 );
 
+// ==================== АДМИН API ====================
+app.use("/api/admin", adminRoutes);
+
 // ==================== ОБРАБОТКА ОШИБОК ====================
 app.use((err, req, res, next) => {
   console.error("Global error handler:", err);
@@ -2999,6 +1665,10 @@ app.use((err, req, res, next) => {
 });
 
 // ==================== ВСЕ ОСТАЛЬНЫЕ ЗАПРОСЫ → REACT ====================
+app.get("/admin*", (req, res) => {
+  res.sendFile(path.join(adminBuildPath, "index.html"));
+});
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
@@ -3008,14 +1678,15 @@ async function initializeServer() {
   try {
     await ensureUploadDirs();
 
-    // ИНИЦИАЛИЗИРУЕМ POOL ПОСЛЕ СОЗДАНИЯ ДИРЕКТОРИЙ
-    await workerPool.initWorkers();
+    await emailService.initialize();
+
+    await workerService.initWorkers();
 
     app.listen(PORT, () => {
       console.log(`🚀 Сервер запущен на порту ${PORT}`);
       console.log(`⏰ Текущее время сервера: ${new Date().toLocaleString()}`);
 
-      startCleanupSchedule(); // ТОЛЬКО расписание, без immediate очистки
+      startCleanupSchedule();
     });
   } catch (error) {
     console.error("Ошибка инициализации:", error);
@@ -3026,25 +1697,27 @@ async function initializeServer() {
 // ==================== GRACEFUL SHUTDOWN HANDLERS ====================
 process.on("SIGTERM", async () => {
   console.log("🛑 Получен SIGTERM, завершаю работу...");
-  await workerPool.shutdown();
+  await workerService.shutdown();
+  await emailService.close();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
   console.log("🛑 Получен SIGINT, завершаю работу...");
-  await workerPool.shutdown();
+  await workerService.shutdown();
+  await emailService.close();
   process.exit(0);
 });
 
 process.on("uncaughtException", async (error) => {
   console.error("💥 Необработанное исключение:", error);
-  await workerPool.shutdown();
+  await workerService.shutdown();
+  await emailService.close();
   process.exit(1);
 });
 
-process.on("unhandledRejection", async (reason, promise) => {
+process.on("unhandledRejection", (reason, promise) => {
   console.error("💥 Необработанный промис:", reason);
-  // Не выходим сразу, но логируем
 });
 
 initializeServer();
