@@ -451,9 +451,11 @@ app.post("/api/auth/login", async (req, res) => {
     const userIp = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers["user-agent"] || "Unknown";
 
-    const users = await query("SELECT * FROM usersdata WHERE login = ?", [
-      login,
-    ]);
+    // Получаем пользователя ВМЕСТЕ с блокировочными полями
+    const users = await query(
+      "SELECT *, blocked, blocked_until FROM usersdata WHERE login = ?",
+      [login]
+    );
 
     if (users.length === 0) {
       // Логирование НЕУДАЧНОЙ попытки - пользователь не существует
@@ -471,6 +473,88 @@ app.post("/api/auth/login", async (req, res) => {
 
     const user = users[0];
 
+    // ========== ПРОВЕРКА БЛОКИРОВКИ ==========
+    if (user.blocked === 1 && user.blocked_until) {
+      const now = new Date();
+      const blockUntil = new Date(user.blocked_until);
+
+      // Проверяем, не истёк ли срок блокировки
+      if (blockUntil > now) {
+        // Всё ещё заблокирован
+        let message = "Аккаунт заблокирован";
+
+        // Проверяем бессрочную блокировку (2099 год)
+        if (blockUntil.getFullYear() >= 2099) {
+          message += " бессрочно.";
+        } else {
+          // Форматируем дату в русском формате (день месяц год)
+          const day = blockUntil.getDate();
+          const month = blockUntil.toLocaleString("ru-RU", { month: "long" });
+          const year = blockUntil.getFullYear();
+          message += ` до ${day} ${month} ${year} года.`;
+        }
+
+        // Логируем попытку входа заблокированного пользователя
+        // В НОВУЮ таблицу blocked_login_attempts
+        await query(
+          `INSERT INTO blocked_login_attempts 
+           (user_login, ip_address, user_agent, blocked_until) 
+           VALUES (?, ?, ?, ?)`,
+          [login, userIp, userAgent, user.blocked_until]
+        );
+
+        // ЧИСТЫЙ ответ без доп полей
+        return res.status(403).json({
+          success: false,
+          message: message,
+        });
+      } else {
+        // Срок блокировки истёк → авторазблокировка
+        console.log(`🔄 Авторазблокировка пользователя ${login}, срок истёк`);
+
+        // Разблокируем пользователя
+        await query(
+          "UPDATE usersdata SET blocked = 0, blocked_until = NULL WHERE login = ?",
+          [login]
+        );
+
+        // Логируем авторазблокировку
+        // 1. В blocked_login_attempts помечаем как auto_unblocked
+        await query(
+          `UPDATE blocked_login_attempts 
+           SET auto_unblocked = TRUE, unblocked_at = NOW()
+           WHERE user_login = ? 
+           AND auto_unblocked = FALSE
+           AND unblocked_at IS NULL
+           ORDER BY attempted_at DESC LIMIT 1`,
+          [login]
+        );
+
+        // 2. И в admin_logs для полного аудита
+        await query(
+          `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            0, // system
+            "auto_unblock",
+            "user",
+            login,
+            JSON.stringify({
+              original_block_until: user.blocked_until,
+              reason: "block_expired",
+              auto_unblocked: true,
+            }),
+          ]
+        );
+
+        // Обновляем объект пользователя
+        user.blocked = 0;
+        user.blocked_until = null;
+      }
+    }
+    // ========== КОНЕЦ ПРОВЕРКИ БЛОКИРОВКИ ==========
+
+    // Проверка активации аккаунта (logic поле)
     if (user.logic !== "true") {
       // Логирование НЕУДАЧНОЙ попытки - аккаунт не активирован
       await query(
@@ -499,25 +583,30 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
+    // УСПЕШНЫЙ ВХОД
     // Логирование УСПЕШНОЙ попытки входа
     await query(
       "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
       [login, userIp, 1, userAgent]
     );
 
+    // Обновляем последний вход
     await query("UPDATE usersdata SET last_login = NOW() WHERE login = ?", [
       login,
     ]);
 
+    // Генерация токена
     const sessionToken = jwt.sign({ login: user.login }, JWT_SECRET_TWO, {
       expiresIn: "2h",
     });
 
+    // Сохраняем сессию
     await query("INSERT INTO sessionsdata (login, jwt_access) VALUES (?, ?)", [
       user.login,
       sessionToken,
     ]);
 
+    // Ограничиваем количество сессий (последние 5)
     await query(
       `DELETE FROM sessionsdata 
        WHERE login = ? AND id NOT IN (
@@ -531,6 +620,7 @@ app.post("/api/auth/login", async (req, res) => {
       [user.login, user.login]
     );
 
+    // Успешный ответ
     res.json({
       success: true,
       token: sessionToken,

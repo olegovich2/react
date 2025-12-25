@@ -1,27 +1,28 @@
-/* UsersPage.css - Стили для компонента UsersPage */
-
 /* ==================== ОСНОВНОЙ КОНТЕЙНЕР ==================== */
-.admin-users-page {
+.users-page {
     padding: 20px;
     background-color: #f8f9fa;
     min-height: 100%;
 }
 
 /* ==================== ЗАГОЛОВОК ==================== */
-.admin-users-page-header {
+.users-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
     margin-bottom: 30px;
     padding-bottom: 20px;
     border-bottom: 2px solid rgb(88, 96, 98);
 }
 
-.admin-users-page-title {
+.users-page-title {
     color: rgb(66, 73, 75);
     font-size: 28px;
     font-weight: 900;
     margin: 0 0 8px 0;
 }
 
-.admin-users-page-subtitle {
+.users-page-subtitle {
     color: rgb(88, 96, 98);
     font-size: 16px;
     font-weight: 600;
@@ -29,16 +30,564 @@
     opacity: 0.8;
 }
 
-/* ==================== КОНТЕНТ ==================== */
-.admin-users-page-content {
+.users-page-refresh-button {
+    background-color: #4a6cf7;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    min-width: 120px;
+    justify-content: center;
+}
+
+.users-page-refresh-button:hover {
+    background-color: #3a5ce5;
+}
+
+/* ==================== СТАТИСТИКА ==================== */
+.users-page-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.users-page-stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 2px solid transparent;
+}
+
+.users-page-stat-total {
+    border-color: #667eea;
+}
+
+.users-page-stat-active {
+    border-color: #4fd1c5;
+}
+
+.users-page-stat-pending {
+    border-color: #fbb6ce;
+}
+
+.users-page-stat-records {
+    border-color: #f6ad55;
+}
+
+.users-page-stat-icon {
+    font-size: 32px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.users-page-stat-content {
+    flex: 1;
+}
+
+.users-page-stat-value {
+    color: rgb(66, 73, 75);
+    font-size: 28px;
+    font-weight: 900;
+    margin: 0 0 5px 0;
+    line-height: 1;
+}
+
+.users-page-stat-label {
+    color: rgb(88, 96, 98);
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* ==================== ПОИСК И ФИЛЬТРЫ ==================== */
+.users-page-controls {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.users-page-search {
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    gap: 10px;
+}
+
+.users-page-search-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.users-page-search-input {
+    width: 100%;
+    padding: 12px 16px 12px 40px;
+    border: 2px solid rgb(183, 222, 234);
+    border-radius: 8px;
+    font-size: 14px;
+    background-color: white;
+}
+
+.users-page-search-input:focus {
+    outline: none;
+    border-color: #4a6cf7;
+}
+
+.users-page-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+}
+
+.users-page-search-clear {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #6c757d;
+    padding: 0;
+}
+
+.users-page-search-button {
+    background-color: #4a6cf7;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.users-page-search-button:hover {
+    background-color: #3a5ce5;
+}
+
+.users-page-filters {
+    display: flex;
+    gap: 10px;
+}
+
+.users-page-filter-select {
+    padding: 12px 16px;
+    border: 2px solid rgb(183, 222, 234);
+    border-radius: 8px;
+    font-size: 14px;
+    min-width: 180px;
+    background-color: white;
+    cursor: pointer;
+}
+
+.users-page-filter-select:focus {
+    outline: none;
+    border-color: #4a6cf7;
+}
+
+/* ==================== ТАБЛИЦА ==================== */
+.users-page-table-container {
+    background: white;
+    border-radius: 12px;
+    border: 2px solid rgb(183, 222, 234);
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.users-page-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-page-table thead {
+    background-color: rgb(183, 222, 234);
+}
+
+.users-page-table th {
+    padding: 16px;
+    text-align: left;
+    font-weight: 700;
+    color: rgb(66, 73, 75);
+    font-size: 14px;
+    border-bottom: 2px solid rgb(88, 96, 98);
+}
+
+.users-page-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgb(224, 234, 237);
+}
+
+.users-page-table-row:hover {
+    background-color: rgba(183, 222, 234, 0.1);
+}
+
+/* ==================== ЯЧЕЙКИ ТАБЛИЦЫ ==================== */
+.users-page-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.users-page-user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.users-page-user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.users-page-user-details strong {
+    font-size: 14px;
+    color: rgb(66, 73, 75);
+}
+
+.users-page-user-id {
+    font-size: 12px;
+    color: rgb(136, 149, 162);
+}
+
+.users-page-email {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.users-page-email-icon {
+    font-size: 14px;
+}
+
+.users-page-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    width: fit-content;
+}
+
+.users-page-status.active {
+    background-color: rgba(79, 209, 197, 0.1);
+    color: #2d9e91;
+}
+
+.users-page-status.inactive {
+    background-color: rgba(251, 182, 206, 0.1);
+    color: #f687b3;
+}
+
+.users-page-status-icon {
+    font-size: 12px;
+}
+
+.users-page-date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.users-page-date-icon {
+    font-size: 14px;
+}
+
+.users-page-sessions-active {
+    background-color: rgba(74, 108, 247, 0.1);
+    color: #4a6cf7;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.users-page-sessions-none {
+    color: rgb(136, 149, 162);
+    font-size: 12px;
+    font-style: italic;
+}
+
+.users-page-data {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.users-page-data-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+.users-page-data-label {
+    color: rgb(136, 149, 162);
+}
+
+.users-page-data-value {
+    font-weight: 600;
+    color: rgb(66, 73, 75);
+}
+
+.users-page-data-value.has-table {
+    color: #2d9e91;
+}
+
+.users-page-data-value.no-table {
+    color: #f687b3;
+}
+
+/* ==================== ДЕЙСТВИЯ ==================== */
+.users-page-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.users-page-action-button {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background-color: rgb(245, 247, 249);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.users-page-action-button:hover {
+    background-color: rgb(224, 234, 237);
+}
+
+.users-page-action-view:hover {
+    background-color: rgba(74, 108, 247, 0.1);
+    color: #4a6cf7;
+}
+
+.users-page-action-edit:hover {
+    background-color: rgba(246, 173, 85, 0.1);
+    color: #f6ad55;
+}
+
+.users-page-action-reset:hover {
+    background-color: rgba(79, 209, 197, 0.1);
+    color: #2d9e91;
+}
+
+/* ==================== ПАГИНАЦИЯ ==================== */
+.users-page-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    border-top: 1px solid rgb(224, 234, 237);
+}
+
+.users-page-pagination-button {
+    background-color: rgb(183, 222, 234);
+    color: rgb(66, 73, 75);
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.users-page-pagination-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.users-page-pagination-button:hover:not(:disabled) {
+    background-color: rgb(163, 202, 214);
+}
+
+.users-page-pagination-info {
+    font-size: 14px;
+    color: rgb(88, 96, 98);
+}
+
+.users-page-pagination-total {
+    margin-left: 8px;
+    color: rgb(136, 149, 162);
+    font-size: 12px;
+}
+
+/* ==================== МОДАЛЬНОЕ ОКНО ==================== */
+.users-page-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.users-page-modal {
+    background: white;
+    border-radius: 12px;
+    border: 3px solid rgb(88, 96, 98);
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.users-page-modal-header {
+    padding: 20px;
+    border-bottom: 2px solid rgb(183, 222, 234);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.users-page-modal-header h3 {
+    color: rgb(66, 73, 75);
+    font-size: 20px;
+    font-weight: 900;
+    margin: 0;
+}
+
+.users-page-modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: rgb(136, 149, 162);
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.users-page-modal-close:hover {
+    background-color: rgb(245, 247, 249);
+}
+
+.users-page-modal-body {
+    padding: 20px;
+}
+
+.users-page-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.users-page-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.users-page-detail-label {
+    font-size: 12px;
+    color: rgb(136, 149, 162);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.users-page-detail-value {
+    font-size: 14px;
+    color: rgb(66, 73, 75);
+    font-weight: 600;
+}
+
+.users-page-detail-value.active {
+    color: #2d9e91;
+}
+
+.users-page-detail-value.inactive {
+    color: #f687b3;
+}
+
+.users-page-detail-value.has-table {
+    color: #2d9e91;
+}
+
+.users-page-detail-value.no-table {
+    color: #f687b3;
+}
+
+.users-page-modal-footer {
+    padding: 20px;
+    border-top: 1px solid rgb(224, 234, 237);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.users-page-modal-button {
+    background-color: #4a6cf7;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.users-page-modal-button:hover {
+    background-color: #3a5ce5;
+}
+
+/* ==================== ЗАГЛУШКА ==================== */
+.users-page-content {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 400px;
 }
 
-/* ==================== ЗАГЛУШКА ==================== */
-.admin-users-page-placeholder {
+.users-page-placeholder {
     max-width: 600px;
     width: 100%;
     text-align: center;
@@ -49,19 +598,19 @@
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-.admin-users-page-placeholder-icon {
+.users-page-placeholder-icon {
     font-size: 64px;
     margin-bottom: 20px;
 }
 
-.admin-users-page-placeholder-title {
+.users-page-placeholder-title {
     color: rgb(66, 73, 75);
     font-size: 24px;
     font-weight: 900;
     margin: 0 0 15px 0;
 }
 
-.admin-users-page-placeholder-description {
+.users-page-placeholder-description {
     color: rgb(88, 96, 98);
     font-size: 16px;
     font-weight: 600;
@@ -70,123 +619,130 @@
     opacity: 0.9;
 }
 
-/* ==================== СТАТИСТИКА ЗАГЛУШКИ ==================== */
-.admin-users-page-placeholder-stats {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    flex-wrap: wrap;
-}
-
-.admin-users-page-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 100px;
-}
-
-.admin-users-page-stat-value {
-    color: rgb(66, 73, 75);
-    font-size: 32px;
-    font-weight: 900;
-    margin-bottom: 6px;
-}
-
-.admin-users-page-stat-label {
-    color: rgb(88, 96, 98);
-    font-size: 14px;
-    font-weight: 700;
-    background-color: rgba(255, 255, 255, 0.5);
-    padding: 4px 12px;
+.users-page-retry-button {
+    background-color: #4a6cf7;
+    color: white;
+    border: none;
+    padding: 10px 20px;
     border-radius: 6px;
-    border: 1px solid rgb(183, 222, 234);
+    cursor: pointer;
+    margin-top: 20px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.users-page-retry-button:hover {
+    background-color: #3a5ce5;
 }
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
-    .admin-users-page {
+    .users-page {
         padding: 15px;
     }
     
-    .admin-users-page-title {
+    .users-page-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .users-page-title {
         font-size: 24px;
     }
     
-    .admin-users-page-subtitle {
+    .users-page-subtitle {
         font-size: 15px;
     }
     
-    .admin-users-page-placeholder {
+    .users-page-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .users-page-controls {
+        flex-direction: column;
+    }
+    
+    .users-page-search {
+        min-width: 100%;
+    }
+    
+    .users-page-filters {
+        flex-direction: column;
+    }
+    
+    .users-page-filter-select {
+        min-width: 100%;
+    }
+    
+    .users-page-details-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .users-page-table {
+        display: block;
+        overflow-x: auto;
+    }
+    
+    .users-page-pagination {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .users-page-placeholder {
         padding: 30px 25px;
     }
     
-    .admin-users-page-placeholder-icon {
+    .users-page-placeholder-icon {
         font-size: 56px;
     }
     
-    .admin-users-page-placeholder-title {
+    .users-page-placeholder-title {
         font-size: 22px;
     }
     
-    .admin-users-page-placeholder-description {
+    .users-page-placeholder-description {
         font-size: 15px;
-    }
-    
-    .admin-users-page-placeholder-stats {
-        gap: 20px;
-    }
-    
-    .admin-users-page-stat {
-        min-width: 80px;
-    }
-    
-    .admin-users-page-stat-value {
-        font-size: 28px;
     }
 }
 
 @media (max-width: 480px) {
-    .admin-users-page {
+    .users-page {
         padding: 10px;
     }
     
-    .admin-users-page-header {
+    .users-page-header {
         margin-bottom: 25px;
         padding-bottom: 15px;
     }
     
-    .admin-users-page-title {
+    .users-page-title {
         font-size: 22px;
     }
     
-    .admin-users-page-subtitle {
+    .users-page-subtitle {
         font-size: 14px;
     }
     
-    .admin-users-page-placeholder {
+    .users-page-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .users-page-placeholder {
         padding: 25px 20px;
         border-radius: 10px;
     }
     
-    .admin-users-page-placeholder-icon {
+    .users-page-placeholder-icon {
         font-size: 48px;
     }
     
-    .admin-users-page-placeholder-title {
+    .users-page-placeholder-title {
         font-size: 20px;
     }
     
-    .admin-users-page-placeholder-description {
+    .users-page-placeholder-description {
         font-size: 14px;
         margin-bottom: 25px;
-    }
-    
-    .admin-users-page-placeholder-stats {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .admin-users-page-stat {
-        min-width: auto;
     }
 }

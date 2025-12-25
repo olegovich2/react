@@ -1,89 +1,156 @@
 const bcrypt = require("bcryptjs");
 const { query, getConnection } = require("../../services/databaseService");
 const emailService = require("../../utils/emailService");
+const validator = require("validator");
 
 class AdminUsersController {
   // Получение списка пользователей
   static async getUsers(req, res) {
+    console.log("👥 [AdminUsersController.getUsers] Запрос пользователей:", {
+      query: req.query,
+    });
+
+    const {
+      search = "",
+      page = 1,
+      limit = 20,
+      sortBy = "created_at",
+      sortOrder = "DESC",
+      isActive, // новый параметр для фильтрации по статусу
+    } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offsetNum = (pageNum - 1) * limitNum;
+
     try {
-      const {
-        search,
-        page = 1,
-        limit = 20,
-        sortBy = "created_at",
-        sortOrder = "DESC",
-      } = req.query;
+      // Формируем условия WHERE
+      const whereConditions = [];
 
-      const offset = (parseInt(page) - 1) * parseInt(limit);
-      let whereClause = "";
-      const params = [];
-
-      if (search) {
-        whereClause = "WHERE (login LIKE ? OR email LIKE ?)";
-        const searchTerm = `%${search}%`;
-        params.push(searchTerm, searchTerm);
+      // Поиск по логину или email
+      if (search.trim() !== "") {
+        const searchTerm = `%${search.trim()}%`;
+        whereConditions.push(
+          `(login LIKE '${searchTerm}' OR email LIKE '${searchTerm}')`
+        );
       }
 
-      // Получаем пользователей
-      const users = await query(
-        `SELECT 
-           id, login, email, logic as is_active,
-           created_at, 
-           (SELECT COUNT(*) FROM sessionsdata WHERE login = usersdata.login) as active_sessions,
-           (SELECT COUNT(*) FROM information_schema.tables 
-            WHERE table_schema = DATABASE() 
-              AND table_name = usersdata.login) as has_user_table
-         FROM usersdata 
-         ${whereClause}
-         ORDER BY ${sortBy} ${sortOrder === "DESC" ? "DESC" : "ASC"}
-         LIMIT ? OFFSET ?`,
-        [...params, parseInt(limit), offset]
-      );
+      // Фильтрация по статусу активности
+      if (isActive !== undefined) {
+        if (isActive === "true") {
+          whereConditions.push('logic = "true"');
+        } else if (isActive === "false") {
+          whereConditions.push('logic = "false"');
+        }
+      }
 
-      // Общее количество
+      const whereClause =
+        whereConditions.length > 0
+          ? `WHERE ${whereConditions.join(" AND ")}`
+          : "";
+
+      // Основной запрос
+      const sql = `
+      SELECT 
+        login, 
+        email, 
+        logic as is_active,
+        created_at,
+        (SELECT COUNT(*) FROM sessionsdata WHERE login = usersdata.login) as active_sessions,
+        (SELECT COUNT(*) FROM information_schema.tables 
+         WHERE table_schema = DATABASE() 
+           AND table_name = usersdata.login) as has_user_table
+      FROM usersdata 
+      ${whereClause}
+      ORDER BY ${sortBy} ${sortOrder}
+      LIMIT ${limitNum} OFFSET ${offsetNum}
+    `;
+
+      console.log("🔍 SQL запрос:", sql);
+      const users = await query(sql);
+
+      // Общее количество с учетом фильтров
       const [totalResult] = await query(
-        `SELECT COUNT(*) as total FROM usersdata ${whereClause}`,
-        params
+        `SELECT COUNT(*) as total FROM usersdata ${whereClause}`
       );
 
-      // Статистика
-      const [statsResult] = await query(
-        `SELECT 
-           COUNT(*) as total_users,
-           SUM(CASE WHEN logic = "true" THEN 1 ELSE 0 END) as active_users,
-           SUM(CASE WHEN logic = "false" THEN 1 ELSE 0 END) as pending_users
-         FROM usersdata`
+      // Статистика с учетом фильтров
+      const [statsResult] = await query(`
+      SELECT 
+        COUNT(*) as total_users,
+        SUM(CASE WHEN logic = "true" THEN 1 ELSE 0 END) as active_users,
+        SUM(CASE WHEN logic = "false" THEN 1 ELSE 0 END) as pending_users
+      FROM usersdata 
+      ${whereClause}
+    `);
+
+      // Получаем статистику для каждого пользователя (как в твоём коде)
+      const usersWithStats = await Promise.all(
+        users.map(async (user) => {
+          let surveyCount = 0;
+          let imageCount = 0;
+
+          if (user.has_user_table > 0) {
+            try {
+              const statsSql = `
+              SELECT 
+                COUNT(CASE WHEN type = 'survey' THEN 1 END) as survey_count,
+                COUNT(CASE WHEN type = 'image' THEN 1 END) as image_count
+              FROM \`${user.login}\`
+            `;
+
+              const [statsResult] = await query(statsSql);
+
+              if (statsResult) {
+                surveyCount = parseInt(statsResult.survey_count) || 0;
+                imageCount = parseInt(statsResult.image_count) || 0;
+              }
+            } catch (statsError) {
+              console.warn(
+                `⚠️ Не удалось получить статистику для ${user.login}:`,
+                statsError.message
+              );
+            }
+          }
+
+          return {
+            login: user.login,
+            email: user.email,
+            isActive: user.is_active === "true",
+            createdAt: user.created_at,
+            activeSessions: user.active_sessions || 0,
+            hasUserTable: user.has_user_table > 0,
+            stats: {
+              surveys: surveyCount,
+              images: imageCount,
+            },
+          };
+        })
       );
 
       res.json({
         success: true,
-        users: users.map((user) => ({
-          id: user.id,
-          login: user.login,
-          email: user.email,
-          isActive: user.is_active === "true",
-          createdAt: user.created_at,
-          activeSessions: user.active_sessions,
-          hasUserTable: user.has_user_table > 0,
-          stats: {
-            surveys: 0, // Можно посчитать из таблицы пользователя
-            images: 0, // Можно посчитать из таблицы пользователя
-          },
-        })),
+        users: usersWithStats,
         pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(totalResult.total / limit),
+          currentPage: pageNum,
+          totalPages: Math.ceil(totalResult.total / limitNum),
           totalItems: totalResult.total,
-          itemsPerPage: parseInt(limit),
+          itemsPerPage: limitNum,
         },
         stats: {
           totalUsers: statsResult.total_users,
           activeUsers: statsResult.active_users,
           pendingUsers: statsResult.pending_users,
         },
+        filters: {
+          search,
+          isActive,
+          sortBy,
+          sortOrder,
+        },
       });
     } catch (error) {
-      console.error("❌ Ошибка получения списка пользователей:", error);
+      console.error("❌ Ошибка получения списка пользователей:", error.message);
       res.status(500).json({
         success: false,
         message: "Ошибка получения списка пользователей",
@@ -99,7 +166,7 @@ class AdminUsersController {
       // Основная информация
       const [user] = await query(
         `SELECT 
-           id, login, email, logic as is_active,
+           login, email, logic as is_active,
            created_at,
            (SELECT COUNT(*) FROM sessionsdata WHERE login = ?) as session_count,
            (SELECT COUNT(*) FROM login_attempts WHERE login = ? AND success = FALSE AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)) as failed_logins_7d
@@ -210,7 +277,7 @@ class AdminUsersController {
 
       // Проверяем существование пользователя
       const [user] = await query(
-        'SELECT id, login, email FROM usersdata WHERE login = ? AND logic = "true"',
+        'SELECT login, email FROM usersdata WHERE login = ? AND logic = "true"',
         [login]
       );
 
@@ -319,7 +386,7 @@ class AdminUsersController {
 
       // Проверяем существование пользователя
       const [user] = await query(
-        'SELECT id, login, email FROM usersdata WHERE login = ? AND logic = "true"',
+        'SELECT login, email FROM usersdata WHERE login = ? AND logic = "true"',
         [login]
       );
 
@@ -432,7 +499,7 @@ class AdminUsersController {
 
       // Проверяем существование пользователя
       const [user] = await query(
-        "SELECT id, login, email FROM usersdata WHERE login = ?",
+        "SELECT login, email FROM usersdata WHERE login = ?",
         [login]
       );
 

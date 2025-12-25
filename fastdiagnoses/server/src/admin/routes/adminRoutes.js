@@ -6,6 +6,9 @@ const isAdmin = require("../middleware/isAdmin");
 const AdminAuthController = require("../controllers/AdminAuthController");
 const AdminDashboardController = require("../controllers/AdminDashboardController");
 const AdminUsersController = require("../controllers/AdminUsersController");
+const AdminLogsController = require("../controllers/AdminLogsController");
+const AdminBackupsController = require("../controllers/AdminBackupsController");
+const AdminSystemController = require("../controllers/AdminSystemController");
 
 // Логирование всех запросов к админ API
 router.use((req, res, next) => {
@@ -85,6 +88,57 @@ router.put(
 );
 router.get("/monitoring/logs", isAdmin, AdminDashboardController.getAdminLogs);
 router.get("/monitoring/workers", AdminDashboardController.getWorkersStatus);
+
+// ==================== ЛОГИ БЭКАПЫ ====================
+console.log("📋 [AdminRoutes] Регистрация роутов логов");
+router.get("/logs", isAdmin, AdminLogsController.getCombinedLogs);
+router.get("/logs/export", isAdmin, AdminLogsController.exportLogs);
+router.delete("/logs/cleanup", isAdmin, AdminLogsController.cleanupOldLogs);
+
+console.log("💾 [AdminRoutes] Регистрация роутов бэкапов");
+router.get("/backups", isAdmin, AdminBackupsController.getBackups);
+router.post("/backups", isAdmin, AdminBackupsController.createBackup);
+router.post(
+  "/backups/:id/restore",
+  isAdmin,
+  AdminBackupsController.restoreBackup
+);
+router.delete("/backups/:id", isAdmin, AdminBackupsController.deleteBackup);
+
+// ==================== СИСТЕМНЫЕ ====================
+console.log("⚙️ [AdminRoutes] Регистрация системных роутов");
+
+// Диагностика и мониторинг
+router.get(
+  "/system/diagnostics",
+  isAdmin,
+  AdminSystemController.getSystemDiagnostics
+);
+router.get(
+  "/system/connections",
+  isAdmin,
+  AdminSystemController.checkConnections
+);
+
+// Обслуживание
+router.post(
+  "/system/optimize-tables",
+  isAdmin,
+  AdminSystemController.optimizeTables
+);
+router.post("/system/clear-cache", isAdmin, AdminSystemController.clearCache);
+
+// Расширенные настройки (будем дополнять)
+// router.get(
+//   "/system/settings/advanced",
+//   isAdmin,
+//   AdminSystemController.getAdvancedSettings
+// );
+// router.put(
+//   "/system/settings/advanced",
+//   isAdmin,
+//   AdminSystemController.updateAdvancedSettings
+// );
 
 // ==================== НАСТРОЙКИ ====================
 console.log("⚙️ [AdminRoutes] Регистрация роутов настроек");
