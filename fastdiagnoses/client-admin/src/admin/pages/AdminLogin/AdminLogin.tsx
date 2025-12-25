@@ -1,6 +1,6 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAdminAuth } from '../../hooks/useAdminAuth';
+import { useAdminAuth } from '../../../hooks/useAdminAuth';
 import './AdminLogin.css';
 
 const AdminLogin: React.FC = () => {

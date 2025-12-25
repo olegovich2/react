@@ -17,30 +17,48 @@ const adminApi = axios.create(API_CONFIG);
 adminApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('admin_token');
+    console.log('🔑 [adminApi] Добавляем токен в заголовок:', token ? 'Есть' : 'Нет');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 [adminApi] Токен добавлен:', token.substring(0, 20) + '...');
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error('❌ [adminApi] Ошибка в интерцепторе запроса:', error);
+    return Promise.reject(error);
+  }
 );
 
-// Интерцептор для обработки ответов (добавлен для логирования)
+// Интерцептор для обработки ответов
 adminApi.interceptors.response.use(
   (response) => {
-    console.log('📡 API Response:', {
+    console.log('📡 [adminApi] Ответ получен:', {
       url: response.config.url,
-      method: response.config.method,
+      method: response.config.method?.toUpperCase(),
       status: response.status,
-      data: response.data
+      dataKeys: Object.keys(response.data || {})
     });
+    
+    // Детальный лог для auth/login
+    if (response.config.url?.includes('/auth/login')) {
+      console.log('🔐 [adminApi] Детали логина:', {
+        success: response.data?.success,
+        hasToken: !!response.data?.token,
+        hasAdmin: !!response.data?.admin,
+        adminData: response.data?.admin,
+        message: response.data?.message
+      });
+    }
+    
     return response;
   },
   (error: AxiosError) => {
-    console.error('📡 API Error:', {
+    console.error('❌ [adminApi] Ошибка API:', {
       url: error.config?.url,
-      method: error.config?.method,
+      method: error.config?.method?.toUpperCase(),
       status: error.response?.status,
+      statusText: error.response?.statusText,
       data: error.response?.data
     });
     return Promise.reject(error);
@@ -51,16 +69,19 @@ adminApi.interceptors.response.use(
 const handleResponse = <T>(response: AxiosResponse<AdminApiResponse<T>>): AdminApiResponse<T> => {
   const data = response.data;
   
-  console.log('🔍 handleResponse получил:', {
+  console.log('🔍 [adminApi] handleResponse:', {
     success: data?.success,
-    hasToken: !!(data as any)?.token,
-    dataKeys: Object.keys(data || {})
+    hasToken: !!data?.token,
+    hasAdmin: !!data?.admin,
+    hasData: !!data?.data,
+    message: data?.message,
+    allKeys: Object.keys(data || {})
   });
   
   // Проверяем структуру ответа
   if (data && data.success === false) {
-    const errorMessage = (data as any)?.message || 'Запрос завершился с ошибкой';
-    console.warn('⚠️ API вернул success: false', errorMessage);
+    const errorMessage = data?.message || 'Запрос завершился с ошибкой';
+    console.warn('⚠️ [adminApi] API вернул success: false', errorMessage);
     throw new Error(errorMessage);
   }
   
@@ -69,7 +90,13 @@ const handleResponse = <T>(response: AxiosResponse<AdminApiResponse<T>>): AdminA
 
 // Функция для обработки ошибок
 const handleApiError = (error: any): never => {
-  console.error('🔥 handleApiError:', error);
+  console.error('🔥 [adminApi] handleApiError:', {
+    isAxiosError: axios.isAxiosError(error),
+    message: error.message,
+    code: error.code,
+    responseStatus: error.response?.status,
+    responseData: error.response?.data
+  });
   
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<AdminApiResponse>;
@@ -78,26 +105,25 @@ const handleApiError = (error: any): never => {
       const { status, data } = axiosError.response;
       const errorData = data as AdminApiResponse;
       
-      console.error('🔴 Ошибка API:', {
+      console.error('🔴 [adminApi] Ошибка API детали:', {
         status,
         message: errorData?.message,
-        data: errorData
+        serverError: errorData?.error
       });
       
       switch (status) {
         case 401:
-          console.warn('🚪 401 Unauthorized - очищаю токен');
+          console.warn('🚪 [adminApi] 401 Unauthorized - токен недействителен');
           localStorage.removeItem('admin_token');
-          // Не перенаправляем автоматически - пусть компонент решает
           break;
         case 403:
-          console.error('⛔ 403 Forbidden - недостаточно прав');
+          console.error('⛔ [adminApi] 403 Forbidden - недостаточно прав');
           break;
         case 404:
-          console.error('🔍 404 Not Found - ресурс не найден');
+          console.error('🔍 [adminApi] 404 Not Found - ресурс не найден');
           break;
         case 500:
-          console.error('💥 500 Internal Server Error');
+          console.error('💥 [adminApi] 500 Internal Server Error');
           break;
       }
       
@@ -125,7 +151,12 @@ const apiRequest = async <T>(
   data?: any,
   params?: any
 ): Promise<AdminApiResponse<T>> => {
-  console.log('🚀 apiRequest:', { method, url, data: data ? '***' : undefined, params });
+  console.log('🚀 [adminApi] apiRequest:', { 
+    method, 
+    url, 
+    hasData: !!data,
+    hasParams: !!params 
+  });
   
   try {
     let response: AxiosResponse<AdminApiResponse<T>>;
@@ -156,7 +187,7 @@ const apiRequest = async <T>(
 // API методы для авторизации
 export const authService = {
   login: async (username: string, password: string): Promise<AdminApiResponse> => {
-    console.log('🔐 Начало authService.login для пользователя:', username);
+    console.log('🔐 [authService] login начало для пользователя:', username);
     
     try {
       const response = await apiRequest<{ 
@@ -164,68 +195,71 @@ export const authService = {
         admin?: any;
       }>('post', '/auth/login', { username, password });
       
-      // console.log('✅ authService.login - ответ от сервера:', {
-      //   success: response.success,
-      //   hasToken: !!response.token,
-      //   tokenPreview: response.token ? 
-      //     `${response.token.substring(0, 20)}...${response.token.substring(response.token.length - 10)}` : 
-      //     'Нет токена',
-      //   admin: response.admin ? 'Есть данные админа' : 'Нет данных админа'
-      // });
+      console.log('✅ [authService] login успех:', {
+        success: response.success,
+        hasToken: !!response.token,
+        hasAdmin: !!response.admin,
+        adminUsername: response.admin?.username,
+        adminRole: response.admin?.role
+      });
       
       if (response.success && response.token) {
-        console.log('💾 Сохраняю токен в localStorage');
+        console.log('💾 [authService] Сохраняю токен в localStorage');
         localStorage.setItem('admin_token', response.token);
         
         // Проверяем, что токен сохранился
         const savedToken = localStorage.getItem('admin_token');
-        console.log('✅ Токен сохранен?', !!savedToken);
-        console.log('📏 Длина токена:', savedToken?.length);
+        console.log('✅ [authService] Токен сохранен?', !!savedToken);
+        console.log('📏 [authService] Длина токена:', savedToken?.length);
       } else {
-        console.warn('⚠️ Токен не получен при логине:', response);
+        console.warn('⚠️ [authService] Токен не получен при логине:', response.message);
       }
       
       return response;
     } catch (error: any) {
-      console.error('❌ Ошибка в authService.login:', error.message);
-      // Пробрасываем ошибку для обработки в компоненте
+      console.error('❌ [authService] Ошибка в login:', error.message);
       throw error;
     }
   },
   
   logout: async (): Promise<AdminApiResponse> => {
-    console.log('🚪 Начало authService.logout');
+    console.log('🚪 [authService] logout начало');
     
     try {
       const response = await apiRequest('post', '/auth/logout');
-      console.log('✅ authService.logout - успех');
+      console.log('✅ [authService] logout успех');
       return response;
     } catch (error: any) {
-      console.error('❌ Ошибка в authService.logout:', error.message);
+      console.error('❌ [authService] Ошибка в logout:', error.message);
       // Даже если сервер вернул ошибку, очищаем локально
       throw error;
     } finally {
-      console.log('🧹 Очищаю токен из localStorage');
+      console.log('🧹 [authService] Очищаю токен из localStorage');
       localStorage.removeItem('admin_token');
     }
   },
   
   verify: async (): Promise<AdminApiResponse> => {
-    console.log('🔍 Проверка токена');
+    console.log('🔍 [authService] verify начало');
     
     try {
       const token = localStorage.getItem('admin_token');
-      console.log('📝 Токен в localStorage:', token ? 'Есть' : 'Нет');
+      console.log('📝 [authService] Токен в localStorage:', token ? 'Есть' : 'Нет');
+      console.log('📏 [authService] Длина токена:', token?.length);
       
       if (!token) {
         throw new Error('Токен не найден в localStorage');
       }
       
-      const response = await apiRequest('get', '/auth/verify');
-      console.log('✅ verify - токен валиден');
+      const response = await apiRequest('post', '/auth/verify');
+      console.log('✅ [authService] verify успех:', {
+        success: response.success,
+        hasAdmin: !!response.admin,
+        adminUsername: response.admin?.username
+      });
       return response;
     } catch (error: any) {
-      console.error('❌ Ошибка в verify:', error.message);
+      console.error('❌ [authService] Ошибка в verify:', error.message);
       // Очищаем невалидный токен
       localStorage.removeItem('admin_token');
       throw error;
@@ -233,7 +267,7 @@ export const authService = {
   },
   
   getProfile: async (): Promise<AdminApiResponse> => {
-    console.log('👤 Запрос профиля админа');
+    console.log('👤 [authService] Запрос профиля админа');
     return await apiRequest('get', '/auth/profile');
   },
   
@@ -288,10 +322,23 @@ export const usersService = {
 // API методы для дашборда
 export const dashboardService = {
   getStats: async (): Promise<AdminApiResponse> => {
-    return await apiRequest('get', '/dashboard/stats');
+    console.log('📊 [dashboardService] getStats начало');
+    try {
+      const response = await apiRequest('get', '/dashboard/stats');
+      console.log('✅ [dashboardService] getStats успех:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : []
+      });
+      return response;
+    } catch (error) {
+      console.error('❌ [dashboardService] Ошибка в getStats:', error);
+      throw error;
+    }
   },
   
   getActivity: async (limit: number = 10): Promise<AdminApiResponse> => {
+    console.log('📋 [dashboardService] getActivity начало');
     return await apiRequest('get', '/dashboard/activity', undefined, { limit });
   },
   
@@ -360,23 +407,27 @@ export default adminApi;
 export const adminApiUtils = {
   // Получить текущий токен
   getToken: (): string | null => {
-    return localStorage.getItem('admin_token');
+    const token = localStorage.getItem('admin_token');
+    console.log('🔑 [adminApiUtils] getToken:', token ? 'Есть' : 'Нет');
+    return token;
   },
   
   // Проверить, авторизован ли пользователь
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('admin_token');
+    const isAuth = !!localStorage.getItem('admin_token');
+    console.log('🔐 [adminApiUtils] isAuthenticated:', isAuth);
+    return isAuth;
   },
   
   // Очистить авторизацию
   clearAuth: (): void => {
+    console.log('🧹 [adminApiUtils] clearAuth');
     localStorage.removeItem('admin_token');
-    console.log('🧹 Авторизация очищена');
   },
   
   // Установить токен (например, для тестирования)
   setToken: (token: string): void => {
+    console.log('💾 [adminApiUtils] setToken, длина:', token.length);
     localStorage.setItem('admin_token', token);
-    console.log('✅ Токен установлен вручную');
   }
 };

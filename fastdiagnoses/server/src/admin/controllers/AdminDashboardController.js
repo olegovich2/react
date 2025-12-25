@@ -3,8 +3,17 @@ const { query, getConnection } = require("../../services/databaseService");
 class AdminDashboardController {
   // Получение общей статистики
   static async getStats(req, res) {
+    console.log("📊 [AdminDashboardController.getStats] Запрос статистики:", {
+      adminId: req.admin.id,
+      username: req.admin.username,
+    });
+
     const connection = await getConnection();
     try {
+      console.log(
+        "🔍 [AdminDashboardController.getStats] Начало сбора статистики"
+      );
+
       // 1. Общее количество активных пользователей
       const [usersResult] = await connection.execute(
         'SELECT COUNT(*) as count FROM usersdata WHERE logic = "true"'
@@ -13,8 +22,8 @@ class AdminDashboardController {
       // 2. Активные пользователи (заходили в последние 30 дней)
       const [activeUsersResult] = await connection.execute(
         `SELECT COUNT(*) as count FROM usersdata 
-       WHERE logic = 'true' 
-         AND last_login > DATE_SUB(NOW(), INTERVAL 30 DAY)`
+         WHERE logic = 'true' 
+           AND last_login > DATE_SUB(NOW(), INTERVAL 30 DAY)`
       );
 
       // 3. Подсчет изображений
@@ -22,6 +31,11 @@ class AdminDashboardController {
       try {
         const [users] = await connection.execute(
           "SELECT login FROM usersdata WHERE logic = 'true'"
+        );
+
+        console.log(
+          "🔍 [AdminDashboardController.getStats] Подсчет изображений для пользователей:",
+          users.length
         );
 
         for (const user of users) {
@@ -38,11 +52,17 @@ class AdminDashboardController {
               totalImages += imageCount[0]?.count || 0;
             }
           } catch (tableError) {
-            // Пропускаем если ошибка
+            console.warn(
+              `⚠️ [AdminDashboardController.getStats] Ошибка подсчета изображений для ${tableName}:`,
+              tableError.message
+            );
           }
         }
       } catch (imageError) {
-        console.error("Ошибка подсчета изображений:", imageError);
+        console.error(
+          "❌ [AdminDashboardController.getStats] Ошибка подсчета изображений:",
+          imageError.message
+        );
       }
 
       // 4. Подсчет опросов
@@ -50,6 +70,11 @@ class AdminDashboardController {
       try {
         const [users] = await connection.execute(
           "SELECT login FROM usersdata WHERE logic = 'true'"
+        );
+
+        console.log(
+          "🔍 [AdminDashboardController.getStats] Подсчет опросов для пользователей:",
+          users.length
         );
 
         for (const user of users) {
@@ -66,11 +91,17 @@ class AdminDashboardController {
               totalSurveys += surveyCount[0]?.count || 0;
             }
           } catch (tableError) {
-            // Пропускаем
+            console.warn(
+              `⚠️ [AdminDashboardController.getStats] Ошибка подсчета опросов для ${tableName}:`,
+              tableError.message
+            );
           }
         }
       } catch (surveyError) {
-        console.error("Ошибка подсчета опросов:", surveyError);
+        console.error(
+          "❌ [AdminDashboardController.getStats] Ошибка подсчета опросов:",
+          surveyError.message
+        );
       }
 
       // 5. Использование хранилища (оценка)
@@ -84,8 +115,96 @@ class AdminDashboardController {
       // 6. Новые регистрации за последние 7 дней
       const [newRegistrations] = await connection.execute(
         `SELECT COUNT(*) as count FROM usersdata 
-       WHERE logic = 'true' 
-         AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`
+         WHERE logic = 'true' 
+           AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`
+      );
+
+      // В методе getStats, после сбора статистики добавить:
+      // 7. Получаем последнюю активность
+      let recentActivity = [];
+      try {
+        const [adminLogs] = await connection.execute(
+          `SELECT al.*, au.username as admin_name 
+     FROM admin_logs al
+     LEFT JOIN admin_users au ON al.admin_id = au.id
+     ORDER BY al.created_at DESC 
+     LIMIT 10`
+        );
+
+        const [userLogs] = await connection.execute(
+          `SELECT login, ip_address, success, created_at 
+     FROM login_attempts 
+     WHERE created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)
+     ORDER BY created_at DESC 
+     LIMIT 5`
+        );
+
+        const [registrations] = await connection.execute(
+          `SELECT login, email, created_at 
+     FROM usersdata 
+     WHERE logic = "true" 
+       AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
+     ORDER BY created_at DESC 
+     LIMIT 5`
+        );
+
+        // Формируем массив активности
+        recentActivity = [
+          ...adminLogs.map((log, index) => ({
+            id: `admin_${log.id}`,
+            action: log.action_type,
+            user: log.admin_name || "System",
+            timestamp: log.created_at,
+            ip: log.ip_address,
+            type: "admin",
+          })),
+          ...userLogs.map((log, index) => ({
+            id: `user_${log.login}_${index}`,
+            action: log.success ? "Успешный вход" : "Неудачная попытка входа",
+            user: log.login,
+            timestamp: log.created_at,
+            ip: log.ip_address,
+            type: "user",
+          })),
+          ...registrations.map((reg, index) => ({
+            id: `reg_${reg.login}`,
+            action: "Новая регистрация",
+            user: reg.login,
+            timestamp: reg.created_at,
+            email: reg.email,
+            type: "registration",
+          })),
+        ]
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          .slice(0, 10); // Ограничиваем 10 последними
+
+        console.log(
+          "📋 [AdminDashboardController.getStats] Активность собрана:",
+          {
+            adminLogs: adminLogs.length,
+            userLogs: userLogs.length,
+            registrations: registrations.length,
+            recentActivity: recentActivity.length,
+          }
+        );
+      } catch (activityError) {
+        console.error(
+          "❌ [AdminDashboardController.getStats] Ошибка сбора активности:",
+          activityError.message
+        );
+      }
+
+      console.log(
+        "✅ [AdminDashboardController.getStats] Статистика собрана:",
+        {
+          totalUsers: usersResult[0]?.count || 0,
+          activeUsers: activeUsersResult[0]?.count || 0,
+          totalImages,
+          totalSurveys,
+          storageUsed,
+          recentActivityCount: recentActivity.length,
+          newRegistrations: newRegistrations[0]?.count || 0,
+        }
       );
 
       res.json({
@@ -96,34 +215,72 @@ class AdminDashboardController {
           totalImages: totalImages,
           totalSurveys: totalSurveys,
           storageUsed: storageUsed,
-          recentActivity: [], // Будет заполнено через getRecentActivity
+          recentActivity: recentActivity,
         },
-        // Опционально: дополнительные метрики
         additionalStats: {
           newRegistrations7d: newRegistrations[0]?.count || 0,
           totalStorageMB: storageUsedMB,
         },
       });
     } catch (error) {
-      console.error("❌ Ошибка получения статистики дашборда:", error);
+      console.error(
+        "❌ [AdminDashboardController.getStats] Ошибка получения статистики:",
+        {
+          error: error.message,
+          stack: error.stack,
+          adminId: req.admin.id,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения статистики",
       });
     } finally {
       connection.release();
+      console.log(
+        "🔌 [AdminDashboardController.getStats] Соединение с БД освобождено"
+      );
     }
   }
 
   // Статус сервисов
   static async getServicesStatus(req, res) {
+    console.log(
+      "⚙️ [AdminDashboardController.getServicesStatus] Запрос статуса сервисов:",
+      {
+        adminId: req.admin.id,
+      }
+    );
+
     try {
       // Проверка доступности БД
       const dbCheck = await query("SELECT 1 as status");
       const dbStatus = dbCheck.length > 0 ? "online" : "offline";
 
+      console.log(
+        "🔍 [AdminDashboardController.getServicesStatus] Проверка БД:",
+        {
+          status: dbStatus,
+          connected: dbCheck.length > 0,
+        }
+      );
+
       // Проверка worker сервиса (если есть)
-      const workerStats = require("../../services/workerService").getStats();
+      let workerStats = { activeWorkers: 0, pendingTasks: 0 };
+      try {
+        workerStats = require("../../services/workerService").getStats();
+        console.log(
+          "🔍 [AdminDashboardController.getServicesStatus] Worker сервис:",
+          workerStats
+        );
+      } catch (workerError) {
+        console.warn(
+          "⚠️ [AdminDashboardController.getServicesStatus] Worker сервис недоступен:",
+          workerError.message
+        );
+      }
+
       const workerStatus = workerStats.activeWorkers > 0 ? "online" : "offline";
 
       // Время работы сервера
@@ -131,6 +288,16 @@ class AdminDashboardController {
       const uptimeFormatted = `${Math.floor(uptime / 3600)}ч ${Math.floor(
         (uptime % 3600) / 60
       )}м`;
+
+      console.log(
+        "✅ [AdminDashboardController.getServicesStatus] Статус сервисов готов:",
+        {
+          apiServer: "online",
+          database: dbStatus,
+          workers: workerStatus,
+          uptime: uptimeFormatted,
+        }
+      );
 
       res.json({
         success: true,
@@ -174,7 +341,14 @@ class AdminDashboardController {
         },
       });
     } catch (error) {
-      console.error("❌ Ошибка получения статуса сервисов:", error);
+      console.error(
+        "❌ [AdminDashboardController.getServicesStatus] Ошибка получения статуса сервисов:",
+        {
+          error: error.message,
+          stack: error.stack,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения статуса сервисов",
@@ -184,6 +358,14 @@ class AdminDashboardController {
 
   // Последняя активность
   static async getRecentActivity(req, res) {
+    console.log(
+      "📋 [AdminDashboardController.getRecentActivity] Запрос последней активности:",
+      {
+        adminId: req.admin.id,
+        query: req.query,
+      }
+    );
+
     const connection = await getConnection();
     try {
       // 1. Последние логи админов
@@ -212,6 +394,15 @@ class AdminDashboardController {
          LIMIT 10`
       );
 
+      console.log(
+        "✅ [AdminDashboardController.getRecentActivity] Активность собрана:",
+        {
+          adminLogs: adminLogs.length,
+          userLogs: userLogs.length,
+          registrations: registrations.length,
+        }
+      );
+
       res.json({
         success: true,
         recentActivity: {
@@ -237,38 +428,70 @@ class AdminDashboardController {
         },
       });
     } catch (error) {
-      console.error("❌ Ошибка получения последней активности:", error);
+      console.error(
+        "❌ [AdminDashboardController.getRecentActivity] Ошибка получения последней активности:",
+        {
+          error: error.message,
+          stack: error.stack,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения активности",
       });
     } finally {
       connection.release();
+      console.log(
+        "🔌 [AdminDashboardController.getRecentActivity] Соединение с БД освобождено"
+      );
     }
   }
 
   // Системные ошибки
   static async getSystemErrors(req, res) {
+    console.log(
+      "🚨 [AdminDashboardController.getSystemErrors] Запрос системных ошибок:",
+      {
+        adminId: req.admin.id,
+        query: req.query,
+      }
+    );
+
     try {
       const { limit = 50, severity, resolved } = req.query;
 
-      let query = "SELECT * FROM system_errors WHERE 1=1";
+      console.log(
+        "🔍 [AdminDashboardController.getSystemErrors] Параметры запроса:",
+        {
+          limit,
+          severity,
+          resolved,
+        }
+      );
+
+      let sqlQuery = "SELECT * FROM system_errors WHERE 1=1";
       const params = [];
 
       if (severity) {
-        query += " AND severity = ?";
+        sqlQuery += " AND severity = ?";
         params.push(severity);
       }
 
       if (resolved !== undefined) {
-        query += " AND is_resolved = ?";
+        sqlQuery += " AND is_resolved = ?";
         params.push(resolved === "true");
       }
 
-      query += " ORDER BY created_at DESC LIMIT ?";
+      sqlQuery += " ORDER BY created_at DESC LIMIT ?";
       params.push(parseInt(limit));
 
-      const errors = await query(query, params);
+      console.log(
+        "🔍 [AdminDashboardController.getSystemErrors] SQL запрос:",
+        sqlQuery
+      );
+
+      const errors = await query(sqlQuery, params);
 
       // Статистика по ошибкам
       const [errorStats] = await query(
@@ -279,6 +502,14 @@ class AdminDashboardController {
          FROM system_errors
          WHERE created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)
          GROUP BY severity`
+      );
+
+      console.log(
+        "✅ [AdminDashboardController.getSystemErrors] Ошибки получены:",
+        {
+          total: errors.length,
+          stats: errorStats,
+        }
       );
 
       res.json({
@@ -312,7 +543,14 @@ class AdminDashboardController {
         },
       });
     } catch (error) {
-      console.error("❌ Ошибка получения системных ошибок:", error);
+      console.error(
+        "❌ [AdminDashboardController.getSystemErrors] Ошибка получения системных ошибок:",
+        {
+          error: error.message,
+          stack: error.stack,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения системных ошибок",
@@ -322,9 +560,23 @@ class AdminDashboardController {
 
   // Пометка ошибки как исправленной
   static async markErrorAsResolved(req, res) {
+    console.log(
+      "✅ [AdminDashboardController.markErrorAsResolved] Пометить ошибку как исправленную:",
+      {
+        adminId: req.admin.id,
+        username: req.admin.username,
+        params: req.params,
+      }
+    );
+
     try {
       const { id } = req.params;
       const adminId = req.admin.id;
+
+      console.log(
+        "🔍 [AdminDashboardController.markErrorAsResolved] Ошибка ID:",
+        id
+      );
 
       const result = await query(
         `UPDATE system_errors 
@@ -333,7 +585,19 @@ class AdminDashboardController {
         [adminId, id]
       );
 
+      console.log(
+        "🔍 [AdminDashboardController.markErrorAsResolved] Результат обновления:",
+        {
+          affectedRows: result.affectedRows,
+        }
+      );
+
       if (result.affectedRows === 0) {
+        console.warn(
+          "⚠️ [AdminDashboardController.markErrorAsResolved] Ошибка не найдена:",
+          id
+        );
+
         return res.status(404).json({
           success: false,
           message: "Ошибка не найдена",
@@ -353,12 +617,23 @@ class AdminDashboardController {
         ]
       );
 
+      console.log(
+        "✅ [AdminDashboardController.markErrorAsResolved] Ошибка помечена как исправленная"
+      );
+
       res.json({
         success: true,
         message: "Ошибка помечена как исправленная",
       });
     } catch (error) {
-      console.error("❌ Ошибка пометки ошибки как исправленной:", error);
+      console.error(
+        "❌ [AdminDashboardController.markErrorAsResolved] Ошибка пометки ошибки как исправленной:",
+        {
+          error: error.message,
+          stack: error.stack,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка обновления статуса ошибки",
@@ -368,6 +643,14 @@ class AdminDashboardController {
 
   // Логи администраторов
   static async getAdminLogs(req, res) {
+    console.log(
+      "📝 [AdminDashboardController.getAdminLogs] Запрос логов администраторов:",
+      {
+        adminId: req.admin.id,
+        query: req.query,
+      }
+    );
+
     try {
       const {
         adminId,
@@ -377,7 +660,15 @@ class AdminDashboardController {
         limit = 100,
       } = req.query;
 
-      let query = `
+      console.log("🔍 [AdminDashboardController.getAdminLogs] Параметры:", {
+        adminId,
+        actionType,
+        startDate,
+        endDate,
+        limit,
+      });
+
+      let queryStr = `
         SELECT al.*, au.username as admin_name, au.email as admin_email
         FROM admin_logs al
         LEFT JOIN admin_users au ON al.admin_id = au.id
@@ -386,29 +677,38 @@ class AdminDashboardController {
       const params = [];
 
       if (adminId) {
-        query += " AND al.admin_id = ?";
+        queryStr += " AND al.admin_id = ?";
         params.push(adminId);
       }
 
       if (actionType) {
-        query += " AND al.action_type = ?";
+        queryStr += " AND al.action_type = ?";
         params.push(actionType);
       }
 
       if (startDate) {
-        query += " AND al.created_at >= ?";
+        queryStr += " AND al.created_at >= ?";
         params.push(startDate);
       }
 
       if (endDate) {
-        query += " AND al.created_at <= ?";
+        queryStr += " AND al.created_at <= ?";
         params.push(endDate);
       }
 
-      query += " ORDER BY al.created_at DESC LIMIT ?";
+      queryStr += " ORDER BY al.created_at DESC LIMIT ?";
       params.push(parseInt(limit));
 
-      const logs = await query(query, params);
+      console.log(
+        "🔍 [AdminDashboardController.getAdminLogs] SQL запрос с параметрами:",
+        { queryStr, params }
+      );
+
+      const logs = await query(queryStr, params);
+
+      console.log("✅ [AdminDashboardController.getAdminLogs] Логи получены:", {
+        total: logs.length,
+      });
 
       res.json({
         success: true,
@@ -436,7 +736,14 @@ class AdminDashboardController {
         total: logs.length,
       });
     } catch (error) {
-      console.error("❌ Ошибка получения логов администраторов:", error);
+      console.error(
+        "❌ [AdminDashboardController.getAdminLogs] Ошибка получения логов администраторов:",
+        {
+          error: error.message,
+          stack: error.stack,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения логов",
@@ -446,10 +753,22 @@ class AdminDashboardController {
 
   // Статус воркеров
   static async getWorkersStatus(req, res) {
+    console.log(
+      "👷 [AdminDashboardController.getWorkersStatus] Запрос статуса воркеров:",
+      {
+        adminId: req.admin.id,
+      }
+    );
+
     try {
       // Используем существующий сервис worker'ов
       const workerService = require("../../services/workerService");
       const workerStats = workerService.getStats();
+
+      console.log(
+        "✅ [AdminDashboardController.getWorkersStatus] Статус воркеров получен:",
+        workerStats
+      );
 
       res.json({
         success: true,
@@ -463,7 +782,14 @@ class AdminDashboardController {
             : [],
       });
     } catch (error) {
-      console.error("❌ Ошибка получения статуса воркеров:", error);
+      console.error(
+        "❌ [AdminDashboardController.getWorkersStatus] Ошибка получения статуса воркеров:",
+        {
+          error: error.message,
+          stack: error.stack,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения статуса воркеров",
@@ -478,9 +804,23 @@ class AdminDashboardController {
 
   // Получение настроек системы
   static async getSettings(req, res) {
+    console.log(
+      "⚙️ [AdminDashboardController.getSettings] Запрос настроек системы:",
+      {
+        adminId: req.admin.id,
+      }
+    );
+
     try {
       const settings = await query(
         "SELECT * FROM system_settings ORDER BY category, setting_key"
+      );
+
+      console.log(
+        "✅ [AdminDashboardController.getSettings] Настройки получены:",
+        {
+          total: settings.length,
+        }
       );
 
       const groupedSettings = settings.reduce((acc, setting) => {
@@ -528,7 +868,14 @@ class AdminDashboardController {
         categories: Object.keys(groupedSettings),
       });
     } catch (error) {
-      console.error("❌ Ошибка получения настроек системы:", error);
+      console.error(
+        "❌ [AdminDashboardController.getSettings] Ошибка получения настроек системы:",
+        {
+          error: error.message,
+          stack: error.stack,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения настроек",
@@ -538,12 +885,36 @@ class AdminDashboardController {
 
   // Обновление настроек системы
   static async updateSettings(req, res) {
+    console.log(
+      "⚙️ [AdminDashboardController.updateSettings] Обновление настроек:",
+      {
+        adminId: req.admin.id,
+        username: req.admin.username,
+        bodySize: JSON.stringify(req.body).length,
+      }
+    );
+
     const connection = await getConnection();
     try {
       const { settings } = req.body; // Массив { key, value }
       const adminId = req.admin.id;
 
+      console.log(
+        "🔍 [AdminDashboardController.updateSettings] Настройки для обновления:",
+        {
+          count: settings?.length,
+          settings: settings?.map((s) => ({
+            key: s.key,
+            value: typeof s.value,
+          })),
+        }
+      );
+
       if (!Array.isArray(settings) || settings.length === 0) {
+        console.warn(
+          "⚠️ [AdminDashboardController.updateSettings] Не предоставлены настройки"
+        );
+
         return res.status(400).json({
           success: false,
           message: "Не предоставлены настройки для обновления",
@@ -551,10 +922,21 @@ class AdminDashboardController {
       }
 
       await connection.beginTransaction();
+      console.log(
+        "🔁 [AdminDashboardController.updateSettings] Начало транзакции"
+      );
 
       const updatedSettings = [];
 
       for (const setting of settings) {
+        console.log(
+          "🔧 [AdminDashboardController.updateSettings] Обновление:",
+          {
+            key: setting.key,
+            valueType: typeof setting.value,
+          }
+        );
+
         // Получаем текущую настройку для проверки типа
         const [currentSetting] = await connection.execute(
           "SELECT data_type FROM system_settings WHERE setting_key = ?",
@@ -562,6 +944,9 @@ class AdminDashboardController {
         );
 
         if (currentSetting.length === 0) {
+          console.warn(
+            `⚠️ [AdminDashboardController.updateSettings] Настройка ${setting.key} не найдена`
+          );
           throw new Error(`Настройка ${setting.key} не найдена`);
         }
 
@@ -588,6 +973,15 @@ class AdminDashboardController {
             valueToStore = String(setting.value);
         }
 
+        console.log(
+          "🔧 [AdminDashboardController.updateSettings] Преобразование значения:",
+          {
+            original: typeof setting.value,
+            converted: typeof valueToStore,
+            dataType,
+          }
+        );
+
         const [result] = await connection.execute(
           `UPDATE system_settings 
            SET setting_value = ?, updated_by = ?, updated_at = NOW()
@@ -597,10 +991,20 @@ class AdminDashboardController {
 
         if (result.affectedRows > 0) {
           updatedSettings.push(setting.key);
+          console.log(
+            `✅ [AdminDashboardController.updateSettings] Настройка ${setting.key} обновлена`
+          );
+        } else {
+          console.warn(
+            `⚠️ [AdminDashboardController.updateSettings] Настройка ${setting.key} не обновлена`
+          );
         }
       }
 
       await connection.commit();
+      console.log(
+        "✅ [AdminDashboardController.updateSettings] Транзакция завершена"
+      );
 
       // Логируем изменение настроек
       await connection.execute(
@@ -617,6 +1021,10 @@ class AdminDashboardController {
         ]
       );
 
+      console.log(
+        "✅ [AdminDashboardController.updateSettings] Логирование завершено"
+      );
+
       res.json({
         success: true,
         message: `Обновлено настроек: ${updatedSettings.length}`,
@@ -624,13 +1032,23 @@ class AdminDashboardController {
       });
     } catch (error) {
       await connection.rollback();
-      console.error("❌ Ошибка обновления настроек системы:", error);
+      console.error(
+        "❌ [AdminDashboardController.updateSettings] Ошибка обновления настроек системы:",
+        {
+          error: error.message,
+          stack: error.stack,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: error.message || "Ошибка обновления настроек",
       });
     } finally {
       connection.release();
+      console.log(
+        "🔌 [AdminDashboardController.updateSettings] Соединение с БД освобождено"
+      );
     }
   }
 }

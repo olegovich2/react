@@ -447,11 +447,21 @@ app.post("/api/auth/login", async (req, res) => {
     const login = validateLogin(req.body.login);
     const password = validatePassword(req.body.password);
 
+    // Получаем IP и User-Agent для логирования
+    const userIp = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers["user-agent"] || "Unknown";
+
     const users = await query("SELECT * FROM usersdata WHERE login = ?", [
       login,
     ]);
 
     if (users.length === 0) {
+      // Логирование НЕУДАЧНОЙ попытки - пользователь не существует
+      await query(
+        "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
+        [login, userIp, 0, userAgent]
+      );
+
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return res.status(401).json({
         success: false,
@@ -462,6 +472,12 @@ app.post("/api/auth/login", async (req, res) => {
     const user = users[0];
 
     if (user.logic !== "true") {
+      // Логирование НЕУДАЧНОЙ попытки - аккаунт не активирован
+      await query(
+        "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
+        [login, userIp, 0, userAgent]
+      );
+
       return res.status(403).json({
         success: false,
         message: "Аккаунт не активирован. Проверьте email для подтверждения.",
@@ -470,9 +486,10 @@ app.post("/api/auth/login", async (req, res) => {
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      // Логирование НЕУДАЧНОЙ попытки - неверный пароль
       await query(
-        "INSERT INTO login_attempts (login, ip_address, success) VALUES (?, ?, ?)",
-        [login, req.ip, false]
+        "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
+        [login, userIp, 0, userAgent]
       );
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -481,6 +498,12 @@ app.post("/api/auth/login", async (req, res) => {
         message: "Неверный логин или пароль",
       });
     }
+
+    // Логирование УСПЕШНОЙ попытки входа
+    await query(
+      "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
+      [login, userIp, 1, userAgent]
+    );
 
     await query("UPDATE usersdata SET last_login = NOW() WHERE login = ?", [
       login,

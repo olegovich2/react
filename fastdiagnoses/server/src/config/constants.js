@@ -25,5 +25,6 @@ module.exports = {
     CLEANUP_SESSIONS: "30 2 * * *", // 02:30
     CLEANUP_REGISTRATIONS: "0 3 * * *", // 03:00
     CLEANUP_TOKENS: "0 4 * * *", // 04:00
+    CLEANUP_LOGIN_ATTEMPTS: "0 5 * * *", // 5:00
   },
 };

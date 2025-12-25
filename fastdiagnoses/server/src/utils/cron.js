@@ -30,6 +30,12 @@ function startCleanupSchedule() {
     await cleanupService.cleanupExpiredResetTokens();
   });
 
+  // 4. НОВАЯ ЗАДАЧА: Очистка старых login_attempts - каждый день в 5:00 утра
+  cron.schedule("0 5 * * *", async () => {
+    console.log("⏰ [0 5 * * *] Запуск очистки старых записей login_attempts");
+    await cleanupService.cleanupOldLoginAttempts();
+  });
+
   console.log(
     `   • Истекшие сессии: каждый день в ${config.CRON_SCHEDULES.CLEANUP_SESSIONS}`
   );
@@ -39,6 +45,7 @@ function startCleanupSchedule() {
   console.log(
     `   • Устаревшие токены: каждый день в ${config.CRON_SCHEDULES.CLEANUP_TOKENS}`
   );
+  console.log(`   • Старые login_attempts: каждый день в 0 5 * * *`);
   console.log(`   • Время сервера: ${new Date().toString()}`);
 }
 

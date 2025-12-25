@@ -8,6 +8,7 @@ export interface AdminUser {
   username: string;
   email: string;
   role: 'admin' | 'moderator';
+  fullName?: string;
   createdAt: string;
   lastLogin: string | null;
   isActive: boolean;
@@ -51,16 +52,12 @@ export interface ApiResponse<T = any> {
 // Для админ-панели (с токеном)
 export interface AdminApiResponse<T = any> extends ApiResponse<T> {
   token?: string;
+  admin?: AdminUser; // Добавлено поле admin
 }
 
 // Для авторизации
 export interface AuthResponse extends AdminApiResponse {
-  user?: {
-    id: number;
-    username: string;
-    email: string;
-    role: string;
-  };
+  admin?: AdminUser; // Исправлено с user на admin
 }
 
 // Для пагинации

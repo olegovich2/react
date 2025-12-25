@@ -1,9 +1,17 @@
-import React from 'react';
-import { useAdminAuth } from '../../../hooks/useAdminAuth';
+import React, { useEffect } from 'react';
+import { useAdminAuth } from '../../../../hooks/useAdminAuth';
 import './Header.css';
 
 const Header: React.FC = () => {
   const { user } = useAdminAuth();
+  
+  useEffect(() => {
+    console.log('👤 [Header] Пользователь в Header:', {
+      username: user?.username,
+      role: user?.role,
+      hasUser: !!user
+    });
+  }, [user]);
   
   const currentTime = new Date().toLocaleTimeString('ru-RU', {
     hour: '2-digit',
@@ -43,7 +51,9 @@ const Header: React.FC = () => {
           </div>
           <div className="admin-header-user-info">
             <div className="admin-header-user-name">{user?.username || 'Администратор'}</div>
-            <div className="admin-header-user-role">{user?.role === 'admin' ? 'Администратор' : 'Модератор'}</div>
+            <div className="admin-header-user-role">
+              {user?.role === 'admin' ? 'Администратор' : 'Модератор'}
+            </div>
           </div>
         </div>
       </div>

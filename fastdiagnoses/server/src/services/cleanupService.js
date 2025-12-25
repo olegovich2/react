@@ -107,8 +107,43 @@ async function cleanupExpiredResetTokens() {
   }
 }
 
+// Очистка старых записей login_attempts (старше 90 дней)
+async function cleanupOldLoginAttempts() {
+  const operationId = Date.now();
+  console.log(`🧹 Начало очистки login_attempts [ID: ${operationId}]`);
+
+  try {
+    const startTime = Date.now();
+
+    // Удаляем записи старше 90 дней
+    const result = await query(
+      "DELETE FROM login_attempts WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)"
+    );
+
+    const deletedCount = result.affectedRows || 0;
+    const executionTime = Date.now() - startTime;
+
+    console.log(
+      `✅ Очистка login_attempts завершена [ID: ${operationId}]\n` +
+        `   📊 Удалено записей: ${deletedCount}\n` +
+        `   ⏱️  Время выполнения: ${executionTime}ms\n` +
+        `   🕒 Время сервера: ${new Date().toLocaleTimeString()}\n` +
+        `   📅 Удалены записи старше: 90 дней`
+    );
+
+    return deletedCount;
+  } catch (error) {
+    console.error(
+      `❌ Ошибка очистки login_attempts [ID: ${operationId}]:`,
+      error.message
+    );
+    return 0;
+  }
+}
+
 module.exports = {
   cleanupExpiredSessions,
   cleanupExpiredRegistrations,
   cleanupExpiredResetTokens,
+  cleanupOldLoginAttempts,
 };

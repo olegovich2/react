@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { dashboardService } from '../../services/adminApi';
-import { DashboardStats } from '../../types';
-import './Dashboard.css';
+import React, { useState, useEffect } from "react";
+import { dashboardService } from "../../services/adminApi";
+import { DashboardStats } from "../../types";
+import "./Dashboard.css";
 
 const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -9,36 +9,42 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("📊 [Dashboard] Компонент смонтирован");
     fetchDashboardStats();
   }, []);
 
   const fetchDashboardStats = async () => {
-    console.log('🔄 Начинаю обновление статистики...');
+    console.log("🔄 [Dashboard] Начинаю обновление статистики...");
     setIsLoading(true);
     setError(null);
-    
+
     try {
-       console.log('📡 Отправляю запрос к API...');
-    const response = await dashboardService.getStats();
-    console.log('✅ Ответ от API:', response);
-      
+      console.log("📡 [Dashboard] Отправляю запрос к API...");
+      const response = await dashboardService.getStats();
+      console.log("✅ [Dashboard] Ответ от API:", {
+        success: response.success,
+        hasData: !!response.data,
+        data: response.data,
+      });
+
       if (response.success && response.data) {
-        console.log('📊 Данные получены:', response.data);
+        console.log("📊 [Dashboard] Данные получены:", response.data);
         setStats(response.data as DashboardStats);
       } else {
-        console.error('❌ Ошибка в ответе:', response);
-        setError(response.message || 'Не удалось загрузить статистику');
+        console.error("❌ [Dashboard] Ошибка в ответе:", response.message);
+        setError(response.message || "Не удалось загрузить статистику");
       }
     } catch (error: any) {
-      console.error('💥 Ошибка при обновлении:', error);
-      setError(error.message || 'Ошибка при загрузке данных');
+      console.error("💥 [Dashboard] Ошибка при обновлении:", error.message);
+      setError(error.message || "Ошибка при загрузке данных");
     } finally {
-      console.log('🏁 Завершено обновление');
+      console.log("🏁 [Dashboard] Завершено обновление");
       setIsLoading(false);
     }
   };
 
   if (isLoading) {
+    console.log("⏳ [Dashboard] Показываем загрузку");
     return (
       <div className="admin-dashboard">
         <div className="admin-dashboard-loading">
@@ -50,6 +56,7 @@ const Dashboard: React.FC = () => {
   }
 
   if (error) {
+    console.log("❌ [Dashboard] Показываем ошибку:", error);
     return (
       <div className="admin-dashboard">
         <div className="admin-dashboard-error">
@@ -57,7 +64,7 @@ const Dashboard: React.FC = () => {
           <div className="admin-dashboard-error-content">
             <h3>Ошибка загрузки</h3>
             <p>{error}</p>
-            <button 
+            <button
               onClick={fetchDashboardStats}
               className="admin-dashboard-retry-button"
             >
@@ -69,11 +76,12 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  console.log("✅ [Dashboard] Показываем данные статистики");
   return (
     <div className="admin-dashboard">
       <div className="admin-dashboard-header">
         <h2 className="admin-dashboard-title">Общая статистика системы</h2>
-        <button 
+        <button
           onClick={fetchDashboardStats}
           className="admin-dashboard-refresh-button"
           title="Обновить данные"
@@ -103,9 +111,7 @@ const Dashboard: React.FC = () => {
             <div className="admin-dashboard-stat-value">
               {stats?.totalImages || 0}
             </div>
-            <div className="admin-dashboard-stat-subtitle">
-              Загружено всего
-            </div>
+            <div className="admin-dashboard-stat-subtitle">Загружено всего</div>
           </div>
         </div>
 
@@ -116,9 +122,7 @@ const Dashboard: React.FC = () => {
             <div className="admin-dashboard-stat-value">
               {stats?.totalSurveys || 0}
             </div>
-            <div className="admin-dashboard-stat-subtitle">
-              Заполнено анкет
-            </div>
+            <div className="admin-dashboard-stat-subtitle">Заполнено анкет</div>
           </div>
         </div>
 
@@ -127,7 +131,7 @@ const Dashboard: React.FC = () => {
           <div className="admin-dashboard-stat-content">
             <h3 className="admin-dashboard-stat-title">Хранилище</h3>
             <div className="admin-dashboard-stat-value">
-              {stats?.storageUsed || '0 MB'}
+              {stats?.storageUsed || "0 MB"}
             </div>
             <div className="admin-dashboard-stat-subtitle">
               Использовано диска
@@ -138,12 +142,14 @@ const Dashboard: React.FC = () => {
 
       <div className="admin-dashboard-section">
         <div className="admin-dashboard-section-header">
-          <h3 className="admin-dashboard-section-title">Последняя активность</h3>
+          <h3 className="admin-dashboard-section-title">
+            Последняя активность
+          </h3>
           <span className="admin-dashboard-section-count">
             {stats?.recentActivity?.length || 0} записей
           </span>
         </div>
-        
+
         {stats?.recentActivity && stats.recentActivity.length > 0 ? (
           <div className="admin-dashboard-activity-list">
             {stats.recentActivity.map((activity) => (
@@ -175,7 +181,9 @@ const Dashboard: React.FC = () => {
         ) : (
           <div className="admin-dashboard-empty">
             <div className="admin-dashboard-empty-icon">📭</div>
-            <p className="admin-dashboard-empty-text">Нет данных об активности</p>
+            <p className="admin-dashboard-empty-text">
+              Нет данных об активности
+            </p>
           </div>
         )}
       </div>
@@ -183,13 +191,17 @@ const Dashboard: React.FC = () => {
       <div className="admin-dashboard-footer">
         <div className="admin-dashboard-system-info">
           <div className="admin-dashboard-system-item">
-            <span className="admin-dashboard-system-label">Версия системы:</span>
+            <span className="admin-dashboard-system-label">
+              Версия системы:
+            </span>
             <span className="admin-dashboard-system-value">2.0.0</span>
           </div>
           <div className="admin-dashboard-system-item">
-            <span className="admin-dashboard-system-label">Последнее обновление:</span>
+            <span className="admin-dashboard-system-label">
+              Последнее обновление:
+            </span>
             <span className="admin-dashboard-system-value">
-              {new Date().toLocaleDateString('ru-RU')}
+              {new Date().toLocaleDateString("ru-RU")}
             </span>
           </div>
         </div>
@@ -200,12 +212,12 @@ const Dashboard: React.FC = () => {
 
 // Вспомогательные функции
 const getActivityIcon = (action: string): string => {
-  if (action.includes('вошел') || action.includes('логин')) return '🔐';
-  if (action.includes('загрузил')) return '📤';
-  if (action.includes('удалил')) return '🗑️';
-  if (action.includes('создал')) return '➕';
-  if (action.includes('изменил')) return '✏️';
-  return '📝';
+  if (action.includes("вошел") || action.includes("логин")) return "🔐";
+  if (action.includes("загрузил")) return "📤";
+  if (action.includes("удалил")) return "🗑️";
+  if (action.includes("создал")) return "➕";
+  if (action.includes("изменил")) return "✏️";
+  return "📝";
 };
 
 const formatTime = (timestamp: string): string => {
@@ -216,16 +228,16 @@ const formatTime = (timestamp: string): string => {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'только что';
+  if (diffMins < 1) return "только что";
   if (diffMins < 60) return `${diffMins} мин назад`;
   if (diffHours < 24) return `${diffHours} ч назад`;
   if (diffDays < 7) return `${diffDays} дн назад`;
-  
-  return date.toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
+
+  return date.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
   });
 };
 
-Dashboard.displayName = 'Dashboard';
+Dashboard.displayName = "Dashboard";
 export default Dashboard;

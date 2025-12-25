@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAdminAuth } from '../../../hooks/useAdminAuth';
+import { useAdminAuth } from '../../../../hooks/useAdminAuth';
 import './Sidebar.css';
 
 const Sidebar: React.FC = () => {
@@ -9,7 +9,6 @@ const Sidebar: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
-    sessionStorage.removeItem('admin_token');
     navigate('/admin/login');
   };
 
@@ -34,6 +33,7 @@ const Sidebar: React.FC = () => {
           <NavLink
             key={item.path}
             to={item.path}
+            end={item.path === '/admin/'} // ВАЖНО: end для точного совпадения
             className={({ isActive }) => 
               `admin-sidebar-nav-link ${isActive ? 'admin-sidebar-nav-link-active' : ''}`
             }
