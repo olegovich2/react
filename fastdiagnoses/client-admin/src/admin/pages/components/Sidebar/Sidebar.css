@@ -1,0 +1,233 @@
+/* Sidebar.css - Стили для компонента Sidebar */
+
+/* ==================== ОСНОВНОЙ БОКОВОЙ БАР ==================== */
+.admin-sidebar {
+    width: 260px;
+    background: linear-gradient(180deg, rgb(66, 73, 75) 0%, rgb(88, 96, 98) 100%);
+    color: rgb(183, 222, 234);
+    display: flex;
+    flex-direction: column;
+    border-right: 3px solid rgb(88, 96, 98);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== ЛОГОТИП ==================== */
+.admin-sidebar-logo {
+    padding: 25px 20px;
+    border-bottom: 2px solid rgba(183, 222, 234, 0.2);
+    text-align: center;
+    background-color: rgb(66, 73, 75);
+}
+
+.admin-sidebar-logo-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.admin-sidebar-logo-text {
+    font-size: 20px;
+    font-weight: 900;
+    margin-bottom: 6px;
+    color: rgb(183, 222, 234);
+    letter-spacing: 0.5px;
+}
+
+.admin-sidebar-logo-subtext {
+    font-size: 13px;
+    color: rgba(183, 222, 234, 0.8);
+    font-weight: 600;
+    margin: 0;
+}
+
+/* ==================== НАВИГАЦИЯ ==================== */
+.admin-sidebar-nav {
+    flex: 1;
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Ссылки навигации */
+.admin-sidebar-nav-link {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    color: rgb(183, 222, 234);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    margin: 0 10px;
+    border-radius: 6px;
+}
+
+.admin-sidebar-nav-link:hover:not(.admin-sidebar-nav-link-active) {
+    background-color: rgba(183, 222, 234, 0.1);
+    border-left: 4px solid rgb(183, 222, 234);
+    transform: translateX(2px);
+}
+
+.admin-sidebar-nav-link-active {
+    background-color: rgba(183, 222, 234, 0.2);
+    border-left: 4px solid rgb(183, 222, 234);
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Иконки и текст */
+.admin-sidebar-nav-icon {
+    font-size: 20px;
+    margin-right: 14px;
+    width: 24px;
+    text-align: center;
+}
+
+.admin-sidebar-nav-label {
+    flex: 1;
+}
+
+/* ==================== ФУТЕР (КНОПКА ВЫХОДА) ==================== */
+.admin-sidebar-footer {
+    padding: 20px;
+    border-top: 2px solid rgba(183, 222, 234, 0.2);
+    background-color: rgb(66, 73, 75);
+}
+
+.admin-sidebar-logout-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, rgb(184, 198, 202), rgb(88, 96, 98));
+    color: rgb(183, 222, 234);
+    border: 2px solid rgb(88, 96, 98);
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Montserrat', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    gap: 10px;
+}
+
+.admin-sidebar-logout-button:hover {
+    background: linear-gradient(135deg, rgb(88, 96, 98), rgb(66, 73, 75));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.admin-sidebar-logout-icon {
+    font-size: 18px;
+}
+
+.admin-sidebar-logout-text {
+    flex: 1;
+    text-align: center;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 1024px) {
+    .admin-sidebar {
+        width: 220px;
+    }
+    
+    .admin-sidebar-nav-link {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+    
+    .admin-sidebar-nav-icon {
+        font-size: 18px;
+        margin-right: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 3px solid rgb(88, 96, 98);
+    }
+    
+    .admin-sidebar-logo {
+        padding: 20px;
+    }
+    
+    .admin-sidebar-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 15px;
+        gap: 8px;
+        justify-content: center;
+    }
+    
+    .admin-sidebar-nav-link {
+        flex-direction: column;
+        padding: 12px 15px;
+        min-width: 100px;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        margin: 0;
+        text-align: center;
+    }
+    
+    .admin-sidebar-nav-link:hover:not(.admin-sidebar-nav-link-active) {
+        border-left: none;
+        border-bottom: 3px solid rgb(183, 222, 234);
+        transform: translateY(-2px);
+    }
+    
+    .admin-sidebar-nav-link-active {
+        border-left: none;
+        border-bottom: 3px solid rgb(183, 222, 234);
+    }
+    
+    .admin-sidebar-nav-icon {
+        margin-right: 0;
+        margin-bottom: 6px;
+        font-size: 22px;
+    }
+    
+    .admin-sidebar-nav-label {
+        font-size: 13px;
+    }
+    
+    .admin-sidebar-footer {
+        padding: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-sidebar-logo-text {
+        font-size: 18px;
+    }
+    
+    .admin-sidebar-nav {
+        padding: 10px;
+        gap: 6px;
+    }
+    
+    .admin-sidebar-nav-link {
+        padding: 10px;
+        min-width: 85px;
+    }
+    
+    .admin-sidebar-nav-icon {
+        font-size: 20px;
+        margin-bottom: 4px;
+    }
+    
+    .admin-sidebar-nav-label {
+        font-size: 12px;
+    }
+    
+    .admin-sidebar-logout-button {
+        padding: 10px;
+        font-size: 14px;
+    }
+}

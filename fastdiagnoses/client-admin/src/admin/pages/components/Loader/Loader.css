@@ -1,0 +1,86 @@
+/* Loader.css - Стили для компонента Loader */
+
+/* ==================== ОСНОВНОЙ КОНТЕЙНЕР ==================== */
+.admin-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(183, 222, 234, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+}
+
+.admin-loader-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    background-color: white;
+    padding: 40px;
+    border-radius: 12px;
+    border: 3px solid rgb(88, 96, 98);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* ==================== СПИННЕР ==================== */
+.admin-loader-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgb(183, 222, 234);
+    border-top: 4px solid rgb(88, 96, 98);
+    border-radius: 50%;
+    animation: admin-loader-spin 1s linear infinite;
+}
+
+/* ==================== ТЕКСТ ==================== */
+.admin-loader-text {
+    color: rgb(88, 96, 98);
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* ==================== АНИМАЦИЯ ==================== */
+@keyframes admin-loader-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+    .admin-loader-content {
+        padding: 30px;
+    }
+    
+    .admin-loader-spinner {
+        width: 50px;
+        height: 50px;
+        border-width: 3px;
+    }
+    
+    .admin-loader-text {
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-loader-content {
+        padding: 25px 20px;
+        border-radius: 10px;
+    }
+    
+    .admin-loader-spinner {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .admin-loader-text {
+        font-size: 14px;
+    }
+}

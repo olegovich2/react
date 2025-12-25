@@ -1,0 +1,47 @@
+/* AdminLayout.css - Стили для компонента AdminLayout */
+
+/* ==================== ОСНОВНОЙ КОНТЕЙНЕР ==================== */
+.admin-layout {
+    display: flex;
+    min-height: 100vh;
+    background-color: rgb(183, 222, 234);
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* ==================== ОСНОВНОЕ СОДЕРЖИМОЕ ==================== */
+.admin-layout-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #f5f5f5;
+    border-left: 2px solid rgb(88, 96, 98);
+}
+
+.admin-layout-content {
+    flex: 1;
+    padding: 25px;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+    .admin-layout {
+        flex-direction: column;
+    }
+    
+    .admin-layout-main {
+        border-left: none;
+        border-top: 2px solid rgb(88, 96, 98);
+    }
+    
+    .admin-layout-content {
+        padding: 20px 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-layout-content {
+        padding: 15px 10px;
+    }
+}

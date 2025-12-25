@@ -482,6 +482,10 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
+    await query("UPDATE usersdata SET last_login = NOW() WHERE login = ?", [
+      login,
+    ]);
+
     const sessionToken = jwt.sign({ login: user.login }, JWT_SECRET_TWO, {
       expiresIn: "2h",
     });

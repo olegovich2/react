@@ -16,14 +16,14 @@ router.get("/auth/profile", isAdmin, AdminAuthController.getProfile);
 // ==================== ДАШБОРД ====================
 router.get("/dashboard/stats", isAdmin, AdminDashboardController.getStats);
 router.get(
+  "/dashboard/activity",
+  isAdmin,
+  AdminDashboardController.getRecentActivity
+); // ← ИСПРАВЛЕННЫЙ РОУТ
+router.get(
   "/dashboard/services",
   isAdmin,
   AdminDashboardController.getServicesStatus
-);
-router.get(
-  "/dashboard/recent-activity",
-  isAdmin,
-  AdminDashboardController.getRecentActivity
 );
 
 // ==================== ПОЛЬЗОВАТЕЛИ ====================

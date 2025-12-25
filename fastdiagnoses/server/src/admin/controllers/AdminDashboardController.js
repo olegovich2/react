@@ -10,62 +10,98 @@ class AdminDashboardController {
         'SELECT COUNT(*) as count FROM usersdata WHERE logic = "true"'
       );
 
-      // 2. Активные сессии (последние 24 часа)
-      const [sessionsResult] = await connection.execute(
-        `SELECT COUNT(*) as count FROM sessionsdata 
-         WHERE DATE_ADD(date, INTERVAL 2 HOUR) > NOW()`
+      // 2. Активные пользователи (заходили в последние 30 дней)
+      const [activeUsersResult] = await connection.execute(
+        `SELECT COUNT(*) as count FROM usersdata 
+       WHERE logic = 'true' 
+         AND last_login > DATE_SUB(NOW(), INTERVAL 30 DAY)`
       );
 
-      // 3. Общее количество загруженных файлов
-      const [filesResult] = await connection.execute(
-        `SELECT SUM(total_files) as total FROM (
-          SELECT COUNT(*) as total_files FROM information_schema.tables 
-          WHERE table_schema = DATABASE() 
-            AND table_name NOT LIKE '%admin%' 
-            AND table_name NOT IN ('usersdata', 'sessionsdata', 'alldiagnoses', 'login_attempts', 'password_resets')
-          UNION ALL
-          SELECT COUNT(*) FROM information_schema.COLUMNS 
-          WHERE table_schema = DATABASE() 
-            AND table_name LIKE 'user_%' 
-            AND column_name = 'fileNameOriginIMG'
-        ) as file_counts`
-      );
+      // 3. Подсчет изображений
+      let totalImages = 0;
+      try {
+        const [users] = await connection.execute(
+          "SELECT login FROM usersdata WHERE logic = 'true'"
+        );
 
-      // 4. Критические ошибки
-      const [errorsResult] = await connection.execute(
-        `SELECT COUNT(*) as count FROM system_errors 
-         WHERE is_resolved = FALSE 
-           AND severity IN ('high', 'critical') 
-           AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`
-      );
+        for (const user of users) {
+          const tableName = user.login;
+          try {
+            const [tableExists] = await connection.execute(
+              `SHOW TABLES LIKE '${tableName}'`
+            );
 
-      // 5. Новые регистрации за последние 7 дней
+            if (tableExists.length > 0) {
+              const [imageCount] = await connection.execute(
+                `SELECT COUNT(*) as count FROM \`${tableName}\` WHERE type = 'image' OR fileNameOriginIMG IS NOT NULL`
+              );
+              totalImages += imageCount[0]?.count || 0;
+            }
+          } catch (tableError) {
+            // Пропускаем если ошибка
+          }
+        }
+      } catch (imageError) {
+        console.error("Ошибка подсчета изображений:", imageError);
+      }
+
+      // 4. Подсчет опросов
+      let totalSurveys = 0;
+      try {
+        const [users] = await connection.execute(
+          "SELECT login FROM usersdata WHERE logic = 'true'"
+        );
+
+        for (const user of users) {
+          const tableName = user.login;
+          try {
+            const [tableExists] = await connection.execute(
+              `SHOW TABLES LIKE '${tableName}'`
+            );
+
+            if (tableExists.length > 0) {
+              const [surveyCount] = await connection.execute(
+                `SELECT COUNT(*) as count FROM \`${tableName}\` WHERE type = 'survey' OR survey IS NOT NULL`
+              );
+              totalSurveys += surveyCount[0]?.count || 0;
+            }
+          } catch (tableError) {
+            // Пропускаем
+          }
+        }
+      } catch (surveyError) {
+        console.error("Ошибка подсчета опросов:", surveyError);
+      }
+
+      // 5. Использование хранилища (оценка)
+      const avgImageSize = 2.5; // средний размер изображения в MB
+      const storageUsedMB = totalImages * avgImageSize;
+      const storageUsed =
+        storageUsedMB > 1024
+          ? `${(storageUsedMB / 1024).toFixed(1)} GB`
+          : `${Math.round(storageUsedMB)} MB`;
+
+      // 6. Новые регистрации за последние 7 дней
       const [newRegistrations] = await connection.execute(
         `SELECT COUNT(*) as count FROM usersdata 
-         WHERE logic = "true" 
-           AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`
-      );
-
-      // 6. Запросы на смену email
-      const [emailRequests] = await connection.execute(
-        `SELECT COUNT(*) as count FROM email_change_requests 
-         WHERE status = 'pending'`
+       WHERE logic = 'true' 
+         AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`
       );
 
       res.json({
         success: true,
-        stats: {
+        data: {
           totalUsers: usersResult[0]?.count || 0,
-          activeSessions: sessionsResult[0]?.count || 0,
-          totalFiles: filesResult[0]?.total || 0,
-          criticalErrors: errorsResult[0]?.count || 0,
-          newRegistrations: newRegistrations[0]?.count || 0,
-          pendingEmailRequests: emailRequests[0]?.count || 0,
+          activeUsers: activeUsersResult[0]?.count || 0,
+          totalImages: totalImages,
+          totalSurveys: totalSurveys,
+          storageUsed: storageUsed,
+          recentActivity: [], // Будет заполнено через getRecentActivity
         },
-        trends: {
-          usersGrowth: "+12%", // В реальности считать из БД
-          activityGrowth: "+5%",
-          errorRate: "0.5%",
+        // Опционально: дополнительные метрики
+        additionalStats: {
+          newRegistrations7d: newRegistrations[0]?.count || 0,
+          totalStorageMB: storageUsedMB,
         },
       });
     } catch (error) {

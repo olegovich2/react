@@ -1,0 +1,192 @@
+/* UsersPage.css - Стили для компонента UsersPage */
+
+/* ==================== ОСНОВНОЙ КОНТЕЙНЕР ==================== */
+.admin-users-page {
+    padding: 20px;
+    background-color: #f8f9fa;
+    min-height: 100%;
+}
+
+/* ==================== ЗАГОЛОВОК ==================== */
+.admin-users-page-header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid rgb(88, 96, 98);
+}
+
+.admin-users-page-title {
+    color: rgb(66, 73, 75);
+    font-size: 28px;
+    font-weight: 900;
+    margin: 0 0 8px 0;
+}
+
+.admin-users-page-subtitle {
+    color: rgb(88, 96, 98);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    opacity: 0.8;
+}
+
+/* ==================== КОНТЕНТ ==================== */
+.admin-users-page-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+}
+
+/* ==================== ЗАГЛУШКА ==================== */
+.admin-users-page-placeholder {
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+    background: linear-gradient(135deg, rgb(183, 222, 234) 0%, rgb(184, 198, 202) 100%);
+    border: 3px solid rgb(88, 96, 98);
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.admin-users-page-placeholder-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.admin-users-page-placeholder-title {
+    color: rgb(66, 73, 75);
+    font-size: 24px;
+    font-weight: 900;
+    margin: 0 0 15px 0;
+}
+
+.admin-users-page-placeholder-description {
+    color: rgb(88, 96, 98);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 30px 0;
+    line-height: 1.6;
+    opacity: 0.9;
+}
+
+/* ==================== СТАТИСТИКА ЗАГЛУШКИ ==================== */
+.admin-users-page-placeholder-stats {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.admin-users-page-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 100px;
+}
+
+.admin-users-page-stat-value {
+    color: rgb(66, 73, 75);
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 6px;
+}
+
+.admin-users-page-stat-label {
+    color: rgb(88, 96, 98);
+    font-size: 14px;
+    font-weight: 700;
+    background-color: rgba(255, 255, 255, 0.5);
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid rgb(183, 222, 234);
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 768px) {
+    .admin-users-page {
+        padding: 15px;
+    }
+    
+    .admin-users-page-title {
+        font-size: 24px;
+    }
+    
+    .admin-users-page-subtitle {
+        font-size: 15px;
+    }
+    
+    .admin-users-page-placeholder {
+        padding: 30px 25px;
+    }
+    
+    .admin-users-page-placeholder-icon {
+        font-size: 56px;
+    }
+    
+    .admin-users-page-placeholder-title {
+        font-size: 22px;
+    }
+    
+    .admin-users-page-placeholder-description {
+        font-size: 15px;
+    }
+    
+    .admin-users-page-placeholder-stats {
+        gap: 20px;
+    }
+    
+    .admin-users-page-stat {
+        min-width: 80px;
+    }
+    
+    .admin-users-page-stat-value {
+        font-size: 28px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-users-page {
+        padding: 10px;
+    }
+    
+    .admin-users-page-header {
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+    }
+    
+    .admin-users-page-title {
+        font-size: 22px;
+    }
+    
+    .admin-users-page-subtitle {
+        font-size: 14px;
+    }
+    
+    .admin-users-page-placeholder {
+        padding: 25px 20px;
+        border-radius: 10px;
+    }
+    
+    .admin-users-page-placeholder-icon {
+        font-size: 48px;
+    }
+    
+    .admin-users-page-placeholder-title {
+        font-size: 20px;
+    }
+    
+    .admin-users-page-placeholder-description {
+        font-size: 14px;
+        margin-bottom: 25px;
+    }
+    
+    .admin-users-page-placeholder-stats {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .admin-users-page-stat {
+        min-width: auto;
+    }
+}

@@ -1,0 +1,239 @@
+/* Header.css - Стили для компонента Header */
+
+/* ==================== ОСНОВНОЙ ХЕДЕР ==================== */
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    background: linear-gradient(90deg, rgb(183, 222, 234) 0%, rgb(184, 198, 202) 100%);
+    border-bottom: 3px solid rgb(88, 96, 98);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== ЛЕВАЯ ЧАСТЬ ==================== */
+.admin-header-left {
+    flex: 1;
+}
+
+.admin-header-welcome {
+    max-width: 500px;
+}
+
+.admin-header-title {
+    color: rgb(88, 96, 98);
+    font-size: 24px;
+    font-weight: 900;
+    margin-bottom: 6px;
+}
+
+.admin-header-subtitle {
+    color: rgb(88, 96, 98);
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    opacity: 0.9;
+}
+
+.admin-header-subtitle strong {
+    color: rgb(66, 73, 75);
+}
+
+/* ==================== ПРАВАЯ ЧАСТЬ ==================== */
+.admin-header-right {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+}
+
+/* Время и дата */
+.admin-header-time {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 2px solid rgb(88, 96, 98);
+    min-width: 180px;
+}
+
+.admin-header-clock {
+    font-size: 24px;
+}
+
+.admin-header-time-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-header-current-time {
+    color: rgb(66, 73, 75);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.admin-header-current-date {
+    color: rgb(88, 96, 98);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+/* Информация о пользователе */
+.admin-header-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 2px solid rgb(88, 96, 98);
+    min-width: 200px;
+}
+
+.admin-header-user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgb(88, 96, 98), rgb(66, 73, 75));
+    color: rgb(183, 222, 234);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    flex-shrink: 0;
+}
+
+.admin-header-user-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.admin-header-user-name {
+    color: rgb(66, 73, 75);
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-header-user-role {
+    color: rgb(88, 96, 98);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 1024px) {
+    .admin-header {
+        padding: 18px 20px;
+    }
+    
+    .admin-header-right {
+        gap: 20px;
+    }
+    
+    .admin-header-time,
+    .admin-header-user {
+        min-width: 160px;
+    }
+    
+    .admin-header-title {
+        font-size: 22px;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
+        padding: 20px;
+    }
+    
+    .admin-header-left {
+        text-align: center;
+    }
+    
+    .admin-header-welcome {
+        max-width: 100%;
+    }
+    
+    .admin-header-right {
+        justify-content: space-between;
+        gap: 15px;
+    }
+    
+    .admin-header-time,
+    .admin-header-user {
+        min-width: auto;
+        flex: 1;
+    }
+    
+    .admin-header-time {
+        justify-content: center;
+    }
+    
+    .admin-header-user {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-header {
+        padding: 15px;
+        gap: 15px;
+    }
+    
+    .admin-header-title {
+        font-size: 20px;
+    }
+    
+    .admin-header-subtitle {
+        font-size: 13px;
+    }
+    
+    .admin-header-right {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .admin-header-time,
+    .admin-header-user {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .admin-header-current-time {
+        font-size: 16px;
+    }
+    
+    .admin-header-current-date {
+        font-size: 11px;
+    }
+    
+    .admin-header-user-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+    }
+    
+    .admin-header-user-name {
+        font-size: 14px;
+    }
+    
+    .admin-header-user-role {
+        font-size: 11px;
+    }
+}
