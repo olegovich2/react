@@ -459,10 +459,10 @@ app.post("/api/auth/login", async (req, res) => {
 
     if (users.length === 0) {
       // Логирование НЕУДАЧНОЙ попытки - пользователь не существует
-      await query(
-        "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
-        [login, userIp, 0, userAgent]
-      );
+      // await query(
+      //   "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
+      //   [login, userIp, 0, userAgent]
+      // );
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return res.status(401).json({
@@ -531,21 +531,21 @@ app.post("/api/auth/login", async (req, res) => {
         );
 
         // 2. И в admin_logs для полного аудита
-        await query(
-          `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            0, // system
-            "auto_unblock",
-            "user",
-            login,
-            JSON.stringify({
-              original_block_until: user.blocked_until,
-              reason: "block_expired",
-              auto_unblocked: true,
-            }),
-          ]
-        );
+        // await query(
+        //   `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details)
+        //    VALUES (?, ?, ?, ?, ?)`,
+        //   [
+        //     0, // system
+        //     "auto_unblock",
+        //     "user",
+        //     login,
+        //     JSON.stringify({
+        //       original_block_until: user.blocked_until,
+        //       reason: "block_expired",
+        //       auto_unblocked: true,
+        //     }),
+        //   ]
+        // );
 
         // Обновляем объект пользователя
         user.blocked = 0;
@@ -557,10 +557,10 @@ app.post("/api/auth/login", async (req, res) => {
     // Проверка активации аккаунта (logic поле)
     if (user.logic !== "true") {
       // Логирование НЕУДАЧНОЙ попытки - аккаунт не активирован
-      await query(
-        "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
-        [login, userIp, 0, userAgent]
-      );
+      // await query(
+      //   "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
+      //   [login, userIp, 0, userAgent]
+      // );
 
       return res.status(403).json({
         success: false,
@@ -571,10 +571,10 @@ app.post("/api/auth/login", async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       // Логирование НЕУДАЧНОЙ попытки - неверный пароль
-      await query(
-        "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
-        [login, userIp, 0, userAgent]
-      );
+      // await query(
+      //   "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
+      //   [login, userIp, 0, userAgent]
+      // );
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return res.status(401).json({
@@ -585,10 +585,10 @@ app.post("/api/auth/login", async (req, res) => {
 
     // УСПЕШНЫЙ ВХОД
     // Логирование УСПЕШНОЙ попытки входа
-    await query(
-      "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
-      [login, userIp, 1, userAgent]
-    );
+    // await query(
+    //   "INSERT INTO login_attempts (login, ip_address, success, user_agent) VALUES (?, ?, ?, ?)",
+    //   [login, userIp, 1, userAgent]
+    // );
 
     // Обновляем последний вход
     await query("UPDATE usersdata SET last_login = NOW() WHERE login = ?", [

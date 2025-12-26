@@ -59,6 +59,8 @@ router.post(
   AdminUsersController.changeUserEmail
 );
 router.delete("/users/:login", isAdmin, AdminUsersController.deleteUser);
+router.post("/users/:login/block", isAdmin, AdminUsersController.blockUser);
+router.post("/users/:login/unblock", isAdmin, AdminUsersController.unblockUser);
 
 // ==================== EMAIL ЗАПРОСЫ ====================
 console.log("📧 [AdminRoutes] Регистрация роутов email запросов");

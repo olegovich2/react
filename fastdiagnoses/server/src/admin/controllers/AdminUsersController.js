@@ -8,6 +8,7 @@ class AdminUsersController {
   static async getUsers(req, res) {
     console.log("👥 [AdminUsersController.getUsers] Запрос пользователей:", {
       query: req.query,
+      adminId: req.admin.id,
     });
 
     const {
@@ -16,7 +17,8 @@ class AdminUsersController {
       limit = 20,
       sortBy = "created_at",
       sortOrder = "DESC",
-      isActive, // новый параметр для фильтрации по статусу
+      isActive, // фильтр по статусу активации
+      isBlocked, // НОВЫЙ ПАРАМЕТР: фильтр по статусу блокировки
     } = req.query;
 
     const pageNum = parseInt(page);
@@ -44,29 +46,37 @@ class AdminUsersController {
         }
       }
 
+      // НОВЫЙ: Фильтрация по статусу блокировки
+      if (isBlocked !== undefined) {
+        if (isBlocked === "true") {
+          whereConditions.push("blocked = 1");
+        } else if (isBlocked === "false") {
+          whereConditions.push("(blocked = 0 OR blocked IS NULL)");
+        }
+      }
+
       const whereClause =
         whereConditions.length > 0
           ? `WHERE ${whereConditions.join(" AND ")}`
           : "";
 
-      // Основной запрос
+      // ОСНОВНОЙ ЗАПРОС - ДОБАВЛЯЕМ ПОЛЯ БЛОКИРОВКИ
       const sql = `
       SELECT 
         login, 
         email, 
         logic as is_active,
+        blocked,
+        blocked_until,
         created_at,
-        (SELECT COUNT(*) FROM sessionsdata WHERE login = usersdata.login) as active_sessions,
-        (SELECT COUNT(*) FROM information_schema.tables 
-         WHERE table_schema = DATABASE() 
-           AND table_name = usersdata.login) as has_user_table
+        (SELECT COUNT(*) FROM sessionsdata WHERE login = usersdata.login) as active_sessions       
       FROM usersdata 
       ${whereClause}
       ORDER BY ${sortBy} ${sortOrder}
       LIMIT ${limitNum} OFFSET ${offsetNum}
     `;
 
-      console.log("🔍 SQL запрос:", sql);
+      console.log("🔍 [AdminUsersController.getUsers] SQL запрос:", sql);
       const users = await query(sql);
 
       // Общее количество с учетом фильтров
@@ -74,17 +84,27 @@ class AdminUsersController {
         `SELECT COUNT(*) as total FROM usersdata ${whereClause}`
       );
 
-      // Статистика с учетом фильтров
+      // Статистика с учетом фильтров - ДОБАВЛЯЕМ СТАТИСТИКУ ПО БЛОКИРОВКАМ
       const [statsResult] = await query(`
       SELECT 
         COUNT(*) as total_users,
         SUM(CASE WHEN logic = "true" THEN 1 ELSE 0 END) as active_users,
-        SUM(CASE WHEN logic = "false" THEN 1 ELSE 0 END) as pending_users
+        SUM(CASE WHEN logic = "false" THEN 1 ELSE 0 END) as pending_users,
+        SUM(CASE WHEN blocked = 1 THEN 1 ELSE 0 END) as blocked_users,
+        SUM(CASE WHEN blocked = 0 OR blocked IS NULL THEN 1 ELSE 0 END) as not_blocked_users
       FROM usersdata 
       ${whereClause}
     `);
 
-      // Получаем статистику для каждого пользователя (как в твоём коде)
+      console.log("📊 [AdminUsersController.getUsers] Статистика получена:", {
+        total: statsResult.total_users,
+        active: statsResult.active_users,
+        pending: statsResult.pending_users,
+        blocked: statsResult.blocked_users,
+        notBlocked: statsResult.not_blocked_users,
+      });
+
+      // Получаем статистику для каждого пользователя
       const usersWithStats = await Promise.all(
         users.map(async (user) => {
           let surveyCount = 0;
@@ -107,16 +127,50 @@ class AdminUsersController {
               }
             } catch (statsError) {
               console.warn(
-                `⚠️ Не удалось получить статистику для ${user.login}:`,
+                `⚠️ [AdminUsersController.getUsers] Не удалось получить статистику для ${user.login}:`,
                 statsError.message
               );
             }
           }
 
+          // РАСЧЕТ ДОПОЛНИТЕЛЬНЫХ ПОЛЕЙ ДЛЯ БЛОКИРОВКИ
+          const isBlocked = user.blocked === 1;
+          let isPermanentlyBlocked = false;
+          let blockedUntilFormatted = null;
+          let daysRemaining = null;
+
+          if (isBlocked && user.blocked_until) {
+            const blockedUntil = new Date(user.blocked_until);
+            const now = new Date();
+
+            // Проверяем бессрочную блокировку (2099 год)
+            isPermanentlyBlocked = blockedUntil.getFullYear() >= 2099;
+
+            if (!isPermanentlyBlocked && blockedUntil > now) {
+              // Рассчитываем оставшиеся дни
+              const diffTime = blockedUntil - now;
+              daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+              // Форматируем дату
+              const day = blockedUntil.getDate();
+              const month = blockedUntil.toLocaleString("ru-RU", {
+                month: "long",
+              });
+              const year = blockedUntil.getFullYear();
+              blockedUntilFormatted = `${day} ${month} ${year} года`;
+            }
+          }
+
           return {
+            id: user.login, // используем login как id для фронтенда
             login: user.login,
             email: user.email,
             isActive: user.is_active === "true",
+            isBlocked: isBlocked, // НОВОЕ ПОЛЕ
+            blockedUntil: user.blocked_until,
+            blockedUntilFormatted: blockedUntilFormatted,
+            isPermanentlyBlocked: isPermanentlyBlocked,
+            daysRemaining: daysRemaining,
             createdAt: user.created_at,
             activeSessions: user.active_sessions || 0,
             hasUserTable: user.has_user_table > 0,
@@ -126,6 +180,14 @@ class AdminUsersController {
             },
           };
         })
+      );
+
+      console.log(
+        "✅ [AdminUsersController.getUsers] Пользователи обработаны:",
+        {
+          totalUsers: usersWithStats.length,
+          blockedCount: usersWithStats.filter((u) => u.isBlocked).length,
+        }
       );
 
       res.json({
@@ -141,16 +203,27 @@ class AdminUsersController {
           totalUsers: statsResult.total_users,
           activeUsers: statsResult.active_users,
           pendingUsers: statsResult.pending_users,
+          blockedUsers: statsResult.blocked_users, // НОВОЕ ПОЛЕ
+          notBlockedUsers: statsResult.not_blocked_users,
         },
         filters: {
           search,
           isActive,
+          isBlocked, // НОВОЕ ПОЛЕ
           sortBy,
           sortOrder,
         },
       });
     } catch (error) {
-      console.error("❌ Ошибка получения списка пользователей:", error.message);
+      console.error(
+        "❌ [AdminUsersController.getUsers] Ошибка получения списка пользователей:",
+        {
+          error: error.message,
+          stack: error.stack,
+          adminId: req.admin.id,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения списка пользователей",
@@ -160,14 +233,27 @@ class AdminUsersController {
 
   // Получение детальной информации о пользователе
   static async getUserDetails(req, res) {
+    console.log(
+      "👤 [AdminUsersController.getUserDetails] Запрос деталей пользователя:",
+      {
+        params: req.params,
+        adminId: req.admin.id,
+      }
+    );
+
     try {
       const { login } = req.params;
 
-      // Основная информация
+      // Основная информация - ДОБАВЛЯЕМ ПОЛЯ БЛОКИРОВКИ
       const [user] = await query(
         `SELECT 
-           login, email, logic as is_active,
+           login, 
+           email, 
+           logic as is_active,
+           blocked,
+           blocked_until,
            created_at,
+           last_login,
            (SELECT COUNT(*) FROM sessionsdata WHERE login = ?) as session_count,
            (SELECT COUNT(*) FROM login_attempts WHERE login = ? AND success = FALSE AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)) as failed_logins_7d
          FROM usersdata 
@@ -175,12 +261,76 @@ class AdminUsersController {
         [login, login, login]
       );
 
-      if (!user) {
+      console.log(
+        "🔍 [AdminUsersController.getUserDetails] Пользователь найден:",
+        {
+          exists: user.length > 0,
+          login: user[0]?.login,
+          isBlocked: user[0]?.blocked,
+          blockedUntil: user[0]?.blocked_until,
+        }
+      );
+
+      if (!user || user.length === 0) {
+        console.warn(
+          "⚠️ [AdminUsersController.getUserDetails] Пользователь не найден:",
+          login
+        );
+
         return res.status(404).json({
           success: false,
           message: "Пользователь не найден",
         });
       }
+
+      const userData = user[0];
+
+      // РАСЧЕТ ДОПОЛНИТЕЛЬНЫХ ПОЛЕЙ ДЛЯ БЛОКИРОВКИ
+      const isBlocked = userData.blocked === 1;
+      let isPermanentlyBlocked = false;
+      let blockedUntilFormatted = null;
+      let daysRemaining = null;
+      let blockStatus = "active";
+
+      if (isBlocked && userData.blocked_until) {
+        const blockedUntil = new Date(userData.blocked_until);
+        const now = new Date();
+
+        // Проверяем бессрочную блокировку (2099 год)
+        isPermanentlyBlocked = blockedUntil.getFullYear() >= 2099;
+
+        if (isPermanentlyBlocked) {
+          blockStatus = "permanently_blocked";
+          blockedUntilFormatted = "бессрочно";
+        } else if (blockedUntil > now) {
+          blockStatus = "temporarily_blocked";
+
+          // Рассчитываем оставшиеся дни
+          const diffTime = blockedUntil - now;
+          daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          // Форматируем дату
+          const day = blockedUntil.getDate();
+          const month = blockedUntil.toLocaleString("ru-RU", { month: "long" });
+          const year = blockedUntil.getFullYear();
+          blockedUntilFormatted = `${day} ${month} ${year} года`;
+        } else {
+          // Срок блокировки истёк, но статус ещё не обновлён
+          blockStatus = "expired_block";
+          blockedUntilFormatted = "срок истёк";
+        }
+      }
+
+      console.log(
+        "📊 [AdminUsersController.getUserDetails] Статус блокировки:",
+        {
+          isBlocked,
+          blockStatus,
+          isPermanentlyBlocked,
+          daysRemaining,
+          blockedUntilFormatted,
+        }
+      );
 
       // Проверяем существование таблицы пользователя
       const [tableExists] = await query(
@@ -224,25 +374,81 @@ class AdminUsersController {
         [login]
       );
 
-      // Получаем последние действия (логи входа)
-      const recentLogins = await query(
+      // Получаем последние действия (логи входа) - ИЗМЕНЯЕМ: только администраторов
+      const recentAdminLogins = await query(
         `SELECT ip_address, success, created_at 
          FROM login_attempts 
          WHERE login = ? 
+           AND success = TRUE  // только успешные
          ORDER BY created_at DESC 
          LIMIT 10`,
         [login]
       );
 
+      // Получаем историю блокировок из blocked_login_attempts
+      const blockHistory = await query(
+        `SELECT 
+           id,
+           ip_address,
+           user_agent,
+           blocked_until,
+           attempted_at,
+           auto_unblocked,
+           unblocked_at
+         FROM blocked_login_attempts 
+         WHERE user_login = ? 
+         ORDER BY attempted_at DESC 
+         LIMIT 10`,
+        [login]
+      );
+
+      console.log(
+        "📋 [AdminUsersController.getUserDetails] История блокировок:",
+        {
+          count: blockHistory.length,
+        }
+      );
+
+      // Получаем историю админских действий с этим пользователем
+      const adminActions = await query(
+        `SELECT 
+           al.action_type,
+           al.details,
+           al.created_at,
+           au.username as admin_name
+         FROM admin_logs al
+         LEFT JOIN admin_users au ON al.admin_id = au.id
+         WHERE al.target_id = ? 
+           AND al.target_type = 'user'
+         ORDER BY al.created_at DESC 
+         LIMIT 10`,
+        [login]
+      );
+
+      console.log("✅ [AdminUsersController.getUserDetails] Данные собраны:", {
+        userStats: Object.keys(userStats).length > 0,
+        sessions: sessions.length,
+        adminActions: adminActions.length,
+        blockHistory: blockHistory.length,
+      });
+
       res.json({
         success: true,
         user: {
-          login: user.login,
-          email: user.email,
-          isActive: user.is_active === "true",
-          createdAt: user.created_at,
-          sessionCount: user.session_count,
-          failedLogins7d: user.failed_logins_7d,
+          login: userData.login,
+          email: userData.email,
+          isActive: userData.is_active === "true",
+          isBlocked: isBlocked, // НОВОЕ ПОЛЕ
+          blockStatus: blockStatus, // "active", "temporarily_blocked", "permanently_blocked", "expired_block"
+          blockedUntil: userData.blocked_until,
+          blockedUntilFormatted: blockedUntilFormatted,
+          isPermanentlyBlocked: isPermanentlyBlocked,
+          daysRemaining: daysRemaining,
+          createdAt: userData.created_at,
+          lastLogin: userData.last_login,
+          sessionCount: userData.session_count,
+          failedLogins7d: userData.failed_logins_7d,
+          hasUserTable: tableExists.exists_flag > 0,
         },
         stats: userStats,
         sessions: sessions.map((session) => ({
@@ -252,14 +458,47 @@ class AdminUsersController {
             ? session.token_prefix.substring(0, 20) + "..."
             : null,
         })),
-        recentActivity: recentLogins.map((login) => ({
-          ip: login.ip_address,
-          success: login.success === 1,
-          timestamp: login.created_at,
+        recentActivity: recentAdminLogins.map((loginRecord) => ({
+          ip: loginRecord.ip_address,
+          success: loginRecord.success === 1,
+          timestamp: loginRecord.created_at,
+          type: "admin_login",
+        })),
+        blockHistory: blockHistory.map((block) => ({
+          id: block.id,
+          ip: block.ip_address,
+          userAgent:
+            block.user_agent?.substring(0, 50) +
+            (block.user_agent?.length > 50 ? "..." : ""),
+          blockedUntil: block.blocked_until,
+          attemptedAt: block.attempted_at,
+          autoUnblocked: block.auto_unblocked === 1,
+          unblockedAt: block.unblocked_at,
+          status:
+            block.auto_unblocked === 1
+              ? "auto_unblocked"
+              : block.unblocked_at
+              ? "manually_unblocked"
+              : "active_block",
+        })),
+        adminActions: adminActions.map((action) => ({
+          action: action.action_type,
+          admin: action.admin_name || "System",
+          details: action.details ? JSON.parse(action.details) : null,
+          timestamp: action.created_at,
         })),
       });
     } catch (error) {
-      console.error("❌ Ошибка получения деталей пользователя:", error);
+      console.error(
+        "❌ [AdminUsersController.getUserDetails] Ошибка получения деталей пользователя:",
+        {
+          error: error.message,
+          stack: error.stack,
+          login: req.params.login,
+          adminId: req.admin?.id,
+        }
+      );
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения информации о пользователе",
@@ -887,6 +1126,470 @@ class AdminUsersController {
       });
     } finally {
       connection.release();
+    }
+  }
+
+  // Блокировка пользователя
+  static async blockUser(req, res) {
+    console.log("🔒 [AdminUsersController.blockUser] Запрос на блокировку:", {
+      adminId: req.admin.id,
+      username: req.admin.username,
+      params: req.params,
+      body: req.body,
+    });
+
+    const connection = await getConnection();
+    try {
+      const { login } = req.params;
+      const { duration, reason, deleteSessions = false } = req.body;
+      const adminId = req.admin.id;
+
+      console.log("🔍 [AdminUsersController.blockUser] Параметры:", {
+        login,
+        duration,
+        reason,
+        deleteSessions,
+        adminId,
+      });
+
+      // 1. Валидация параметров
+      if (!duration || !["7d", "30d", "forever"].includes(duration)) {
+        console.warn(
+          "⚠️ [AdminUsersController.blockUser] Некорректный duration:",
+          duration
+        );
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Некорректная длительность блокировки. Допустимые значения: 7d, 30d, forever",
+        });
+      }
+
+      // 2. Поиск пользователя
+      const [user] = await connection.execute(
+        'SELECT login, email, blocked, blocked_until FROM usersdata WHERE login = ? AND logic = "true"',
+        [login]
+      );
+
+      console.log("🔍 [AdminUsersController.blockUser] Пользователь найден:", {
+        exists: user.length > 0,
+        currentBlocked: user[0]?.blocked,
+        currentBlockedUntil: user[0]?.blocked_until,
+      });
+
+      if (user.length === 0) {
+        console.warn(
+          "⚠️ [AdminUsersController.blockUser] Пользователь не найден или не активирован:",
+          login
+        );
+
+        return res.status(404).json({
+          success: false,
+          message: "Пользователь не найден или не активирован",
+        });
+      }
+
+      const userData = user[0];
+
+      // 3. Проверка, не заблокирован ли уже пользователь
+      if (userData.blocked === 1) {
+        console.warn(
+          "⚠️ [AdminUsersController.blockUser] Пользователь уже заблокирован:",
+          {
+            login,
+            blocked_until: userData.blocked_until,
+          }
+        );
+
+        return res.status(400).json({
+          success: false,
+          message: "Пользователь уже заблокирован",
+          currentStatus: {
+            blocked: true,
+            blocked_until: userData.blocked_until,
+          },
+        });
+      }
+
+      await connection.beginTransaction();
+      console.log("🔁 [AdminUsersController.blockUser] Начало транзакции");
+
+      // 4. Рассчитываем дату разблокировки
+      let blockedUntil = null;
+      const now = new Date();
+
+      console.log(
+        "📅 [AdminUsersController.blockUser] Рассчет даты блокировки:",
+        {
+          duration,
+          now: now.toISOString(),
+        }
+      );
+
+      switch (duration) {
+        case "7d":
+          blockedUntil = new Date(now);
+          blockedUntil.setDate(now.getDate() + 7);
+          break;
+        case "30d":
+          blockedUntil = new Date(now);
+          blockedUntil.setDate(now.getDate() + 30);
+          break;
+        case "forever":
+          // Используем 2099 год как "бессрочно" (согласовано с login эндпоинтом)
+          blockedUntil = new Date("2099-12-31 23:59:59");
+          break;
+      }
+
+      console.log("📅 [AdminUsersController.blockUser] Результат:", {
+        blockedUntil: blockedUntil.toISOString(),
+        isForever: duration === "forever",
+      });
+
+      // 5. Обновляем пользователя в БД
+      const [updateResult] = await connection.execute(
+        `UPDATE usersdata 
+         SET blocked = 1, blocked_until = ?
+         WHERE login = ?`,
+        [blockedUntil, login]
+      );
+
+      console.log(
+        "✅ [AdminUsersController.blockUser] Пользователь обновлен:",
+        {
+          affectedRows: updateResult.affectedRows,
+          login,
+          blocked: 1,
+          blocked_until: blockedUntil,
+        }
+      );
+
+      // 6. Удаляем сессии пользователя если нужно
+      let sessionsDeleted = 0;
+      if (deleteSessions) {
+        try {
+          const [deleteResult] = await connection.execute(
+            "DELETE FROM sessionsdata WHERE login = ?",
+            [login]
+          );
+
+          sessionsDeleted = deleteResult.affectedRows;
+          console.log("🗑️ [AdminUsersController.blockUser] Сессии удалены:", {
+            count: sessionsDeleted,
+            login,
+          });
+        } catch (deleteError) {
+          console.warn(
+            "⚠️ [AdminUsersController.blockUser] Ошибка удаления сессий:",
+            deleteError.message
+          );
+          // Не прерываем выполнение если не удалось удалить сессии
+        }
+      }
+
+      // 7. Логируем действие в admin_logs
+      const logDetails = {
+        action: "block_user",
+        duration: duration,
+        reason: reason || null,
+        blocked_until: blockedUntil.toISOString(),
+        sessions_deleted: deleteSessions,
+        sessions_deleted_count: sessionsDeleted,
+        is_permanent: duration === "forever",
+      };
+
+      await connection.execute(
+        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [adminId, "block", "user", login, JSON.stringify(logDetails)]
+      );
+
+      console.log(
+        "📝 [AdminUsersController.blockUser] Действие залогировано:",
+        {
+          adminId,
+          action: "block",
+          target: login,
+          details: logDetails,
+        }
+      );
+
+      await connection.commit();
+      console.log("✅ [AdminUsersController.blockUser] Транзакция завершена");
+
+      // 8. Форматируем дату для ответа
+      let formattedDate = "бессрочно";
+      if (duration !== "forever") {
+        const day = blockedUntil.getDate();
+        const month = blockedUntil.toLocaleString("ru-RU", { month: "long" });
+        const year = blockedUntil.getFullYear();
+        formattedDate = `${day} ${month} ${year} года`;
+      }
+
+      console.log("✅ [AdminUsersController.blockUser] Блокировка успешна:", {
+        login,
+        duration,
+        formattedDate,
+        sessionsDeleted,
+      });
+
+      // 9. Возвращаем успешный ответ
+      res.json({
+        success: true,
+        message: `Пользователь ${login} заблокирован ${
+          duration === "forever" ? "бессрочно" : "до " + formattedDate
+        }`,
+        details: {
+          login: login,
+          email: userData.email,
+          duration: duration,
+          blocked_until: blockedUntil,
+          formatted_blocked_until: formattedDate,
+          reason: reason || null,
+          sessions_deleted: deleteSessions,
+          sessions_deleted_count: sessionsDeleted,
+          blocked_by_admin: {
+            id: adminId,
+            username: req.admin.username,
+          },
+        },
+      });
+    } catch (error) {
+      await connection.rollback();
+      console.error("❌ [AdminUsersController.blockUser] Ошибка блокировки:", {
+        error: error.message,
+        stack: error.stack,
+        login: req.params.login,
+        adminId: req.admin?.id,
+      });
+
+      res.status(500).json({
+        success: false,
+        message: "Ошибка блокировки пользователя",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    } finally {
+      connection.release();
+      console.log(
+        "🔌 [AdminUsersController.blockUser] Соединение с БД освобождено"
+      );
+    }
+  }
+
+  // Разблокировка пользователя
+  static async unblockUser(req, res) {
+    console.log(
+      "🔓 [AdminUsersController.unblockUser] Запрос на разблокировку:",
+      {
+        adminId: req.admin.id,
+        username: req.admin.username,
+        params: req.params,
+      }
+    );
+
+    const connection = await getConnection();
+    try {
+      const { login } = req.params;
+      const adminId = req.admin.id;
+
+      console.log("🔍 [AdminUsersController.unblockUser] Параметры:", {
+        login,
+        adminId,
+      });
+
+      // 1. Поиск пользователя
+      const [user] = await connection.execute(
+        'SELECT login, email, blocked, blocked_until FROM usersdata WHERE login = ? AND logic = "true"',
+        [login]
+      );
+
+      console.log(
+        "🔍 [AdminUsersController.unblockUser] Пользователь найден:",
+        {
+          exists: user.length > 0,
+          currentBlocked: user[0]?.blocked,
+          currentBlockedUntil: user[0]?.blocked_until,
+        }
+      );
+
+      if (user.length === 0) {
+        console.warn(
+          "⚠️ [AdminUsersController.unblockUser] Пользователь не найден или не активирован:",
+          login
+        );
+
+        return res.status(404).json({
+          success: false,
+          message: "Пользователь не найден или не активирован",
+        });
+      }
+
+      const userData = user[0];
+
+      // 2. Проверка, заблокирован ли пользователь
+      if (userData.blocked !== 1) {
+        console.warn(
+          "⚠️ [AdminUsersController.unblockUser] Пользователь не заблокирован:",
+          {
+            login,
+            blocked: userData.blocked,
+          }
+        );
+
+        return res.status(400).json({
+          success: false,
+          message: "Пользователь не заблокирован",
+          currentStatus: {
+            blocked: false,
+            blocked_until: null,
+          },
+        });
+      }
+
+      await connection.beginTransaction();
+      console.log("🔁 [AdminUsersController.unblockUser] Начало транзакции");
+
+      // 3. Обновляем пользователя в БД (разблокируем)
+      const [updateResult] = await connection.execute(
+        `UPDATE usersdata 
+         SET blocked = 0, blocked_until = NULL
+         WHERE login = ?`,
+        [login]
+      );
+
+      console.log(
+        "✅ [AdminUsersController.unblockUser] Пользователь обновлен:",
+        {
+          affectedRows: updateResult.affectedRows,
+          login,
+          blocked: 0,
+          blocked_until: null,
+        }
+      );
+
+      // 4. Обновляем запись в blocked_login_attempts
+      // Находим последнюю запись блокировки этого пользователя
+      let blockedRecordUpdated = false;
+      try {
+        const [blockedRecords] = await connection.execute(
+          `SELECT id FROM blocked_login_attempts 
+           WHERE user_login = ? 
+             AND auto_unblocked = FALSE
+             AND unblocked_at IS NULL
+           ORDER BY attempted_at DESC 
+           LIMIT 1`,
+          [login]
+        );
+
+        if (blockedRecords.length > 0) {
+          const blockedRecordId = blockedRecords[0].id;
+
+          const [updateBlockedResult] = await connection.execute(
+            `UPDATE blocked_login_attempts 
+             SET auto_unblocked = FALSE, unblocked_at = NOW()
+             WHERE id = ?`,
+            [blockedRecordId]
+          );
+
+          blockedRecordUpdated = updateBlockedResult.affectedRows > 0;
+
+          console.log(
+            "📝 [AdminUsersController.unblockUser] Запись в blocked_login_attempts обновлена:",
+            {
+              recordId: blockedRecordId,
+              updated: blockedRecordUpdated,
+            }
+          );
+        } else {
+          console.log(
+            "ℹ️ [AdminUsersController.unblockUser] Запись в blocked_login_attempts не найдена для:",
+            login
+          );
+        }
+      } catch (blockedLogError) {
+        console.warn(
+          "⚠️ [AdminUsersController.unblockUser] Ошибка обновления blocked_login_attempts:",
+          blockedLogError.message
+        );
+        // Не прерываем выполнение
+      }
+
+      // 5. Логируем действие в admin_logs
+      const logDetails = {
+        action: "unblock_user",
+        previous_blocked_until: userData.blocked_until,
+        blocked_record_updated: blockedRecordUpdated,
+        manual_unblock: true,
+      };
+
+      await connection.execute(
+        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [adminId, "unblock", "user", login, JSON.stringify(logDetails)]
+      );
+
+      console.log(
+        "📝 [AdminUsersController.unblockUser] Действие залогировано:",
+        {
+          adminId,
+          action: "unblock",
+          target: login,
+          details: logDetails,
+        }
+      );
+
+      await connection.commit();
+      console.log("✅ [AdminUsersController.unblockUser] Транзакция завершена");
+
+      console.log(
+        "✅ [AdminUsersController.unblockUser] Разблокировка успешна:",
+        {
+          login,
+          previously_blocked_until: userData.blocked_until,
+        }
+      );
+
+      // 6. Возвращаем успешный ответ
+      res.json({
+        success: true,
+        message: `Пользователь ${login} разблокирован`,
+        details: {
+          login: login,
+          email: userData.email,
+          previously_blocked: true,
+          previously_blocked_until: userData.blocked_until,
+          blocked_record_updated: blockedRecordUpdated,
+          unblocked_by_admin: {
+            id: adminId,
+            username: req.admin.username,
+          },
+        },
+      });
+    } catch (error) {
+      await connection.rollback();
+      console.error(
+        "❌ [AdminUsersController.unblockUser] Ошибка разблокировки:",
+        {
+          error: error.message,
+          stack: error.stack,
+          login: req.params.login,
+          adminId: req.admin?.id,
+        }
+      );
+
+      res.status(500).json({
+        success: false,
+        message: "Ошибка разблокировки пользователя",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    } finally {
+      connection.release();
+      console.log(
+        "🔌 [AdminUsersController.unblockUser] Соединение с БД освобождено"
+      );
     }
   }
 }

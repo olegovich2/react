@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { dashboardService } from "../../services/adminApi";
-import { DashboardStats } from "../../types";
+import { DashboardStats } from "../../types/index";
 import "./Dashboard.css";
 
 const Dashboard: React.FC = () => {

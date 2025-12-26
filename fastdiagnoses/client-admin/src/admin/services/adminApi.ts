@@ -1,5 +1,15 @@
 import axios, { AxiosResponse, AxiosError } from 'axios';
-import { AdminApiResponse } from '../types';
+import { 
+  AdminApiResponse,
+  BlockUserRequest,
+  BlockUserResponse,
+  UnblockUserResponse,
+  UsersResponse,
+  UserDetailsResponse,
+  UsersFilterParams,
+  User,
+  DashboardStats
+} from '../types';
 
 // Конфигурация API
 const API_CONFIG = {
@@ -37,6 +47,7 @@ adminApi.interceptors.response.use(
       url: response.config.url,
       method: response.config.method?.toUpperCase(),
       status: response.status,
+      hasData: !!response.data,
       dataKeys: Object.keys(response.data || {})
     });
     
@@ -46,7 +57,7 @@ adminApi.interceptors.response.use(
         success: response.data?.success,
         hasToken: !!response.data?.token,
         hasAdmin: !!response.data?.admin,
-        adminData: response.data?.admin,
+        adminUsername: response.data?.admin?.username,
         message: response.data?.message
       });
     }
@@ -66,15 +77,15 @@ adminApi.interceptors.response.use(
 );
 
 // Функция для обработки успешных ответов
-const handleResponse = <T>(response: AxiosResponse<AdminApiResponse<T>>): AdminApiResponse<T> => {
+const handleResponse = <T extends AdminApiResponse>(response: AxiosResponse<T>): T => {
   const data = response.data;
   
   console.log('🔍 [adminApi] handleResponse:', {
     success: data?.success,
     hasToken: !!data?.token,
     hasAdmin: !!data?.admin,
-    hasData: !!data?.data,
     message: data?.message,
+    // Для отладки - логируем все ключи
     allKeys: Object.keys(data || {})
   });
   
@@ -103,12 +114,11 @@ const handleApiError = (error: any): never => {
     
     if (axiosError.response) {
       const { status, data } = axiosError.response;
-      const errorData = data as AdminApiResponse;
       
       console.error('🔴 [adminApi] Ошибка API детали:', {
         status,
-        message: errorData?.message,
-        serverError: errorData?.error
+        message: data?.message,
+        serverError: data?.error
       });
       
       switch (status) {
@@ -128,7 +138,7 @@ const handleApiError = (error: any): never => {
       }
       
       // Бросаем ошибку с информацией из API
-      throw new Error(errorData?.message || `Ошибка ${status}: ${axiosError.message}`);
+      throw new Error(data?.message || `Ошибка ${status}: ${axiosError.message}`);
     }
     
     if (error.code === 'ECONNABORTED') {
@@ -145,12 +155,12 @@ const handleApiError = (error: any): never => {
 };
 
 // Обертка для запросов
-const apiRequest = async <T>(
+const apiRequest = async <T extends AdminApiResponse>(
   method: 'get' | 'post' | 'put' | 'delete',
   url: string,
   data?: any,
   params?: any
-): Promise<AdminApiResponse<T>> => {
+): Promise<T> => {
   console.log('🚀 [adminApi] apiRequest:', { 
     method, 
     url, 
@@ -159,7 +169,7 @@ const apiRequest = async <T>(
   });
   
   try {
-    let response: AxiosResponse<AdminApiResponse<T>>;
+    let response: AxiosResponse<T>;
     
     switch (method) {
       case 'get':
@@ -190,10 +200,7 @@ export const authService = {
     console.log('🔐 [authService] login начало для пользователя:', username);
     
     try {
-      const response = await apiRequest<{ 
-        token?: string; 
-        admin?: any;
-      }>('post', '/auth/login', { username, password });
+      const response = await apiRequest<AdminApiResponse>('post', '/auth/login', { username, password });
       
       console.log('✅ [authService] login успех:', {
         success: response.success,
@@ -226,7 +233,7 @@ export const authService = {
     console.log('🚪 [authService] logout начало');
     
     try {
-      const response = await apiRequest('post', '/auth/logout');
+      const response = await apiRequest<AdminApiResponse>('post', '/auth/logout');
       console.log('✅ [authService] logout успех');
       return response;
     } catch (error: any) {
@@ -251,7 +258,7 @@ export const authService = {
         throw new Error('Токен не найден в localStorage');
       }
       
-      const response = await apiRequest('post', '/auth/verify');
+      const response = await apiRequest<AdminApiResponse>('post', '/auth/verify');
       console.log('✅ [authService] verify успех:', {
         success: response.success,
         hasAdmin: !!response.admin,
@@ -268,7 +275,7 @@ export const authService = {
   
   getProfile: async (): Promise<AdminApiResponse> => {
     console.log('👤 [authService] Запрос профиля админа');
-    return await apiRequest('get', '/auth/profile');
+    return await apiRequest<AdminApiResponse>('get', '/auth/profile');
   },
   
   // Вспомогательный метод для проверки токена
@@ -284,51 +291,194 @@ export const authService = {
 
 // API методы для пользователей
 export const usersService = {
-  getAll: async (params?: {
+  // Получение списка пользователей
+  getAll: async (params?: UsersFilterParams): Promise<UsersResponse> => {
+    console.log('👥 [usersService] getAll запрос:', params);
+    
+    try {
+      const response = await apiRequest<UsersResponse>('get', '/users', undefined, params);
+      
+      console.log('✅ [usersService] getAll ответ:', {
+        success: response.success,
+        usersCount: response.users?.length || 0,
+        blockedCount: response.users?.filter((u: User) => u.isBlocked).length || 0,
+        totalUsers: response.stats?.totalUsers,
+        blockedUsers: response.stats?.blockedUsers,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] getAll ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Получение детальной информации о пользователе (по логину)
+  getUserDetails: async (login: string): Promise<UserDetailsResponse> => {
+    console.log('👤 [usersService] getUserDetails запрос для:', login);
+    
+    try {
+      const response = await apiRequest<UserDetailsResponse>('get', `/users/${login}`);
+      
+      console.log('✅ [usersService] getUserDetails ответ:', {
+        success: response.success,
+        hasUser: !!response.user,
+        isBlocked: response.user?.isBlocked,
+        blockStatus: response.user?.blockStatus,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] getUserDetails ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Блокировка пользователя
+  blockUser: async (
+    login: string, 
+    duration: '7d' | '30d' | 'forever', 
+    reason?: string, 
+    deleteSessions: boolean = false
+  ): Promise<BlockUserResponse> => {
+    console.log('🔒 [usersService] blockUser запрос:', { 
+      login, 
+      duration, 
+      reason, 
+      deleteSessions 
+    });
+    
+    try {
+      const requestData: BlockUserRequest = { 
+        duration, 
+        reason, 
+        deleteSessions 
+      };
+      
+      const response = await apiRequest<BlockUserResponse>(
+        'post', 
+        `/users/${login}/block`, 
+        requestData
+      );
+      
+      console.log('✅ [usersService] blockUser ответ:', {
+        success: response.success,
+        message: response.message,
+        login: response.login,
+        blocked_until: response.blocked_until,
+        sessions_deleted_count: response.sessions_deleted_count,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] blockUser ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Разблокировка пользователя
+  unblockUser: async (login: string): Promise<UnblockUserResponse> => {
+    console.log('🔓 [usersService] unblockUser запрос:', { login });
+    
+    try {
+      const response = await apiRequest<UnblockUserResponse>(
+        'post', 
+        `/users/${login}/unblock`
+      );
+      
+      console.log('✅ [usersService] unblockUser ответ:', {
+        success: response.success,
+        message: response.message,
+        login: response.login,
+        previously_blocked: response.previously_blocked,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] unblockUser ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Сброс пароля пользователя
+  resetPassword: async (login: string): Promise<AdminApiResponse> => {
+    console.log('🔑 [usersService] resetPassword запрос для:', login);
+    
+    try {
+      const response = await apiRequest<AdminApiResponse>('post', `/users/${login}/reset-password`);
+      
+      console.log('✅ [usersService] resetPassword ответ:', {
+        success: response.success,
+        message: response.message,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] resetPassword ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Удаление пользователя
+  deleteUser: async (login: string): Promise<AdminApiResponse> => {
+    console.log('🗑️ [usersService] deleteUser запрос для:', login);
+    
+    try {
+      const response = await apiRequest<AdminApiResponse>('delete', `/users/${login}`);
+      
+      console.log('✅ [usersService] deleteUser ответ:', {
+        success: response.success,
+        message: response.message,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] deleteUser ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Получение только заблокированных пользователей (удобная обертка)
+  getBlockedUsers: async (params?: {
     page?: number;
     limit?: number;
     search?: string;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-  }): Promise<AdminApiResponse> => {
-    return await apiRequest('get', '/users', undefined, params);
-  },
-  
-  getById: async (id: number): Promise<AdminApiResponse> => {
-    return await apiRequest('get', `/users/${id}`);
-  },
-  
-  update: async (id: number, data: Partial<any>): Promise<AdminApiResponse> => {
-    return await apiRequest('put', `/users/${id}`, data);
-  },
-  
-  delete: async (id: number): Promise<AdminApiResponse> => {
-    return await apiRequest('delete', `/users/${id}`);
-  },
-  
-  block: async (id: number): Promise<AdminApiResponse> => {
-    return await apiRequest('post', `/users/${id}/block`);
-  },
-  
-  unblock: async (id: number): Promise<AdminApiResponse> => {
-    return await apiRequest('post', `/users/${id}/unblock`);
-  },
-  
-  resetPassword: async (id: number): Promise<AdminApiResponse> => {
-    return await apiRequest('post', `/users/${id}/reset-password`);
+  }): Promise<UsersResponse> => {
+    console.log('👥 [usersService] getBlockedUsers запрос:', params);
+    
+    try {
+      const filterParams: UsersFilterParams = {
+        ...params,
+        isBlocked: 'true'
+      };
+      
+      const response = await apiRequest<UsersResponse>('get', '/users', undefined, filterParams);
+      
+      console.log('✅ [usersService] getBlockedUsers ответ:', {
+        success: response.success,
+        blockedUsersCount: response.users?.length || 0,
+        stats: response.stats,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] getBlockedUsers ошибка:', error);
+      throw error;
+    }
   },
 };
 
 // API методы для дашборда
 export const dashboardService = {
-  getStats: async (): Promise<AdminApiResponse> => {
+  getStats: async (): Promise<AdminApiResponse & { data?: DashboardStats }> => {
     console.log('📊 [dashboardService] getStats начало');
     try {
-      const response = await apiRequest('get', '/dashboard/stats');
+      const response = await apiRequest<AdminApiResponse & { data?: DashboardStats }>('get', '/dashboard/stats');
       console.log('✅ [dashboardService] getStats успех:', {
         success: response.success,
         hasData: !!response.data,
-        dataKeys: response.data ? Object.keys(response.data) : []
+        totalUsers: response.data?.totalUsers,
+        activeUsers: response.data?.activeUsers,
       });
       return response;
     } catch (error) {
@@ -339,11 +489,12 @@ export const dashboardService = {
   
   getActivity: async (limit: number = 10): Promise<AdminApiResponse> => {
     console.log('📋 [dashboardService] getActivity начало');
-    return await apiRequest('get', '/dashboard/activity', undefined, { limit });
+    return await apiRequest<AdminApiResponse>('get', '/dashboard/activity', undefined, { limit });
   },
   
-  getSystemHealth: async (): Promise<AdminApiResponse> => {
-    return await apiRequest('get', '/dashboard/health');
+  getServicesStatus: async (): Promise<AdminApiResponse> => {
+    console.log('⚙️ [dashboardService] getServicesStatus начало');
+    return await apiRequest<AdminApiResponse>('get', '/dashboard/services');
   },
 };
 
@@ -357,46 +508,46 @@ export const logsService = {
     endDate?: string;
     search?: string;
   }): Promise<AdminApiResponse> => {
-    return await apiRequest('get', '/logs', undefined, params);
+    return await apiRequest<AdminApiResponse>('get', '/logs', undefined, params);
   },
   
   getErrorLogs: async (params?: { page?: number; limit?: number }): Promise<AdminApiResponse> => {
-    return await apiRequest('get', '/logs/errors', undefined, params);
+    return await apiRequest<AdminApiResponse>('get', '/logs/errors', undefined, params);
   },
   
   clearOldLogs: async (days: number = 30): Promise<AdminApiResponse> => {
-    return await apiRequest('delete', '/logs/old', undefined, { days });
+    return await apiRequest<AdminApiResponse>('delete', '/logs/old', undefined, { days });
   },
 };
 
 // API методы для настроек
 export const settingsService = {
   getSettings: async (): Promise<AdminApiResponse> => {
-    return await apiRequest('get', '/settings');
+    return await apiRequest<AdminApiResponse>('get', '/settings');
   },
   
   updateSettings: async (settings: any): Promise<AdminApiResponse> => {
-    return await apiRequest('put', '/settings', settings);
+    return await apiRequest<AdminApiResponse>('put', '/settings', settings);
   },
   
   getEmailRequests: async (): Promise<AdminApiResponse> => {
-    return await apiRequest('get', '/email-requests');
+    return await apiRequest<AdminApiResponse>('get', '/email-requests');
   },
   
   processEmailRequest: async (requestId: number, action: 'approve' | 'reject'): Promise<AdminApiResponse> => {
-    return await apiRequest('post', `/email-requests/${requestId}/${action}`);
+    return await apiRequest<AdminApiResponse>('post', `/email-requests/${requestId}/${action}`);
   },
   
   getBackups: async (): Promise<AdminApiResponse> => {
-    return await apiRequest('get', '/backups');
+    return await apiRequest<AdminApiResponse>('get', '/backups');
   },
   
   createBackup: async (): Promise<AdminApiResponse> => {
-    return await apiRequest('post', '/backups/create');
+    return await apiRequest<AdminApiResponse>('post', '/backups/create');
   },
   
   restoreBackup: async (backupId: number): Promise<AdminApiResponse> => {
-    return await apiRequest('post', `/backups/${backupId}/restore`);
+    return await apiRequest<AdminApiResponse>('post', `/backups/${backupId}/restore`);
   },
 };
 
