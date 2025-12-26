@@ -104,7 +104,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
   };
 
   const handleSupportClick = () => {
-    alert('Раздел технической поддержки находится в разработке');
+    navigate('/support');
   };
 
   const togglePasswordVisibility = () => {

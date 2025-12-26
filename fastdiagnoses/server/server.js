@@ -279,7 +279,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
             login: user.login,
             email: user.email,
             reason: "Превышено количество попыток восстановления пароля",
-            supportUrl: SUPPORT_URL,
+            supportUrl: config.SUPPORT_URL,
             ipAddress: req.ip || "unknown",
             userAgent: req.headers["user-agent"] || "",
           });

@@ -57,6 +57,7 @@ const SurveyPage = lazy(
 const SettingsPage = lazy(
   () => import("./components/AccountPage/pages/SettingsPage/SettingsPage")
 );
+const SupportPage = lazy(() => import("./components/SupportPage/SupportPage"));
 
 // Компонент для защищенных маршрутов
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
@@ -173,6 +174,15 @@ const App: React.FC = () => {
               element={
                 <AuthRedirect>
                   <RegisterPage />
+                </AuthRedirect>
+              }
+            />
+
+            <Route
+              path="/support"
+              element={
+                <AuthRedirect>
+                  <SupportPage />
                 </AuthRedirect>
               }
             />

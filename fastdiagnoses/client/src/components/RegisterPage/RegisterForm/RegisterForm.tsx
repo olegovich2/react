@@ -203,7 +203,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   };
 
   const handleSupportClick = () => {
-    alert('Раздел технической поддержки находится в разработке');
+    navigate('/support');
   };
 
   const togglePasswordVisibility = () => {

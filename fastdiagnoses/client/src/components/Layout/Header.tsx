@@ -13,7 +13,7 @@ const Header: React.FC<HeaderProps> = () => {
   const { logout } = useAuth();
 
   // Определяем текущую страницу
-  const isLoginPage = location.pathname === '/login' || location.pathname === '/auth' || location.pathname === '/register';
+  const isLoginPage = location.pathname === '/login' || location.pathname === '/auth' || location.pathname === '/register' || location.pathname === '/support';
   const isAccountPage = location.pathname === '/account';
   const isSettingsPage = location.pathname.includes('/account/settings');
   const isHomePage = location.pathname === '/' || location.pathname === '/main';

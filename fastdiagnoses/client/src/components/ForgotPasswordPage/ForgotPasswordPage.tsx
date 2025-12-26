@@ -110,7 +110,7 @@ const ForgotPasswordPage: React.FC = () => {
   };
 
   const handleSupportClick = () => {
-    alert('Раздел технической поддержки находится в разработке');
+    navigate('/support');
   };
 
   const handleGoToEmail = (emailToUse: string) => {

@@ -16,6 +16,8 @@ const ResetPasswordPage: React.FC = () => {
   const [isTokenValid, setIsTokenValid] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{
     newPassword?: string;
     confirmPassword?: string;
@@ -63,6 +65,8 @@ const ResetPasswordPage: React.FC = () => {
       newErrors.newPassword = 'Введите новый пароль';
     } else if (newPassword.length < 6) {
       newErrors.newPassword = 'Пароль должен быть не менее 6 символов';
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+      newErrors.newPassword = 'Пароль должен содержать заглавные, строчные буквы и цифры';
     }
 
     if (!confirmPassword) {
@@ -116,6 +120,18 @@ const ResetPasswordPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSupportClick = () => {
+    navigate('/support');
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
   };
 
   // Если проверяем токен
@@ -196,23 +212,37 @@ const ResetPasswordPage: React.FC = () => {
               <label htmlFor="reset-pass-new-password">
                 <i className="fas fa-key"></i> Новый пароль:
               </label>
-              <input
-                id="reset-pass-new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Введите новый пароль"
-                className={errors.newPassword ? 'reset-pass-input-error' : 'reset-pass-input'}
-                disabled={loading}
-                autoFocus
-              />
-              {errors.newPassword && (
-                <div className="reset-pass-error-message">
-                  <i className="fas fa-exclamation-circle"></i> {errors.newPassword}
+              <div className="reset-pass-input-wrapper">
+                <div className="reset-pass-password-container">
+                  <input
+                    id="reset-pass-new-password"
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Введите новый пароль"
+                    className={`reset-pass-input ${errors.newPassword ? 'errors' : ''}`}
+                    disabled={loading}
+                    autoFocus
+                    autoComplete="new-password"
+                  />
+                  <button 
+                    type="button"
+                    className="reset-pass-show-password"
+                    onClick={togglePasswordVisibility}
+                    title={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                    disabled={loading}
+                  >
+                    {showPassword ? "🙈" : "👁️"}
+                  </button>
                 </div>
-              )}
-              <div className="reset-pass-hint">
-                Пароль должен содержать не менее 6 символов
+                {errors.newPassword && (
+                  <span className="reset-pass-input-error">
+                    <i className="fas fa-exclamation-triangle"></i> {errors.newPassword}
+                  </span>
+                )}
+                <div className="reset-pass-hint">
+                  Пароль должен содержать не менее 6 символов, заглавные, строчные буквы и цифры
+                </div>
               </div>
             </div>
             
@@ -220,20 +250,40 @@ const ResetPasswordPage: React.FC = () => {
               <label htmlFor="reset-pass-confirm-password">
                 <i className="fas fa-key"></i> Подтвердите пароль:
               </label>
-              <input
-                id="reset-pass-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Повторите новый пароль"
-                className={errors.confirmPassword ? 'reset-pass-input-error' : 'reset-pass-input'}
-                disabled={loading}
-              />
-              {errors.confirmPassword && (
-                <div className="reset-pass-error-message">
-                  <i className="fas fa-exclamation-circle"></i> {errors.confirmPassword}
+              <div className="reset-pass-input-wrapper">
+                <div className="reset-pass-password-container">
+                  <input
+                    id="reset-pass-confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Повторите новый пароль"
+                    className={`reset-pass-input ${errors.confirmPassword ? 'errors' : ''}`}
+                    disabled={loading}
+                    autoComplete="new-password"
+                  />
+                  <button 
+                    type="button"
+                    className="reset-pass-show-password"
+                    onClick={toggleConfirmPasswordVisibility}
+                    title={showConfirmPassword ? "Скрыть пароль" : "Показать пароль"}
+                    disabled={loading}
+                  >
+                    {showConfirmPassword ? "🙈" : "👁️"}
+                  </button>
                 </div>
-              )}
+                {errors.confirmPassword && (
+                  <span className="reset-pass-input-error">
+                    <i className="fas fa-exclamation-triangle"></i> {errors.confirmPassword}
+                  </span>
+                )}
+                {newPassword && confirmPassword && 
+                 newPassword === confirmPassword && (
+                  <span className="reset-pass-input-success">
+                    <i className="fas fa-check-circle"></i> Пароли совпадают
+                  </span>
+                )}
+              </div>
             </div>
             
             <div className="reset-pass-form-actions">
@@ -282,6 +332,16 @@ const ResetPasswordPage: React.FC = () => {
               После установки нового пароля все активные сессии будут завершены
               в целях безопасности.
             </p>
+          </div>
+          
+          <div className="reset-pass-support-link-container">
+            <button 
+              type="button" 
+              className="reset-pass-support-link"
+              onClick={handleSupportClick}
+            >
+              <i className="fas fa-headset"></i> Техническая поддержка
+            </button>
           </div>
         </div>
       </main>

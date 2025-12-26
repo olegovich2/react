@@ -27,4 +27,7 @@ module.exports = {
 
   // База данных
   database: database.poolConfig,
+
+  // Убедитесь, что поддержка тоже доступна напрямую
+  getSupportUrl: constants.getSupportUrl,
 };

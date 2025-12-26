@@ -1,3 +1,9 @@
+// URL для поддержки
+const getSupportUrl = () => {
+  const baseUrl = process.env.CLIENT_URL || "http://localhost:3000";
+  return `${baseUrl}/support`;
+};
+
 // Константы приложения
 module.exports = {
   // Лимиты
@@ -26,5 +32,22 @@ module.exports = {
     CLEANUP_REGISTRATIONS: "0 3 * * *", // 03:00
     CLEANUP_TOKENS: "0 4 * * *", // 04:00
     CLEANUP_LOGIN_ATTEMPTS: "0 5 * * *", // 5:00
+  },
+
+  // Добавьте эти константы
+  SUPPORT_URL: getSupportUrl(),
+  SUPPORT_EMAIL: process.env.SUPPORT_EMAIL || "support@quickdiagnosis.ru",
+
+  // Все URL в одном месте для удобства
+  URLS: {
+    support: getSupportUrl(),
+    resetPassword: (token) =>
+      `${
+        process.env.CLIENT_URL || "http://localhost:3000"
+      }/reset-password/${token}`,
+    confirmEmail: (token) =>
+      `${process.env.CLIENT_URL || "http://localhost:3000"}/confirm/${token}`,
+    login: `${process.env.CLIENT_URL || "http://localhost:3000"}/login`,
+    register: `${process.env.CLIENT_URL || "http://localhost:3000"}/register`,
   },
 };
