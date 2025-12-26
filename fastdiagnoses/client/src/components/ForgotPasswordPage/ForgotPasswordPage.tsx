@@ -8,21 +8,63 @@ import './ForgotPasswordPage.css';
 const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [userEmail, setUserEmail] = useState(''); // ← ДОБАВЛЕНО: сохраняем email для кнопки
+  const [secretWord, setSecretWord] = useState(''); // ← ДОБАВЛЕНО: кодовое слово
+  const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({}); // ← ДОБАВЛЕНО: ошибки полей
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    const lettersOnlyRegex = /^[а-яёА-ЯЁa-zA-Z]+$/;
+
+    // Валидация email
+    if (!email || !email.includes('@')) {
+      newErrors.email = 'Введите корректный email адрес';
+    }
+
+    // Валидация кодового слова
+    if (!secretWord.trim()) {
+      newErrors.secretWord = 'Кодовое слово обязательно';
+    } else if (secretWord.length < 3) {
+      newErrors.secretWord = 'Кодовое слово должно быть минимум 3 символа';
+    } else if (secretWord.length > 50) {
+      newErrors.secretWord = 'Кодовое слово должно быть максимум 50 символов';
+    } else if (!lettersOnlyRegex.test(secretWord)) {
+      newErrors.secretWord = 'Только буквы (русские или английские), без цифр и спецсимволов';
+    } else if (/<[^>]*>|javascript:|on\w+\s*=/.test(secretWord.toLowerCase())) {
+      newErrors.secretWord = 'Недопустимые символы в кодовом слове';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (field: string, value: string) => {
+    if (field === 'email') {
+      setEmail(value);
+    } else if (field === 'secretWord') {
+      setSecretWord(value);
+    }
+    
+    // Очищаем ошибку при изменении поля
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setMessage('');
-    setUserEmail(''); // Сбрасываем сохраненный email
+    setUserEmail('');
     
-    // Простая валидация email
-    if (!email || !email.includes('@')) {
-      setError('Введите корректный email адрес');
+    if (!validateForm()) {
       return;
     }
     
@@ -31,17 +73,20 @@ const ForgotPasswordPage: React.FC = () => {
     try {
       console.log('📧 Отправка запроса на восстановление для:', email);
       
-      const response = await loginAPI.forgotPassword(email.trim());
+      // TODO: Нужно обновить API метод для поддержки кодового слова
+      // Пока используем существующий метод
+      const response = await loginAPI.forgotPassword(email.trim(), secretWord);
       
       console.log('📊 Ответ от сервера:', response);
       
       if (response.success) {
         setIsSuccess(true);
-        setUserEmail(email.trim()); // ← СОХРАНЯЕМ email для кнопки
+        setUserEmail(email.trim());
         setMessage('Инструкции по восстановлению пароля отправлены на указанный email');
         
-        // Очищаем поле ввода
+        // Очищаем поля ввода
         setEmail('');
+        setSecretWord('');
         
         // Автоочистка сообщения через 10 секунд
         setTimeout(() => {
@@ -64,6 +109,10 @@ const ForgotPasswordPage: React.FC = () => {
     navigate('/login');
   };
 
+  const handleSupportClick = () => {
+    alert('Раздел технической поддержки находится в разработке');
+  };
+
   const handleGoToEmail = (emailToUse: string) => {
     // Извлекаем домен из email
     const domain = emailToUse.split('@')[1]?.toLowerCase();
@@ -81,10 +130,8 @@ const ForgotPasswordPage: React.FC = () => {
       'rambler.ru': 'https://mail.rambler.ru'
     };
     
-    // Добавляем протокол если его нет
     let url = emailProviders[domain];
     if (!url) {
-      // Пытаемся угадать URL почтового сервиса
       if (domain && !domain.includes('.')) {
         url = `https://mail.${domain}.com`;
       } else if (domain) {
@@ -109,24 +156,55 @@ const ForgotPasswordPage: React.FC = () => {
               <i className="fas fa-key"></i> Восстановление пароля
             </h1>
             <p className="forgot-pass-subtitle">
-              Введите ваш email, и мы отправим инструкции для восстановления пароля
+              Введите ваш email и кодовое слово для восстановления доступа
             </p>
           </div>
           
           <form onSubmit={handleSubmit} className="forgot-pass-form">
             <div className="forgot-pass-form-group">
-              <label htmlFor="forgot-pass-email">Email адрес:</label>
+              <label htmlFor="forgot-pass-email">
+                <i className="fas fa-envelope"></i> Email адрес:
+              </label>
               <input
                 id="forgot-pass-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="example@gmail.com"
-                className={error ? 'forgot-pass-input-error' : 'forgot-pass-input'}
+                className={errors.email ? 'forgot-pass-input-error' : 'forgot-pass-input'}
                 disabled={loading}
                 required
               />
-              {error && <div className="forgot-pass-error-message">{error}</div>}
+              {errors.email && (
+                <div className="forgot-pass-field-error">
+                  <i className="fas fa-exclamation-triangle"></i> {errors.email}
+                </div>
+              )}
+            </div>
+            
+            <div className="forgot-pass-form-group">
+              <label htmlFor="forgot-pass-secret-word">
+                <i className="fas fa-key"></i> Кодовое слово:
+              </label>
+              <input
+                id="forgot-pass-secret-word"
+                type="text"
+                value={secretWord}
+                onChange={(e) => handleChange('secretWord', e.target.value)}
+                placeholder="Введите ваше кодовое слово"
+                className={errors.secretWord ? 'forgot-pass-input-error' : 'forgot-pass-input'}
+                disabled={loading}
+                required
+              />
+              <div className="forgot-pass-secret-word-info">
+                <i className="fas fa-info-circle"></i>
+                <span>Введите кодовое слово, которое указывали при регистрации.</span>
+              </div>
+              {errors.secretWord && (
+                <div className="forgot-pass-field-error">
+                  <i className="fas fa-exclamation-triangle"></i> {errors.secretWord}
+                </div>
+              )}
             </div>
             
             <div className="forgot-pass-form-actions">
@@ -141,7 +219,7 @@ const ForgotPasswordPage: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <i className="fas fa-paper-plane"></i> Отправить инструкции
+                    <i className="fas fa-paper-plane"></i> Восстановить пароль
                   </>
                 )}
               </button>
@@ -156,6 +234,12 @@ const ForgotPasswordPage: React.FC = () => {
               </button>
             </div>
           </form>
+          
+          {error && (
+            <div className="forgot-pass-error-message-global">
+              <i className="fas fa-exclamation-circle"></i> {error}
+            </div>
+          )}
           
           {message && (
             <div className={`forgot-pass-message ${isSuccess ? 'forgot-pass-success' : 'forgot-pass-error'}`}>
@@ -175,7 +259,6 @@ const ForgotPasswordPage: React.FC = () => {
                       <li>Установите новый пароль</li>
                     </ol>
                     
-                    {/* ВАЖНО: Кнопка теперь всегда видна при успехе */}
                     <button 
                       className="forgot-pass-email-btn"
                       onClick={() => handleGoToEmail(userEmail)}
@@ -196,6 +279,16 @@ const ForgotPasswordPage: React.FC = () => {
               Ссылка для восстановления будет активна 1 час.
               Если письмо не пришло в течение 5 минут, проверьте папку "Спам".
             </p>
+            
+            <div className="forgot-pass-support-link-container">
+              <button 
+                type="button" 
+                className="forgot-pass-support-link"
+                onClick={handleSupportClick}
+              >
+                <i className="fas fa-headset"></i> Техническая поддержка
+              </button>
+            </div>
           </div>
         </div>
       </main>

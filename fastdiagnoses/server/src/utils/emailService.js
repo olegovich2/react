@@ -530,6 +530,99 @@ Email сгенерирован: ${new Date().toISOString()}
     }
   }
 
+  // В emailService.js добавьте:
+  async sendAccountBlocked({
+    login,
+    email,
+    reason,
+    supportUrl,
+    ipAddress,
+    userAgent,
+    attemptCount,
+  }) {
+    try {
+      const mailOptions = {
+        from: `"QuickDiagnosis" <${this.senderEmail}>`,
+        to: email,
+        subject: "🚨 Ваш аккаунт в QuickDiagnosis заблокирован",
+        html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #f8f9fa; padding: 20px; border-radius: 5px; }
+            .content { padding: 20px; }
+            .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .support-btn { 
+              display: inline-block; 
+              background: #dc3545; 
+              color: white; 
+              padding: 12px 24px; 
+              text-decoration: none; 
+              border-radius: 5px; 
+              font-weight: bold;
+              margin: 20px 0;
+            }
+            .details { background: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h2>🚨 QuickDiagnosis - Блокировка аккаунта</h2>
+            </div>
+            
+            <div class="content">
+              <p>Уважаемый(ая) <strong>${login}</strong>,</p>
+              
+              <div class="warning">
+                <h3>⚠️ Ваш аккаунт был заблокирован</h3>
+                <p>Причина: <strong>${reason}</strong></p>
+              </div>
+              
+              <p>Для разблокировки аккаунта обратитесь в техническую поддержку:</p>
+              
+              <a href="${supportUrl}" class="support-btn">
+                📞 Перейти в техподдержку
+              </a>
+              
+              <div class="details">
+                <p><strong>Детали блокировки:</strong></p>
+                <ul>
+                  <li>Email: ${email}</li>
+                  <li>Логин: ${login}</li>
+                  ${
+                    attemptCount
+                      ? `<li>Неудачных попыток: ${attemptCount}</li>`
+                      : ""
+                  }
+                  <li>Дата блокировки: ${new Date().toLocaleString(
+                    "ru-RU"
+                  )}</li>
+                  ${ipAddress ? `<li>IP адрес: ${ipAddress}</li>` : ""}
+                </ul>
+              </div>
+              
+              <p>Если вы не предпринимали этих действий, немедленно обратитесь в техподдержку.</p>
+              
+              <p>С уважением,<br>Команда QuickDiagnosis</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Email о блокировке отправлен: ${email}`);
+    } catch (error) {
+      console.error("❌ Ошибка отправки email о блокировке:", error);
+      throw error;
+    }
+  }
   // ==================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ====================
 
   async _ensureInitialized() {

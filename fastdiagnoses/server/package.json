@@ -6,12 +6,13 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "prod": "NODE_ENV=production node server.js", 
-    "debug": "nodemon --inspect server.js",       
+    "prod": "NODE_ENV=production node server.js",
+    "debug": "nodemon --inspect server.js",
     "logs": "tail -f server.log"
   },
   "dependencies": {
     "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",

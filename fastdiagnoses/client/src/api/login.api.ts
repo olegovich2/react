@@ -10,6 +10,7 @@ import { fetchClient } from './fetchClient';
 
 export interface ForgotPasswordRequest {
   email: string;
+  secretWord?: string;
 }
 
 export interface ForgotPasswordResponse {
@@ -79,34 +80,40 @@ export class LoginAPI {
    * 1. Запрос на восстановление пароля
    * @param email Email пользователя
    */
-  async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
-    console.log(`🔐 LoginAPI.forgotPassword: запрос для ${email}`);
+  async forgotPassword(email: string, secretWord?: string): Promise<ForgotPasswordResponse> {
+  console.log(`🔐 LoginAPI.forgotPassword: запрос для ${email}`);
+  
+  try {
+    const requestData: ForgotPasswordRequest = { 
+      email,
+      ...(secretWord && { secretWord }) // Добавляем если передано
+    };
     
-    try {
-      const response = await fetchClient.post<ForgotPasswordResponse>(
-        '/auth/forgot-password', 
-        { email }
-      );
-      
-      console.log('📊 LoginAPI.forgotPassword результат:', {
-        success: response.success,
-        message: response.message?.substring(0, 50) + '...'
-      });
-      
-      return {
-        success: response.success,
-        message: response.message || 'Ошибка обработки запроса',
-        status: response.status
-      };
-    } catch (error: any) {
-      console.error('❌ LoginAPI.forgotPassword ошибка:', error);
-      return {
-        success: false,
-        message: error.message || 'Ошибка сети',
-        status: 0
-      };
-    }
+    const response = await fetchClient.post<ForgotPasswordResponse>(
+      '/auth/forgot-password', 
+      requestData
+    );
+    
+    console.log('📊 LoginAPI.forgotPassword результат:', {
+      success: response.success,
+      message: response.message?.substring(0, 50) + '...',
+      hasSecretWord: !!secretWord
+    });
+    
+    return {
+      success: response.success,
+      message: response.message || 'Ошибка обработки запроса',
+      status: response.status
+    };
+  } catch (error: any) {
+    console.error('❌ LoginAPI.forgotPassword ошибка:', error);
+    return {
+      success: false,
+      message: error.message || 'Ошибка сети',
+      status: 0
+    };
   }
+}
   
   /**
    * 2. Проверка валидности токена восстановления
@@ -228,7 +235,7 @@ export const authApi = {
   logout: () => loginAPI.logout(),
   
   // Новые методы восстановления пароля
-  forgotPassword: (email: string) => loginAPI.forgotPassword(email),
+  forgotPassword: (email: string, secretWord?: string) => loginAPI.forgotPassword(email, secretWord),
   validateResetToken: (token: string) => loginAPI.validateResetToken(token),
   resetPassword: (token: string, newPassword: string, confirmPassword?: string) => 
     loginAPI.resetPassword(token, newPassword, confirmPassword),
