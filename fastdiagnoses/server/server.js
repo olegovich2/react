@@ -20,6 +20,7 @@ const {
   validateEmail,
   validateSurvey,
   validateImageBuffer,
+  validateSecretWord,
 } = require("./src/utils/validators");
 const {
   ensureUploadDirs,
@@ -309,10 +310,13 @@ app.post("/api/auth/verify", authenticateToken, (req, res) => {
 // Регистрация
 app.post("/api/auth/register", async (req, res) => {
   try {
+    // Валидация входных данных (используем существующие валидаторы)
     const login = validateLogin(req.body.login);
     const password = validatePassword(req.body.password);
     const email = validateEmail(req.body.email);
+    const secretWord = validateSecretWord(req.body.secretWord); // ← НОВОЕ: валидация кодового слова
 
+    // Проверка лимита пользователей на email
     const emailUsage = await query(
       "SELECT COUNT(*) as count FROM usersdata WHERE email = ?",
       [email]
@@ -321,9 +325,7 @@ app.post("/api/auth/register", async (req, res) => {
     const userCount = emailUsage[0].count || 0;
 
     if (userCount >= MAX_USERS_PER_EMAIL) {
-      // Вызываем функцию очистки из вынесенного модуля (пока оставляем как есть)
-      // await cleanupExpiredRegistrations();
-
+      // Проверяем только активных пользователей
       const updatedEmailUsage = await query(
         "SELECT COUNT(*) as count FROM usersdata WHERE email = ? AND logic = 'true'",
         [email]
@@ -340,6 +342,7 @@ app.post("/api/auth/register", async (req, res) => {
       }
     }
 
+    // Проверка существования логина
     const existingLogin = await query(
       "SELECT login FROM usersdata WHERE login = ?",
       [login]
@@ -349,21 +352,28 @@ app.post("/api/auth/register", async (req, res) => {
       throw new ValidationError("Логин уже занят", "login");
     }
 
+    // Хэширование пароля
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Хэширование кодового слова (используем такую же соль как для пароля)
+    const hashedSecretWord = await bcrypt.hash(secretWord, salt);
+
+    // Создание токена подтверждения
     const confirmToken = jwt.sign(
       { login, email, purpose: "registration" },
       JWT_SECRET,
       { expiresIn: "24h" }
     );
 
+    // Вставка данных в БД с кодовым словом
     await query(
-      `INSERT INTO usersdata (login, password, email, jwt, logic) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [login, hashedPassword, email, confirmToken, "false"]
+      `INSERT INTO usersdata (login, password, email, jwt, logic, secret_word) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [login, hashedPassword, email, confirmToken, "false", hashedSecretWord]
     );
 
+    // Получение статистики по активным пользователям
     const updatedCount = await query(
       "SELECT COUNT(*) as count FROM usersdata WHERE email = ? AND logic = 'true'",
       [email]
@@ -371,6 +381,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     const activeUserCount = updatedCount[0].count || 0;
 
+    // Отправка email подтверждения
     await emailService.sendRegistrationConfirm({
       login: login,
       email: email,
@@ -378,6 +389,9 @@ app.post("/api/auth/register", async (req, res) => {
       maxUsers: MAX_USERS_PER_EMAIL,
       confirmToken: confirmToken,
     });
+
+    // Логирование успешной регистрации
+    console.log(`✅ Новый пользователь зарегистрирован: ${login} (${email})`);
 
     res.json({
       success: true,
@@ -398,6 +412,13 @@ app.post("/api/auth/register", async (req, res) => {
         field: error.field,
       });
     }
+
+    // Логирование неизвестной ошибки
+    console.error("Неизвестная ошибка при регистрации:", {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+    });
 
     res.status(500).json({
       success: false,

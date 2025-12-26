@@ -130,11 +130,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const register = async (login: string, password: string, email: string) => {
+  const register = async (login: string, password: string, email: string, secretWord: string) => {
     try {
       console.log(`📝 AuthProvider.register: регистрация ${login}`);
       
-      const response = await fetchClient.register(login, password, email);
+      const response = await fetchClient.register(login, password, email, secretWord);
       
       if (response.success && EventHelpers) {
         EventHelpers.dispatch(AUTH_EVENTS.REGISTER_SUCCESS, { login, email });

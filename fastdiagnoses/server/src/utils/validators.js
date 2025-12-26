@@ -82,6 +82,93 @@ function validatePassword(password) {
   return password;
 }
 
+// Валидация кодового слова
+function validateSecretWord(secretWord) {
+  if (
+    !secretWord ||
+    typeof secretWord !== "string" ||
+    secretWord.trim().length === 0
+  ) {
+    throw new ValidationError("Кодовое слово обязательно", "secretWord");
+  }
+
+  const trimmedWord = secretWord.trim();
+
+  // Длина
+  if (trimmedWord.length < 3) {
+    throw new ValidationError(
+      "Кодовое слово должно быть не менее 3 символов",
+      "secretWord"
+    );
+  }
+
+  if (trimmedWord.length > 50) {
+    throw new ValidationError(
+      "Кодовое слово должно быть не более 50 символов",
+      "secretWord"
+    );
+  }
+
+  // Только буквы (кириллица и латиница) - без цифр, пробелов, спецсимволов
+  if (!/^[а-яёА-ЯЁa-zA-Z]+$/.test(trimmedWord)) {
+    throw new ValidationError(
+      "Кодовое слово должно содержать только буквы (русские или английские). Без цифр, пробелов и спецсимволов.",
+      "secretWord"
+    );
+  }
+
+  // Проверка на опасные символы (как в validateLogin)
+  const dangerousChars = new RegExp("[<>/\\\\&'\"]");
+  if (dangerousChars.test(trimmedWord)) {
+    throw new ValidationError(
+      "Кодовое слово содержит недопустимые символы",
+      "secretWord"
+    );
+  }
+
+  // Проверка на SQL инъекции (как в validateLogin)
+  const sqlKeywords = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|EXEC)\b)/i;
+  if (sqlKeywords.test(trimmedWord)) {
+    throw new ValidationError(
+      "Кодовое слово содержит недопустимые слова",
+      "secretWord"
+    );
+  }
+
+  // Проверка на слишком простые/очевидные слова
+  const simpleWords = [
+    "пароль",
+    "password",
+    "код",
+    "code",
+    "слово",
+    "word",
+    "секрет",
+    "secret",
+    "ключ",
+    "key",
+    "доступ",
+    "access",
+  ];
+
+  if (simpleWords.includes(trimmedWord.toLowerCase())) {
+    throw new ValidationError(
+      "Выберите более сложное кодовое слово",
+      "secretWord"
+    );
+  }
+
+  // Проверка на повторяющиеся символы (более 3 подряд)
+  if (/(.)\1\1/.test(trimmedWord)) {
+    throw new ValidationError(
+      "Слишком много повторяющихся символов",
+      "secretWord"
+    );
+  }
+
+  return trimmedWord;
+}
+
 // Валидация email
 function validateEmail(email) {
   if (!email || email.trim().length === 0) {
@@ -174,4 +261,5 @@ module.exports = {
   validateEmail,
   validateSurvey,
   validateImageBuffer,
+  validateSecretWord,
 };

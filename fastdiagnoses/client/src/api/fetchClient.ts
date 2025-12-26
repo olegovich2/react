@@ -239,13 +239,14 @@ class FetchClient {
     return response;
   }
 
-  async register(login: string, password: string, email: string) {
+  async register(login: string, password: string, email: string, secretWord: string) {
     console.log(`📝 fetchClient.register: запрос для ${login}`);
     
     return this.post<{ message: string }>('/auth/register', {
       login,
       password,
-      email
+      email,
+      secretWord
     });
   }
 

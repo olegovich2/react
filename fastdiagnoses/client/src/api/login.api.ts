@@ -53,10 +53,10 @@ export class LoginAPI {
     return fetchClient.login(login, password);
   }
   
-  async register(login: string, password: string, email: string) {
-    console.log(`📝 LoginAPI.register: запрос для ${login}`);
-    return fetchClient.register(login, password, email);
-  }
+  async register(login: string, password: string, email: string, secretWord: string) {
+  console.log(`📝 LoginAPI.register: запрос для ${login} с кодовым словом`);
+  return fetchClient.register(login, password, email, secretWord);
+}
   
   async confirmEmail(token: string) {
     console.log(`📧 LoginAPI.confirmEmail: подтверждение email`);
@@ -221,8 +221,8 @@ export const loginAPI = new LoginAPI();
 export const authApi = {
   // Существующие методы
   login: (login: string, password: string) => loginAPI.login(login, password),
-  register: (login: string, password: string, email: string) => 
-    loginAPI.register(login, password, email),
+  register: (login: string, password: string, email: string, secretWord: string) => 
+    loginAPI.register(login, password, email, secretWord),
   confirmEmail: (token: string) => loginAPI.confirmEmail(token),
   verifyToken: () => loginAPI.verifyToken(),
   logout: () => loginAPI.logout(),

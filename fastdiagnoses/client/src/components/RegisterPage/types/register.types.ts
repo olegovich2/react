@@ -8,6 +8,7 @@ export interface RegisterFormData {
   password: string;
   email: string;
   confirmPassword: string;
+  secretWord: string;
 }
 
 // Тип для ошибок формы

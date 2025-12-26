@@ -13,18 +13,23 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     login: '',
     password: '',
     email: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    secretWord: '' // Новое поле
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>('weak');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   const navigate = useNavigate();
   const { register } = useAuth();
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const lettersOnlyRegex = /^[а-яёА-ЯЁa-zA-Z]+$/;
 
     // Валидация логина
     if (!formData.login.trim()) {
@@ -56,6 +61,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       newErrors.confirmPassword = 'Подтвердите пароль';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Пароли не совпадают';
+    }
+
+    // Валидация кодового слова
+    if (!formData.secretWord.trim()) {
+      newErrors.secretWord = 'Кодовое слово обязательно';
+    } else if (formData.secretWord.length < 3) {
+      newErrors.secretWord = 'Кодовое слово должно быть минимум 3 символа';
+    } else if (formData.secretWord.length > 50) {
+      newErrors.secretWord = 'Кодовое слово должно быть максимум 50 символов';
+    } else if (!lettersOnlyRegex.test(formData.secretWord)) {
+      newErrors.secretWord = 'Только буквы (русские или английские), без цифр и спецсимволов';
+    } else if (/<[^>]*>|javascript:|on\w+\s*=/.test(formData.secretWord.toLowerCase())) {
+      newErrors.secretWord = 'Недопустимые символы в кодовом слове';
     }
 
     setErrors(newErrors);
@@ -129,7 +147,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       const result = await register(
         formData.login,
         formData.password,
-        formData.email
+        formData.email,
+        formData.secretWord // Передаем кодовое слово
       );
 
       if (result.success) {
@@ -181,6 +200,14 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const handleTermsClick = () => {
     // TODO: Открыть модальное окно с условиями
     alert('Условия использования будут отображены в модальном окне');
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
   };
 
   return (
@@ -262,7 +289,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <input 
               id="register-password"
               className={`reg-form-input ${errors.password ? 'errors' : ''}`}
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Придумайте пароль (мин. 6 символов)"
               name="password"
               value={formData.password}
@@ -271,6 +298,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               disabled={isLoading}
               autoComplete="new-password"
             />
+            <button 
+              type="button"
+              className="reg-form-show-password"
+              onClick={togglePasswordVisibility}
+              title={showPassword ? "Скрыть пароль" : "Показать пароль"}
+              disabled={isLoading}
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </button>
             {formData.password && (
               <div className={`reg-form-password-strength ${getPasswordStrengthClass(passwordStrength)}`}>
                 <div className="reg-form-strength-bar">
@@ -303,7 +339,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <input 
               id="register-confirm-password"
               className={`reg-form-input ${errors.confirmPassword ? 'errors' : ''}`}
-              type="password"
+              type={showConfirmPassword ? "text" : "password"}
               placeholder="Повторите пароль"
               name="confirmPassword"
               value={formData.confirmPassword}
@@ -312,6 +348,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
               disabled={isLoading}
               autoComplete="new-password"
             />
+            <button 
+              type="button"
+              className="reg-form-show-password"
+              onClick={toggleConfirmPasswordVisibility}
+              title={showConfirmPassword ? "Скрыть пароль" : "Показать пароль"}
+              disabled={isLoading}
+            >
+              {showConfirmPassword ? "🙈" : "👁️"}
+            </button>
             {errors.confirmPassword && (
               <span className="reg-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.confirmPassword}
@@ -321,6 +366,35 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
              formData.password === formData.confirmPassword && (
               <span className="reg-form-input-success">
                 <i className="fas fa-check-circle"></i> Пароли совпадают
+              </span>
+            )}
+          </div>
+        </div>
+        
+        <div className="reg-form-fields">
+          <label htmlFor="register-secret-word">
+            <i className="fas fa-key"></i> Кодовое слово:
+          </label>
+          <div className="reg-form-input-wrapper">
+            <input 
+              id="register-secret-word"
+              className={`reg-form-input ${errors.secretWord ? 'errors' : ''}`}
+              type="text"
+              placeholder="Придумайте кодовое слово (только буквы, 3-50 символов)"
+              name="secretWord"
+              value={formData.secretWord}
+              onChange={handleChange}
+              data-input="register-secret-word"
+              disabled={isLoading}
+              autoComplete="off"
+            />
+            <div className="reg-form-secret-word-info">
+              <i className="fas fa-info-circle"></i>
+              <span>Запомните это слово! Оно понадобится для смены пароля и других операций.</span>
+            </div>
+            {errors.secretWord && (
+              <span className="reg-form-input-error">
+                <i className="fas fa-exclamation-triangle"></i> {errors.secretWord}
               </span>
             )}
           </div>
@@ -389,6 +463,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         <p>
           <i className="fas fa-shield-alt"></i> 
           Ваши данные защищены и используются только для предоставления медицинских услуг.
+        </p>
+        <p className="reg-form-secret-word-note">
+          <i className="fas fa-exclamation-triangle"></i> 
+          <strong>Внимание!</strong> Кодовое слово не хранится в открытом виде и не может быть восстановлено.
+          Запишите его в надежное место. Оно потребуется для восстановления доступа.
         </p>
       </div>
     </div>
