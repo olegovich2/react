@@ -1,5 +1,3 @@
-/* RegisterForm.css - Стили для компонента RegisterForm с префиксом reg-form- */
-
 /* ==================== ОСНОВНЫЕ СТИЛИ ФОРМЫ ==================== */
 .reg-form-container {
     max-width: 500px;
@@ -82,6 +80,14 @@
     opacity: 0.8;
 }
 
+/* ==================== КОНТЕЙНЕР ДЛЯ ПОЛЕЙ ПАРОЛЯ ==================== */
+.reg-form-password-container {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
 /* ==================== ОСНОВНЫЕ СТИЛИ ДЛЯ ВСЕХ ПОЛЕЙ ВВОДА ==================== */
 .reg-form-input-wrapper {
     position: relative;
@@ -90,15 +96,10 @@
     gap: 5px;
 }
 
-/* Специальные стили для полей пароля (3-е и 4-е поля) */
-.reg-form-fields:nth-child(3) .reg-form-input-wrapper,
-.reg-form-fields:nth-child(4) .reg-form-input-wrapper {
-    position: relative;
-}
-
 .reg-form-input {
     padding: 14px 16px;
-    padding-right: 50px; /* Место для кнопки показа пароля */
+    padding-right: 50px;
+    /* Место для кнопки показа пароля */
     border: 2px solid rgb(88, 96, 98);
     border-radius: 8px;
     font-size: 16px;
@@ -132,37 +133,31 @@
 /* ==================== КНОПКА ПОКАЗАТЬ/СКРЫТЬ ПАРОЛЬ ==================== */
 .reg-form-show-password {
     position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
+    right: 0;
+    top: 0;
+    background: transparent;
     border: none;
     font-size: 18px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 15px;
     color: #666;
-    border-radius: 4px;
+    border-radius: 6px;
     transition: all 0.2s ease;
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 36px;
-    width: 36px;
-}
-
-/* Конкретные позиции для каждого поля пароля */
-.reg-form-fields:nth-child(3) .reg-form-show-password {
-    top: 24px; /* Для поля "Пароль" */
-}
-
-.reg-form-fields:nth-child(4) .reg-form-show-password {
-    top: 24px; /* Для поля "Подтверждение пароля" */
+    height: calc(100% - 4px);
+    width: 50px;
 }
 
 .reg-form-show-password:hover:not(:disabled) {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: #333;
+    background-color: rgba(88, 96, 98, 0.1);
+    color: rgb(88, 96, 98);
+}
+
+.reg-form-show-password:active:not(:disabled) {
+    background-color: rgba(88, 96, 98, 0.2);
 }
 
 .reg-form-show-password:disabled {
@@ -209,16 +204,6 @@
 }
 
 /* ==================== ОШИБКИ И УСПЕХ ==================== */
-/* Отступы для ошибок под полями пароля (чтобы не перекрывались кнопкой) */
-.reg-form-fields:nth-child(3) .reg-form-input-error,
-.reg-form-fields:nth-child(3) .reg-form-input-success,
-.reg-form-fields:nth-child(4) .reg-form-input-error,
-.reg-form-fields:nth-child(4) .reg-form-input-success {
-    margin-top: 5px;
-    position: relative;
-    z-index: 1;
-}
-
 .reg-form-input-error {
     color: #9b2c2c;
     font-size: 12px;
@@ -249,14 +234,8 @@
 }
 
 /* ==================== ИНДИКАТОР СЛОЖНОСТИ ПАРОЛЯ ==================== */
-/* Отступ для индикатора сложности пароля */
-.reg-form-fields:nth-child(3) .reg-form-password-strength {
-    margin-top: 45px; /* Отступ чтобы не перекрывалось кнопкой */
-    position: relative;
-    z-index: 1;
-}
-
 .reg-form-password-strength {
+    margin-top: 10px;
     padding: 10px;
     background: rgba(255, 255, 255, 0.7);
     border-radius: 6px;
@@ -460,6 +439,40 @@
     opacity: 0.8;
 }
 
+/* ==================== ССЫЛКА НА ТЕХПОДДЕРЖКУ ==================== */
+.reg-form-support-link-container {
+    margin-top: 15px;
+    text-align: center;
+    padding-top: 15px;
+    border-top: 1px dashed rgba(88, 96, 98, 0.3);
+}
+
+.reg-form-support-link {
+    background: none;
+    border: none;
+    color: #4299e1;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.reg-form-support-link:hover {
+    background-color: rgba(66, 153, 225, 0.1);
+    color: #3182ce;
+    text-decoration: none;
+}
+
+.reg-form-support-link i {
+    font-size: 16px;
+}
+
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
     .reg-form-container {
@@ -467,43 +480,40 @@
         padding: 25px 20px;
         max-width: 450px;
     }
-    
+
     .reg-form-header h3 {
         font-size: 22px;
     }
-    
+
     .reg-form-input {
-        padding: 12px 14px;
-        padding-right: 45px;
+        padding: 14px;
         font-size: 15px;
     }
-    
-    /* Адаптация позиций кнопок для мобильных */
-    .reg-form-fields:nth-child(3) .reg-form-show-password,
-    .reg-form-fields:nth-child(4) .reg-form-show-password {
-        top: 21px; /* Немного выше для мобильных */
-        right: 10px;
-        height: 32px;
-        width: 32px;
+
+    .reg-form-show-password {
+        right: 0;
+        top: 0;
+        width: 45px;
+        padding: 14px;
     }
-    
-    /* Уменьшаем отступ для индикатора сложности на мобильных */
-    .reg-form-fields:nth-child(3) .reg-form-password-strength {
-        margin-top: 40px;
-    }
-    
+
     .reg-form-button-primary,
     .reg-form-button-secondary {
         padding: 12px 18px;
         font-size: 15px;
     }
-    
+
     .reg-form-secret-word-info {
         font-size: 11px;
     }
-    
+
     .reg-form-info p {
         font-size: 12px;
+    }
+
+    .reg-form-support-link {
+        font-size: 13px;
+        padding: 6px 14px;
     }
 }
 
@@ -514,64 +524,61 @@
         max-width: 100%;
         border-radius: 10px;
     }
-    
+
     .reg-form-header h3 {
         font-size: 20px;
     }
-    
+
     .reg-form-subtitle {
         font-size: 13px;
     }
-    
+
     .reg-form-input {
-        padding: 10px 12px;
-        padding-right: 40px;
+        padding: 12px;
         font-size: 14px;
     }
-    
-    /* Дальнейшая адаптация для маленьких экранов */
-    .reg-form-fields:nth-child(3) .reg-form-show-password,
-    .reg-form-fields:nth-child(4) .reg-form-show-password {
-        top: 18px;
-        right: 8px;
-        height: 30px;
-        width: 30px;
+
+    .reg-form-show-password {
+        right: 0;
+        top: 0;
+        width: 40px;
+        padding: 12px;
         font-size: 16px;
     }
-    
-    /* Еще меньше отступ для индикатора сложности */
-    .reg-form-fields:nth-child(3) .reg-form-password-strength {
-        margin-top: 35px;
-    }
-    
+
     .reg-form-button-primary,
     .reg-form-button-secondary {
         padding: 10px 15px;
         font-size: 14px;
     }
-    
+
     .reg-form-checkbox-label {
         font-size: 12px;
     }
-    
+
     .reg-form-terms-link {
         font-size: 12px;
     }
-    
+
     .reg-form-secret-word-info {
         flex-direction: column;
         gap: 6px;
         font-size: 10px;
     }
-    
+
     .reg-form-info p {
         font-size: 11px;
         flex-direction: column;
         gap: 5px;
     }
-    
+
     .reg-form-info i {
         align-self: flex-start;
+    }
+
+    .reg-form-support-link {
+        font-size: 12px;
+        padding: 6px 12px;
     }
 }
 
@@ -581,6 +588,7 @@
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -595,18 +603,26 @@
 .reg-form-show-password[title]:hover::after {
     content: attr(title);
     position: absolute;
-    top: -30px;
+    top: -35px;
     left: 50%;
     transform: translateX(-50%);
-    background: #333;
+    background: rgb(88, 96, 98);
     color: white;
-    padding: 4px 8px;
+    padding: 6px 10px;
     border-radius: 4px;
     font-size: 12px;
     white-space: nowrap;
-    z-index: 10;
+    z-index: 1000;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .reg-form-show-password[title] {
     position: relative;
+}
+
+/* Убираем стандартный тултип браузера */
+.reg-form-show-password[title]::before {
+    display: none;
 }

@@ -202,6 +202,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     alert('Условия использования будут отображены в модальном окне');
   };
 
+  const handleSupportClick = () => {
+    alert('Раздел технической поддержки находится в разработке');
+  };
+
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -286,27 +290,29 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <i className="fas fa-lock"></i> Пароль:
           </label>
           <div className="reg-form-input-wrapper">
-            <input 
-              id="register-password"
-              className={`reg-form-input ${errors.password ? 'errors' : ''}`}
-              type={showPassword ? "text" : "password"}
-              placeholder="Придумайте пароль (мин. 6 символов)"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              data-input="register-password"
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
-            <button 
-              type="button"
-              className="reg-form-show-password"
-              onClick={togglePasswordVisibility}
-              title={showPassword ? "Скрыть пароль" : "Показать пароль"}
-              disabled={isLoading}
-            >
-              {showPassword ? "🙈" : "👁️"}
-            </button>
+            <div className="reg-form-password-container">
+              <input 
+                id="register-password"
+                className={`reg-form-input ${errors.password ? 'errors' : ''}`}
+                type={showPassword ? "text" : "password"}
+                placeholder="Придумайте пароль (мин. 6 символов)"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                data-input="register-password"
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <button 
+                type="button"
+                className="reg-form-show-password"
+                onClick={togglePasswordVisibility}
+                title={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                disabled={isLoading}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
             {formData.password && (
               <div className={`reg-form-password-strength ${getPasswordStrengthClass(passwordStrength)}`}>
                 <div className="reg-form-strength-bar">
@@ -336,27 +342,29 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             <i className="fas fa-lock"></i> Подтверждение пароля:
           </label>
           <div className="reg-form-input-wrapper">
-            <input 
-              id="register-confirm-password"
-              className={`reg-form-input ${errors.confirmPassword ? 'errors' : ''}`}
-              type={showConfirmPassword ? "text" : "password"}
-              placeholder="Повторите пароль"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              data-input="register-confirm-password"
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
-            <button 
-              type="button"
-              className="reg-form-show-password"
-              onClick={toggleConfirmPasswordVisibility}
-              title={showConfirmPassword ? "Скрыть пароль" : "Показать пароль"}
-              disabled={isLoading}
-            >
-              {showConfirmPassword ? "🙈" : "👁️"}
-            </button>
+            <div className="reg-form-password-container">
+              <input 
+                id="register-confirm-password"
+                className={`reg-form-input ${errors.confirmPassword ? 'errors' : ''}`}
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Повторите пароль"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                data-input="register-confirm-password"
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <button 
+                type="button"
+                className="reg-form-show-password"
+                onClick={toggleConfirmPasswordVisibility}
+                title={showConfirmPassword ? "Скрыть пароль" : "Показать пароль"}
+                disabled={isLoading}
+              >
+                {showConfirmPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
             {errors.confirmPassword && (
               <span className="reg-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.confirmPassword}
@@ -469,6 +477,16 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           <strong>Внимание!</strong> Кодовое слово не хранится в открытом виде и не может быть восстановлено.
           Запишите его в надежное место. Оно потребуется для восстановления доступа.
         </p>
+        
+        <div className="reg-form-support-link-container">
+          <button 
+            type="button" 
+            className="reg-form-support-link"
+            onClick={handleSupportClick}
+          >
+            <i className="fas fa-headset"></i> Техническая поддержка
+          </button>
+        </div>
       </div>
     </div>
   );
