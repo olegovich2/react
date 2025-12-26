@@ -92,9 +92,18 @@
     gap: 5px;
 }
 
+/* ==================== КОНТЕЙНЕР ДЛЯ ПОЛЯ ПАРОЛЯ ==================== */
+.login-form-password-container {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
 /* Стили инпутов */
 .login-form-input {
     padding: 14px 16px;
+    padding-right: 50px; /* Место для кнопки показа пароля */
     border: 2px solid rgb(88, 96, 98);
     border-radius: 8px;
     font-size: 16px;
@@ -104,6 +113,8 @@
     color: rgb(88, 96, 98);
     transition: all 0.3s ease;
     outline: none;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .login-form-input:focus {
@@ -120,6 +131,41 @@
 .login-form-input:disabled {
     background-color: #f1f1f1;
     color: #999;
+    cursor: not-allowed;
+}
+
+/* ==================== КНОПКА ПОКАЗАТЬ/СКРЫТЬ ПАРОЛЬ ==================== */
+.login-form-show-password {
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 15px;
+    color: #666;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: calc(100% - 4px);
+    width: 50px;
+}
+
+.login-form-show-password:hover:not(:disabled) {
+    background-color: rgba(88, 96, 98, 0.1);
+    color: rgb(88, 96, 98);
+}
+
+.login-form-show-password:active:not(:disabled) {
+    background-color: rgba(88, 96, 98, 0.2);
+}
+
+.login-form-show-password:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
@@ -161,6 +207,7 @@
     justify-content: center;
     gap: 10px;
     text-align: center;
+    width: 100%;
 }
 
 .login-form-button-primary {
@@ -193,6 +240,7 @@
     background-color: rgb(88, 96, 98);
     color: rgb(183, 222, 234);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .login-form-button-secondary:disabled {
@@ -277,7 +325,7 @@
 }
 
 .login-form-info p {
-    margin: 0;
+    margin: 0 0 10px 0;
     color: rgb(88, 96, 98);
     font-size: 13px;
     font-weight: 600;
@@ -287,10 +335,48 @@
     line-height: 1.4;
 }
 
+.login-form-info p:last-child {
+    margin-bottom: 0;
+}
+
 .login-form-info i {
     font-size: 14px;
     margin-top: 2px;
     opacity: 0.8;
+}
+
+/* ==================== ССЫЛКА НА ТЕХПОДДЕРЖКУ ==================== */
+.login-form-support-link-container {
+    margin-top: 15px;
+    text-align: center;
+    padding-top: 15px;
+    border-top: 1px dashed rgba(88, 96, 98, 0.3);
+}
+
+.login-form-support-link {
+    background: none;
+    border: none;
+    color: #4299e1;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.login-form-support-link:hover {
+    background-color: rgba(66, 153, 225, 0.1);
+    color: #3182ce;
+    text-decoration: none;
+}
+
+.login-form-support-link i {
+    font-size: 16px;
 }
 
 /* ==================== АДАПТИВНОСТЬ ==================== */
@@ -307,7 +393,14 @@
     
     .login-form-input {
         padding: 12px 14px;
+        padding-right: 45px;
         font-size: 15px;
+    }
+    
+    .login-form-show-password {
+        width: 45px;
+        padding: 12px;
+        font-size: 17px;
     }
     
     .login-form-button-primary,
@@ -336,7 +429,14 @@
     
     .login-form-input {
         padding: 10px 12px;
+        padding-right: 40px;
         font-size: 14px;
+    }
+    
+    .login-form-show-password {
+        width: 40px;
+        padding: 10px;
+        font-size: 16px;
     }
     
     .login-form-button-primary,
@@ -357,6 +457,11 @@
     .login-form-info p {
         font-size: 12px;
     }
+    
+    .login-form-support-link {
+        font-size: 13px;
+        padding: 6px 14px;
+    }
 }
 
 /* ==================== АНИМАЦИИ ==================== */
@@ -373,4 +478,32 @@
 
 .login-form-container {
     animation: login-form-fadeIn 0.5s ease-out;
+}
+
+/* ==================== ПОДСКАЗКИ ПРИ НАВЕДЕНИИ ==================== */
+.login-form-show-password[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgb(88, 96, 98);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.login-form-show-password[title] {
+    position: relative;
+}
+
+/* Убираем стандартный тултип браузера */
+.login-form-show-password[title]::before {
+    display: none;
 }

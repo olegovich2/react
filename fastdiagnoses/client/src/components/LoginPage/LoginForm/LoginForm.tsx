@@ -16,6 +16,8 @@ const LoginForm: React.FC<LoginFormProps> = ({
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -101,6 +103,14 @@ const LoginForm: React.FC<LoginFormProps> = ({
     navigate('/forgot-password');
   };
 
+  const handleSupportClick = () => {
+    alert('Раздел технической поддержки находится в разработке');
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
     <div className="login-form-container">
       <div className="login-form-header">
@@ -152,18 +162,29 @@ const LoginForm: React.FC<LoginFormProps> = ({
             <i className="fas fa-lock"></i> Пароль:
           </label>
           <div className="login-form-input-wrapper">
-            <input 
-              id="password"
-              className={`login-form-input ${errors.password ? 'errors' : ''}`}
-              type="password"
-              placeholder="Введите ваш пароль"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              data-input="pass"
-              disabled={isLoading}
-              autoComplete="current-password"
-            />
+            <div className="login-form-password-container">
+              <input 
+                id="password"
+                className={`login-form-input ${errors.password ? 'errors' : ''}`}
+                type={showPassword ? "text" : "password"}
+                placeholder="Введите ваш пароль"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                data-input="pass"
+                disabled={isLoading}
+                autoComplete="current-password"
+              />
+              <button 
+                type="button"
+                className="login-form-show-password"
+                onClick={togglePasswordVisibility}
+                title={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                disabled={isLoading}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
             {errors.password && (
               <span className="login-form-input-error">
                 <i className="fas fa-exclamation-triangle"></i> {errors.password}
@@ -224,6 +245,16 @@ const LoginForm: React.FC<LoginFormProps> = ({
           <i className="fas fa-info-circle"></i> 
           Для доступа к системе требуется предварительная регистрация и подтверждение email.
         </p>
+        
+        <div className="login-form-support-link-container">
+          <button 
+            type="button" 
+            className="login-form-support-link"
+            onClick={handleSupportClick}
+          >
+            <i className="fas fa-headset"></i> Техническая поддержка
+          </button>
+        </div>
       </div>
     </div>
   );
