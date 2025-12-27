@@ -1989,7 +1989,7 @@ app.post(
           console.error("❌ Ошибка блокировки:", blockError.message);
         }
 
-        return res.status(403).json({
+        return res.status(401).json({
           success: false,
           message:
             "Превышено количество попыток. Аккаунт заблокирован. Обратитесь в техническую поддержку.",
@@ -2105,7 +2105,7 @@ app.post(
               console.error("❌ Ошибка при блокировке:", blockError.message);
             }
 
-            return res.status(403).json({
+            return res.status(401).json({
               success: false,
               message:
                 "Превышено количество попыток. Аккаунт заблокирован. Обратитесь в техническую поддержку.",
@@ -2153,7 +2153,7 @@ app.post(
         await new Promise((resolve) => setTimeout(resolve, 1000));
         console.log(`❌ Неверный текущий пароль для ${login}`);
 
-        return res.status(401).json({
+        return res.status(400).json({
           success: false,
           message: "Неверный текущий пароль",
           field: "currentPassword",
