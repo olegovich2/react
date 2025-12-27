@@ -10,12 +10,6 @@ interface AccountData {
   email: string;
 }
 
-interface EmailChangeFormData {
-  currentEmail: string;
-  newEmail: string;
-  reason: string;
-}
-
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const [accountData, setAccountData] = useState<AccountData | null>(null);
@@ -24,25 +18,24 @@ const SettingsPage: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   
   // Смена пароля
-  const [newPassword, setNewPassword] = useState({
+  const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
-    newPassword: ''
+    newPassword: '',
+    confirmPassword: '',
+    secretWord: '' // Новое поле: кодовое слово
   });
-  const [confirmPassword, setConfirmPassword] = useState('');
+  
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   
-  // Смена email
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [emailFormData, setEmailFormData] = useState<EmailChangeFormData>({
-    currentEmail: '',
-    newEmail: '',
-    reason: ''
+  // Состояния для показа/скрытия паролей
+  const [showPasswords, setShowPasswords] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false
   });
-  const [emailFormError, setEmailFormError] = useState<string | null>(null);
-  const [emailFormSuccess, setEmailFormSuccess] = useState<string | null>(null);
-  const [emailFormLoading, setEmailFormLoading] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -73,40 +66,55 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const validatePassword = (): boolean => {
+  const validatePasswordForm = (): boolean => {
     setPasswordError(null);
+    const lettersOnlyRegex = /^[а-яёА-ЯЁa-zA-Z]+$/;
 
-    if (!newPassword.currentPassword) {
+    if (!passwordForm.currentPassword) {
       setPasswordError('Введите текущий пароль');
       return false;
     }
 
-    if (!newPassword.newPassword) {
+    if (!passwordForm.newPassword) {
       setPasswordError('Введите новый пароль');
       return false;
     }
 
-    if (!confirmPassword) {
+    if (!passwordForm.confirmPassword) {
       setPasswordError('Подтвердите новый пароль');
       return false;
     }
 
-    if (newPassword.newPassword !== confirmPassword) {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setPasswordError('Новые пароли не совпадают');
       return false;
     }
 
-    if (newPassword.newPassword.length < 6) {
+    if (passwordForm.newPassword.length < 6) {
       setPasswordError('Пароль должен быть не менее 6 символов');
       return false;
     }
 
-    const hasUpperCase = /[A-Z]/.test(newPassword.newPassword);
-    const hasLowerCase = /[a-z]/.test(newPassword.newPassword);
-    const hasNumbers = /\d/.test(newPassword.newPassword);
-
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(passwordForm.newPassword)) {
       setPasswordError('Пароль должен содержать заглавные, строчные буквы и цифры');
+      return false;
+    }
+
+    // Валидация кодового слова
+    if (!passwordForm.secretWord.trim()) {
+      setPasswordError('Кодовое слово обязательно');
+      return false;
+    } else if (passwordForm.secretWord.length < 3) {
+      setPasswordError('Кодовое слово должно быть минимум 3 символа');
+      return false;
+    } else if (passwordForm.secretWord.length > 50) {
+      setPasswordError('Кодовое слово должно быть максимум 50 символов');
+      return false;
+    } else if (!lettersOnlyRegex.test(passwordForm.secretWord)) {
+      setPasswordError('Только буквы (русские или английские), без цифр и спецсимволов');
+      return false;
+    } else if (/<[^>]*>|javascript:|on\w+\s*=/.test(passwordForm.secretWord.toLowerCase())) {
+      setPasswordError('Недопустимые символы в кодовом слове');
       return false;
     }
 
@@ -114,17 +122,19 @@ const SettingsPage: React.FC = () => {
   };
 
   const handleChangePassword = async () => {
-    if (!validatePassword()) {
+    if (!validatePasswordForm()) {
       return;
     }
 
     try {
       setPasswordLoading(true);
       setPasswordError(null);
+      setPasswordSuccess(null);
 
       const response = await settingsAPI.changePassword({
-        currentPassword: newPassword.currentPassword,
-        newPassword: newPassword.newPassword
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+        secretWord: passwordForm.secretWord
       });
       
       if (response.success) {
@@ -133,7 +143,7 @@ const SettingsPage: React.FC = () => {
             "🔐 В целях безопасности пароль в письме НЕ указан."
           : "";
         
-        alert(
+        setPasswordSuccess(
           "✅ Пароль успешно изменен!\n\n" +
           emailMessage +
           "\n" +
@@ -144,11 +154,22 @@ const SettingsPage: React.FC = () => {
           "Нажмите OK для продолжения."
         );
         
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        sessionStorage.clear();
+        // Очищаем форму
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+          secretWord: ''
+        });
         
-        navigate(`/login?passwordChanged=true&emailSent=${response.data?.emailSent || false}`);
+        // Перенаправление через 5 секунд
+        setTimeout(() => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          sessionStorage.clear();
+          
+          navigate(`/login?passwordChanged=true&emailSent=${response.data?.emailSent || false}`);
+        }, 5000);
         
       } else {
         setPasswordError(response.message || 'Ошибка при смене пароля');
@@ -207,86 +228,15 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const validateEmailForm = (): boolean => {
-    setEmailFormError(null);
-
-    if (!emailFormData.currentEmail) {
-      setEmailFormError('Введите текущий email');
-      return false;
-    }
-
-    if (!emailFormData.newEmail) {
-      setEmailFormError('Введите новый email');
-      return false;
-    }
-
-    if (!emailFormData.reason) {
-      setEmailFormError('Укажите причину смены email');
-      return false;
-    }
-
-    if (emailFormData.currentEmail === emailFormData.newEmail) {
-      setEmailFormError('Новый email должен отличаться от текущего');
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailFormData.currentEmail)) {
-      setEmailFormError('Текущий email имеет неверный формат');
-      return false;
-    }
-
-    if (!emailRegex.test(emailFormData.newEmail)) {
-      setEmailFormError('Новый email имеет неверный формат');
-      return false;
-    }
-
-    if (accountData && emailFormData.currentEmail !== accountData.email) {
-      setEmailFormError('Текущий email не совпадает с email в системе');
-      return false;
-    }
-
-    return true;
+  const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
   };
 
-  const handleEmailChangeRequest = async () => {
-    if (!validateEmailForm()) {
-      return;
-    }
-
-    try {
-      setEmailFormLoading(true);
-      setEmailFormError(null);
-      setEmailFormSuccess(null);
-
-      const response = await settingsAPI.requestEmailChange(emailFormData);
-      
-      if (response.success) {
-        setEmailFormSuccess(
-          '✅ Запрос отправлен администратору! ' + 
-          (response.data?.notification || 'Вы получите уведомление после обработки.')
-        );
-        
-        // Очищаем форму через 3 секунды
-        setTimeout(() => {
-          setShowEmailForm(false);
-          setEmailFormData({
-            currentEmail: '',
-            newEmail: '',
-            reason: ''
-          });
-          setEmailFormSuccess(null);
-        }, 3000);
-        
-      } else {
-        setEmailFormError(response.message || 'Ошибка отправки запроса');
-      }
-    } catch (error: any) {
-      console.error('Ошибка отправки запроса:', error);
-      setEmailFormError(error.response?.data?.message || 'Произошла ошибка при отправке запроса');
-    } finally {
-      setEmailFormLoading(false);
-    }
+  const handleSupportClick = () => {
+    navigate('/support');
   };
 
   const handleBack = () => {
@@ -352,176 +302,182 @@ const SettingsPage: React.FC = () => {
               </div>
             </section>
 
-            {/* Секция 2: Смена email */}
+            {/* Секция 2: Ссылка на техподдержку вместо смены email */}
             <section className="set-page-section">
-              <h2 className="set-page-section-title">Смена email</h2>
+              <h2 className="set-page-section-title">Нужна помощь?</h2>
               
-              {!showEmailForm ? (
-                <div className="set-page-email-change-info">
-                  <p className="set-page-email-change-description">
-                    Для смены email необходимо обратиться к администратору.
-                    Заполните форму ниже, и мы автоматически отправим запрос администратору.
-                  </p>
+              <div className="set-page-support-info">
+                <p className="set-page-support-description">
+                  Если вы не нашли нужного функционала, возникли технические проблемы 
+                  или у вас есть вопросы по работе системы, обратитесь в нашу службу поддержки.
+                </p>
+                
+                <div className="set-page-support-features">
+                  <p><strong>Чем может помочь поддержка:</strong></p>
+                  <ul className="set-page-support-list">
+                    <li>Восстановление доступа к аккаунту</li>
+                    <li>Решение технических проблем</li>
+                    <li>Обработка запросов на смену email</li>
+                    <li>Обработка запросов на смену пароля</li>
+                    <li>Обработка запросов на для удаления аккаунта</li>
+                  </ul>
+                </div>
+                
+                <div className="set-page-support-link-container">
                   <button 
-                    className="set-page-email-change-init-button"
-                    onClick={() => setShowEmailForm(true)}
+                    type="button" 
+                    className="set-page-support-link"
+                    onClick={handleSupportClick}
                   >
-                    📧 Запросить смену email
+                    <i className="fas fa-headset"></i> Перейти в техническую поддержку
                   </button>
                 </div>
-              ) : (
-                <div className="set-page-email-form">
-                  {emailFormError && (
-                    <div className="set-page-email-form-error">
-                      {emailFormError}
-                    </div>
-                  )}
-                  
-                  {emailFormSuccess && (
-                    <div className="set-page-email-form-success">
-                      <div className="set-page-success-content">
-                        <p>{emailFormSuccess}</p>
-                      </div>
-                      <button 
-                        className="set-page-success-close-button"
-                        onClick={() => {
-                          setEmailFormSuccess(null);
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-                  
-                  <div className="set-page-form-group">
-                    <label htmlFor="currentEmail">
-                      Подтвердите текущий email:
-                      <span className="set-page-form-hint"> (должен совпадать с {accountData?.email})</span>
-                    </label>
-                    <input
-                      type="email"
-                      id="currentEmail"
-                      value={emailFormData.currentEmail}
-                      onChange={(e) => setEmailFormData({...emailFormData, currentEmail: e.target.value})}
-                      placeholder="Введите ваш текущий email"
-                      disabled={emailFormLoading}
-                    />
-                  </div>
-                  
-                  <div className="set-page-form-group">
-                    <label htmlFor="newEmail">Новый email:</label>
-                    <input
-                      type="email"
-                      id="newEmail"
-                      value={emailFormData.newEmail}
-                      onChange={(e) => setEmailFormData({...emailFormData, newEmail: e.target.value})}
-                      placeholder="Введите новый email"
-                      disabled={emailFormLoading}
-                    />
-                  </div>
-                  
-                  <div className="set-page-form-group">
-                    <label htmlFor="reason">Причина смены:</label>
-                    <textarea
-                      id="reason"
-                      value={emailFormData.reason}
-                      onChange={(e) => setEmailFormData({...emailFormData, reason: e.target.value})}
-                      placeholder="Объясните, почему нужно сменить email"
-                      rows={3}
-                      disabled={emailFormLoading}
-                    />
-                  </div>
-                  
-                  <div className="set-page-email-form-buttons">
-                    <button 
-                      className="set-page-email-form-submit-button"
-                      onClick={handleEmailChangeRequest}
-                      disabled={emailFormLoading}
-                    >
-                      {emailFormLoading ? (
-                        <>
-                          <span className="set-page-button-spinner"></span>
-                          Отправка...
-                        </>
-                      ) : (
-                        '📨 Отправить запрос администратору'
-                      )}
-                    </button>
-                    <button 
-                      className="set-page-email-form-cancel-button"
-                      onClick={() => {
-                        setShowEmailForm(false);
-                        setEmailFormError(null);
-                        setEmailFormData({
-                          currentEmail: '',
-                          newEmail: '',
-                          reason: ''
-                        });
-                        setEmailFormSuccess(null);
-                      }}
-                      disabled={emailFormLoading}
-                    >
-                      Отмена
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
             </section>
 
-            {/* Секция 3: Безопасность */}
+            {/* Секция 3: Смена пароля с кодовым словом */}
             <section className="set-page-section">
-              <h2 className="set-page-section-title">Безопасность</h2>
+              <h2 className="set-page-section-title">Смена пароля</h2>
               
               <div className="set-page-password-form">
                 {passwordError && (
                   <div className="set-page-password-error">
-                    {passwordError}
+                    <i className="fas fa-exclamation-triangle"></i> {passwordError}
+                  </div>
+                )}
+                
+                {passwordSuccess && (
+                  <div className="set-page-password-success">
+                    <div className="set-page-password-success-content">
+                      <p style={{ whiteSpace: 'pre-line' }}>{passwordSuccess}</p>
+                      <div className="set-page-redirect-timer">
+                        <p>Автоматический переход через 5 секунд...</p>
+                      </div>
+                    </div>
+                    <button 
+                      className="set-page-success-close-button"
+                      onClick={() => setPasswordSuccess(null)}
+                    >
+                      ✕
+                    </button>
                   </div>
                 )}
                 
                 <div className="set-page-form-group">
-                  <label htmlFor="currentPassword">Текущий пароль</label>
-                  <input
-                    type="password"
-                    id="currentPassword"
-                    value={newPassword.currentPassword}
-                    onChange={(e) => setNewPassword({...newPassword, currentPassword: e.target.value})}
-                    placeholder="Введите текущий пароль"
-                    disabled={passwordLoading}
-                  />
+                  <label htmlFor="set-current-password">
+                    <i className="fas fa-lock"></i> Текущий пароль
+                  </label>
+                  <div className="set-page-password-container">
+                    <input
+                      id="set-current-password"
+                      type={showPasswords.currentPassword ? "text" : "password"}
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                      placeholder="Введите текущий пароль"
+                      disabled={passwordLoading}
+                      autoComplete="current-password"
+                    />
+                    <button 
+                      type="button"
+                      className="set-page-show-password"
+                      onClick={() => togglePasswordVisibility('currentPassword')}
+                      title={showPasswords.currentPassword ? "Скрыть пароль" : "Показать пароль"}
+                      disabled={passwordLoading}
+                    >
+                      {showPasswords.currentPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="set-page-form-group">
-                  <label htmlFor="newPassword">Новый пароль</label>
-                  <input
-                    type="password"
-                    id="newPassword"
-                    value={newPassword.newPassword}
-                    onChange={(e) => setNewPassword({...newPassword, newPassword: e.target.value})}
-                    placeholder="Введите новый пароль (мин. 6 символов)"
-                    disabled={passwordLoading}
-                  />
+                  <label htmlFor="set-new-password">
+                    <i className="fas fa-key"></i> Новый пароль
+                  </label>
+                  <div className="set-page-password-container">
+                    <input
+                      id="set-new-password"
+                      type={showPasswords.newPassword ? "text" : "password"}
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                      placeholder="Введите новый пароль (мин. 6 символов)"
+                      disabled={passwordLoading}
+                      autoComplete="new-password"
+                    />
+                    <button 
+                      type="button"
+                      className="set-page-show-password"
+                      onClick={() => togglePasswordVisibility('newPassword')}
+                      title={showPasswords.newPassword ? "Скрыть пароль" : "Показать пароль"}
+                      disabled={passwordLoading}
+                    >
+                      {showPasswords.newPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
                   <div className="set-page-password-hint">
                     Должен содержать заглавные, строчные буквы и цифры
                   </div>
                 </div>
                 
                 <div className="set-page-form-group">
-                  <label htmlFor="confirmPassword">Подтвердите новый пароль</label>
+                  <label htmlFor="set-confirm-password">
+                    <i className="fas fa-key"></i> Подтвердите новый пароль
+                  </label>
+                  <div className="set-page-password-container">
+                    <input
+                      id="set-confirm-password"
+                      type={showPasswords.confirmPassword ? "text" : "password"}
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                      placeholder="Повторите новый пароль"
+                      disabled={passwordLoading}
+                      autoComplete="new-password"
+                    />
+                    <button 
+                      type="button"
+                      className="set-page-show-password"
+                      onClick={() => togglePasswordVisibility('confirmPassword')}
+                      title={showPasswords.confirmPassword ? "Скрыть пароль" : "Показать пароль"}
+                      disabled={passwordLoading}
+                    >
+                      {showPasswords.confirmPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                  {passwordForm.newPassword && passwordForm.confirmPassword && 
+                   passwordForm.newPassword === passwordForm.confirmPassword && (
+                    <div className="set-page-password-match-success">
+                      <i className="fas fa-check-circle"></i> Пароли совпадают
+                    </div>
+                  )}
+                </div>
+                
+                <div className="set-page-form-group">
+                  <label htmlFor="set-secret-word">
+                    <i className="fas fa-shield-alt"></i> Кодовое слово
+                  </label>
                   <input
-                    type="password"
-                    id="confirmPassword"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Повторите новый пароль"
+                    id="set-secret-word"
+                    type="text"
+                    value={passwordForm.secretWord}
+                    onChange={(e) => setPasswordForm({...passwordForm, secretWord: e.target.value})}
+                    placeholder="Введите кодовое слово для подтверждения"
                     disabled={passwordLoading}
+                    autoComplete="off"
                   />
+                  <div className="set-page-secret-word-info">
+                    <i className="fas fa-info-circle"></i>
+                    <span>Введите кодовое слово, которое вы указывали при регистрации</span>
+                  </div>
                 </div>
                 
                 <button 
                   className="set-page-change-password-button"
                   onClick={handleChangePassword}
-                  disabled={passwordLoading || !newPassword.currentPassword || !newPassword.newPassword || !confirmPassword}
+                  disabled={passwordLoading || 
+                    !passwordForm.currentPassword || 
+                    !passwordForm.newPassword || 
+                    !passwordForm.confirmPassword || 
+                    !passwordForm.secretWord
+                  }
                 >
                   {passwordLoading ? (
                     <>
@@ -529,7 +485,9 @@ const SettingsPage: React.FC = () => {
                       Смена пароля...
                     </>
                   ) : (
-                    'Сменить пароль'
+                    <>
+                      <i className="fas fa-key"></i> Сменить пароль
+                    </>
                   )}
                 </button>
               </div>
@@ -593,7 +551,7 @@ const SettingsPage: React.FC = () => {
               </div>
             </section>
 
-            {/* Секция 5: Информация о системе */}
+            {/* Секция 5: Информация о системе (без строки "Поддержка") */}
             <section className="set-page-section">
               <h2 className="set-page-section-title">О системе</h2>
               
@@ -606,9 +564,6 @@ const SettingsPage: React.FC = () => {
                 </div>
                 <div className="set-page-system-info-item">
                   <strong>Тип лицензии:</strong> Бесплатная
-                </div>
-                <div className="set-page-system-info-item">
-                  <strong>Поддержка:</strong> trmailforupfile@gmail.com
                 </div>
               </div>
             </section>

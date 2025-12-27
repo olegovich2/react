@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
   Outlet,
+  useLocation,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ConfirmEmailPage from "./components/ConfirmEmailPage/ConfirmEmailPage";
@@ -87,6 +88,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const location = useLocation(); // Добавляем useLocation для получения текущего пути
   const token = localStorage.getItem("token");
   const user = localStorage.getItem("user");
 
@@ -94,6 +96,10 @@ const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({
   if (token && user) {
     try {
       JSON.parse(user);
+      // ИСКЛЮЧЕНИЕ: не перенаправлять если пользователь на странице поддержки
+      if (location.pathname === '/support') {
+        return <>{children}</>;
+      }
       return <Navigate to="/" replace />;
     } catch {
       localStorage.removeItem("token");
@@ -178,13 +184,10 @@ const App: React.FC = () => {
               }
             />
 
+            {/* Страница поддержки - ДОСТУПНА ДЛЯ ВСЕХ */}
             <Route
               path="/support"
-              element={
-                <AuthRedirect>
-                  <SupportPage />
-                </AuthRedirect>
-              }
+              element={<SupportPage />} // Убираем AuthRedirect для поддержки
             />
 
             {/* Страница успешной регистрации */}

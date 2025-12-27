@@ -8,6 +8,7 @@ export interface UserInfo {
 export interface ChangePasswordData {
   currentPassword: string;
   newPassword: string;
+  secretWord: string;
 }
 
 export interface ChangePasswordResponse {

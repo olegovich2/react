@@ -1,9 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
 import './SupportPage.css';
 
 const SupportPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }, [navigate]);
+  
   return (
     <div className="support-page">
       <Header />
