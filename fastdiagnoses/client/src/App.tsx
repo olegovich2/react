@@ -10,6 +10,7 @@ import {
 import { AuthProvider } from "./context/AuthContext";
 import ConfirmEmailPage from "./components/ConfirmEmailPage/ConfirmEmailPage";
 import SupportConfirmPage from "./components/SupportPage/SupportConfirmPage/SupportConfirmPage";
+import { AccountProvider } from './components/AccountPage/context/AccountContext';
 
 // Компоненты для отображения во время загрузки
 const LoadingSpinner = () => (
@@ -232,7 +233,9 @@ const App: React.FC = () => {
               path="/account"
               element={
                 <ProtectedRoute>
+                  <AccountProvider>
                   <AccountLayout />
+                  </AccountProvider>
                 </ProtectedRoute>
               }
             >

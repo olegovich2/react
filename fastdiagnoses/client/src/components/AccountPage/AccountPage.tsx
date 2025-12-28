@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
 import { AccountProvider } from './context/AccountContext';
-import { ScrollProvider } from './context/ScrollContext'; 
+// import { ScrollProvider } from './context/ScrollContext'; 
 import SurveysContainerPaginated from './components/SurveysContainer/SurveysContainer.paginated';
 import ImagesContainerPaginated from './components/ImagesContainer/ImagesContainer.paginated';
 
@@ -48,9 +48,9 @@ const AccountPageContent: React.FC = () => {
 const AccountPage: React.FC = () => {
   return (
     <AccountProvider>
-      <ScrollProvider> 
+      
         <AccountPageContent />
-      </ScrollProvider>
+      
     </AccountProvider>
   );
 };

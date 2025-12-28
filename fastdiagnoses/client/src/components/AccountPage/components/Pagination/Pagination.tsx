@@ -1,4 +1,3 @@
-// AccountPage/components/Pagination/Pagination.tsx
 import React, { useCallback } from 'react';
 import './Pagination.css';
 
@@ -8,8 +7,8 @@ interface PaginationProps {
   totalItems: number;
   onPageChange: (page: number) => void;
   maxVisiblePages?: number;
-  scrollToElement?: () => void;
   autoScroll?: boolean;
+  targetElementId?: string; // Новый пропс - ID элемента для прокрутки
 }
 
 const Pagination: React.FC<PaginationProps> = ({
@@ -18,26 +17,48 @@ const Pagination: React.FC<PaginationProps> = ({
   totalItems,
   onPageChange,
   maxVisiblePages = 5,
-  scrollToElement,
-  autoScroll = true
+  autoScroll = true,
+  targetElementId // ID элемента к которому нужно прокрутить
 }) => {
-  // Обработчик клика с прокруткой - ДОЛЖЕН БЫТЬ ДО ВСЕХ УСЛОВНЫХ RETURN
-  const handlePageClick = useCallback((page: number) => {
-    onPageChange(page);
+  // Функция для прокрутки к целевому элементу
+  const scrollToTarget = useCallback(() => {
+    if (!autoScroll) return;
     
-    if (autoScroll && scrollToElement) {
-      setTimeout(() => {
-        scrollToElement();
-      }, 50);
-    } else if (autoScroll) {
-      setTimeout(() => {
+    setTimeout(() => {
+      if (targetElementId) {
+        // Пытаемся найти элемент по ID
+        const targetElement = document.getElementById(targetElementId);
+        
+        if (targetElement) {
+          // Прокручиваем к элементу
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+          console.log(`📍 Прокрутка к элементу с ID: ${targetElementId}`);
+        } else {
+          console.warn(`⚠️ Элемент с ID "${targetElementId}" не найден`);
+          // Fallback: прокрутка к верху страницы
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        }
+      } else {
+        // Если ID не указан, прокручиваем к верху страницы
         window.scrollTo({
           top: 0,
           behavior: 'smooth'
         });
-      }, 50);
-    }
-  }, [onPageChange, autoScroll, scrollToElement]);
+      }
+    }, 50);
+  }, [autoScroll, targetElementId]);
+
+  // Обработчик клика с прокруткой
+  const handlePageClick = useCallback((page: number) => {
+    onPageChange(page);
+    scrollToTarget();
+  }, [onPageChange, scrollToTarget]);
 
   // Генерация номеров страниц
   const getPageNumbers = () => {
