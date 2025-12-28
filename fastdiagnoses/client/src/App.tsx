@@ -65,6 +65,57 @@ const SupportStatusPage = lazy(
   () => import("./components/SupportPage/SupportStatusPage/SupportStatusPage")
 );
 
+// Функция для очистки ключей аккаунта из localStorage
+const clearAccountStorage = (): void => {
+  try {
+    console.log("🧹 Очистка ключей аккаунта из localStorage");
+    
+    // Список ключей аккаунта для очистки
+    const accountKeys = [
+      'account_surveys_pagination',
+      'account_images_pagination',
+      'account_surveys_filters',
+      'account_images_filters',
+    ];
+    
+    // Очищаем каждый ключ
+    accountKeys.forEach(key => {
+      localStorage.removeItem(key);
+      console.log(`🗑️ Удален ключ аккаунта: ${key}`);
+    });
+    
+    // Дополнительно: очищаем все ключи начинающиеся с 'account_'
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('account_')) {
+        localStorage.removeItem(key);
+        console.log(`🗑️ Удален ключ с префиксом account_: ${key}`);
+      }
+    });
+    
+    console.log("✅ Ключи аккаунта очищены");
+  } catch (error) {
+    console.error("❌ Ошибка очистки ключей аккаунта:", error);
+  }
+};
+
+// Функция для полной очистки аутентификационных данных
+const clearAuthData = (): void => {
+  try {
+    console.log("🔐 Очистка аутентификационных данных");
+    
+    // Очищаем аутентификационные данные
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    
+    // Очищаем ключи аккаунта
+    clearAccountStorage();
+    
+    console.log("✅ Аутентификационные данные очищены");
+  } catch (error) {
+    console.error("❌ Ошибка очистки аутентификационных данных:", error);
+  }
+};
+
 // Компонент для защищенных маршрутов
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -74,6 +125,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 
   // Если нет токена или пользователя, перенаправляем на логин
   if (!token || !user) {
+    // Очищаем ключи аккаунта при редиректе на логин
+    clearAccountStorage();
     return <Navigate to="/login" replace />;
   }
 
@@ -82,9 +135,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
     JSON.parse(user);
     return <>{children}</>;
   } catch {
-    // Если user невалидный JSON, очищаем и перенаправляем
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    // Если user невалидный JSON, очищаем ВСЁ и перенаправляем
+    clearAuthData();
     return <Navigate to="/login" replace />;
   }
 };
@@ -93,7 +145,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const location = useLocation(); // Добавляем useLocation для получения текущего пути
+  const location = useLocation();
+
+  // Очищаем ключи аккаунта при заходе на страницу логина
+  useEffect(() => {
+    if (location.pathname === "/login") {
+      console.log("🔑 Страница логина - очищаем ключи аккаунта");
+      clearAccountStorage();
+    }
+  }, [location.pathname]);
+
   const token = localStorage.getItem("token");
   const user = localStorage.getItem("user");
 
@@ -107,17 +168,39 @@ const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({
       }
       return <Navigate to="/" replace />;
     } catch {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      // Если user невалидный JSON, очищаем ВСЁ
+      clearAuthData();
     }
   }
 
   return <>{children}</>;
 };
 
+// Компонент-обертка для очистки при переходе на главную
+const MainPageWrapper: React.FC = () => {
+  // Очищаем ключи аккаунта при загрузке главной страницы
+  useEffect(() => {
+    console.log("🏠 Загружена главная страница - очищаем ключи аккаунта");
+    clearAccountStorage();
+  }, []);
+
+  return <MainPage />;
+};
+
 // Компонент-обертка для страниц аккаунта
 const AccountLayout: React.FC = () => {
   return <Outlet />;
+};
+
+// Компонент-обертка для страницы логина с очисткой
+const LoginPageWrapper: React.FC = () => {
+  // Очищаем ключи аккаунта при загрузке страницы логина
+  useEffect(() => {
+    console.log("🔑 Загружена страница логина - очищаем ключи аккаунта");
+    clearAccountStorage();
+  }, []);
+
+  return <LoginPage />;
 };
 
 // Основной компонент приложения
@@ -157,7 +240,7 @@ const App: React.FC = () => {
               path="/login"
               element={
                 <AuthRedirect>
-                  <LoginPage />
+                  <LoginPageWrapper />
                 </AuthRedirect>
               }
             />
@@ -221,7 +304,7 @@ const App: React.FC = () => {
               path="/"
               element={
                 <ProtectedRoute>
-                  <MainPage />
+                  <MainPageWrapper />
                 </ProtectedRoute>
               }
             />
@@ -234,7 +317,7 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AccountProvider>
-                  <AccountLayout />
+                    <AccountLayout />
                   </AccountProvider>
                 </ProtectedRoute>
               }

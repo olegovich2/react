@@ -7,13 +7,21 @@ import ResultSurvey from './ResultSurvey/ResultSurveyMain';
 import { useNavigate } from 'react-router-dom';
 import { Survey } from '../AccountPage/types/account.types';
 import { fetchClient } from '../../api/fetchClient';
+import { useAccountStorage } from '../../services/index';
 import './MainPage.css';
 
 const MainPage: React.FC = () => {
+const { clearOnlyAccountStorage } = useAccountStorage();
+
   const [activeTab, setActiveTab] = useState<string>('');
   const [showResult, setShowResult] = useState<boolean>(false);
   const [currentSurvey, setCurrentSurvey] = useState<Survey | null>(null);
   const navigate = useNavigate();
+
+useEffect(() => {
+    console.log('🏠 Загружена главная страница - очищаем ключи аккаунта');
+    clearOnlyAccountStorage();
+  }, [clearOnlyAccountStorage]);
 
   useEffect(() => {
     const verifyToken = async () => {

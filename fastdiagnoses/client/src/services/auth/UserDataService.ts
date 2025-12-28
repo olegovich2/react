@@ -90,13 +90,47 @@ class UserDataService {
       
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      sessionStorage.removeItem('tempData');
       this.notifyListeners();
     } catch (error) {
       console.error('❌ Ошибка очистки данных аутентификации:', error);
     }
   }
 
+clearAccountStorage(): void {
+    try {
+      console.log('🗑️ UserDataService.clearAccountStorage()');
+      
+      // Список ключей аккаунта для очистки
+      const accountKeys = [
+        'account_surveys_pagination',
+        'account_images_pagination',
+        'account_surveys_filters',
+        'account_images_filters',
+      ];
+      
+      // Очищаем каждый ключ
+      accountKeys.forEach(key => {
+        localStorage.removeItem(key);
+        console.log(`🗑️ Удален ключ аккаунта: ${key}`);
+      });
+      
+      // Дополнительно: очищаем все ключи начинающиеся с 'account_'
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('account_')) {
+          localStorage.removeItem(key);
+          console.log(`🗑️ Удален ключ с префиксом account_: ${key}`);
+        }
+      });
+      
+      console.log('✅ Ключи аккаунта очищены');
+    } catch (error) {
+      console.error('❌ Ошибка очистки ключей аккаунта:', error);
+    }
+  }
+
+  clearOnlyAccountStorage(): void {
+    this.clearAccountStorage();
+  }
   /**
    * Подписка на изменения данных пользователя
    * @returns Функция для отписки

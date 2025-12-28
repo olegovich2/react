@@ -7,3 +7,4 @@
 export { userDataService } from './auth/UserDataService';
 export type { UserDataService } from './auth/UserDataService';
 export type { User } from '../context/context.types'; 
+export {useAccountStorage} from './hooks/useAccountStorage';

@@ -3,13 +3,21 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../Layout/Header';
 import Footer from '../Layout/Footer';
 import LoginForm from './LoginForm/LoginForm';
+import { useAccountStorage } from '../../services/index';
 import './LoginPage.css'; 
 
 const LoginPage: React.FC = () => {
+  const { clearOnlyAccountStorage } = useAccountStorage();
+  
   const location = useLocation();
   const navigate = useNavigate();
   const [passwordChanged, setPasswordChanged] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+
+useEffect(() => {
+    console.log('🔑 Загружена страница логина - очищаем ключи аккаунта');
+    clearOnlyAccountStorage();
+  }, [clearOnlyAccountStorage]);
 
   useEffect(() => {
     // Проверяем параметры URL
