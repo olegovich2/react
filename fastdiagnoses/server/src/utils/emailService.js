@@ -326,62 +326,97 @@ class EmailService {
       other: "Другая проблема",
     };
 
+    // Ссылка для проверки статуса
+    const statusCheckUrl = `${
+      process.env.CLIENT_URL || "http://localhost:5000"
+    }/support/status/${requestId}`;
+
     return {
       from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: `✅ Заявка #${requestId} принята в работу`,
       html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-            ✅ Заявка подтверждена
-          </h2>
-          
-          <div style="text-align: center; margin: 20px 0;">
-            <div style="display: inline-block; background-color: #52c41a; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">
-              Заявка №${requestId}
-            </div>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
+      <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
+          ✅ Заявка подтверждена
+        </h2>
+        
+        <div style="text-align: center; margin: 20px 0;">
+          <div style="display: inline-block; background-color: #52c41a; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">
+            Заявка №${requestId}
           </div>
-          
-          <p style="font-size: 16px; color: #4a5568; text-align: center;">
-            Ваша заявка <strong>"${
-              typeNames[requestType] || requestType
-            }"</strong><br>
-            успешно подтверждена и принята в работу.
-          </p>
-          
-          <div style="background-color: #f6ffed; border: 1px solid #b7eb8f; padding: 20px; border-radius: 6px; margin: 25px 0;">
-            <h3 style="color: #389e0d; margin-top: 0;">📝 Что дальше?</h3>
-            <ol style="color: #4a5568; padding-left: 20px;">
-              <li style="margin-bottom: 10px;">Специалист поддержки рассмотрит вашу заявку</li>
-              <li style="margin-bottom: 10px;">Вы получите уведомление о начале работы</li>
-              <li>Решение будет отправлено на этот email</li>
-            </ol>
-          </div>
-          
-          <div style="background-color: #e6f7ff; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
-            <p style="margin: 0; color: #0050b3; font-weight: bold;">
-              🕒 Среднее время обработки: 1-24 часа
-            </p>
-            <p style="margin: 10px 0 0 0; color: #4a5568;">
-              Вы можете проверить статус заявки в любое время
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <p style="color: #718096; font-size: 14px;">
-              По любым вопросам вы можете обратиться через систему техподдержки
-            </p>
-          </div>
-          
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-          
-          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-            Это автоматическое уведомление от техподдержки QuickDiagnosis<br>
-            Номер заявки: ${requestId}
+        </div>
+        
+        <p style="font-size: 16px; color: #4a5568; text-align: center;">
+          Здравствуйте, <strong>${login}</strong>!<br>
+          Ваша заявка <strong>"${
+            typeNames[requestType] || requestType
+          }"</strong> успешно подтверждена и принята в работу.
+        </p>
+        
+        <div style="background-color: #f6ffed; border: 1px solid #b7eb8f; padding: 20px; border-radius: 6px; margin: 25px 0;">
+          <h3 style="color: #389e0d; margin-top: 0;">📝 Что дальше?</h3>
+          <ol style="color: #4a5568; padding-left: 20px;">
+            <li style="margin-bottom: 10px;">Специалист поддержки рассмотрит вашу заявку</li>
+            <li style="margin-bottom: 10px;">Вы получите уведомление о начале работы</li>
+            <li>Решение будет отправлено на этот email</li>
+          </ol>
+        </div>
+        
+        <!-- КНОПКА ДЛЯ ПРОВЕРКИ СТАТУСА -->
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${statusCheckUrl}" 
+             style="background-color: #4299e1; color: white; padding: 14px 30px; 
+                    text-decoration: none; border-radius: 6px; font-weight: bold;
+                    font-size: 16px; display: inline-block; margin-bottom: 15px;">
+            <i class="fas fa-search" style="margin-right: 8px;"></i> Проверить статус заявки
+          </a>
+          <p style="color: #718096; font-size: 12px; margin-top: 10px;">
+            <strong>ID заявки:</strong> ${requestId}<br>
+            <small>Сохраните этот номер для быстрого доступа</small>
           </p>
         </div>
+        
+        <div style="background-color: #e6f7ff; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
+          <p style="margin: 0; color: #0050b3; font-weight: bold;">
+            🕒 Среднее время обработки: 1-24 часа
+          </p>
+          <p style="margin: 10px 0 0 0; color: #4a5568;">
+            Вы можете проверить статус заявки в любое время по ссылке выше
+          </p>
+        </div>
+        
+        <div style="background-color: #f0f5ff; border-left: 4px solid #4299e1; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0; color: #2d3748; font-weight: bold;">
+            📋 Что можно сделать на странице статуса:
+          </p>
+          <ul style="color: #4a5568; margin: 10px 0 0 0; padding-left: 20px;">
+            <li>Посмотреть текущий этап обработки</li>
+            <li>Увидеть таймлайн всех этапов заявки</li>
+            <li>Узнать примерное время завершения</li>
+            <li>Получить советы по дальнейшим действиям</li>
+          </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <p style="color: #718096; font-size: 14px;">
+            Если кнопка не работает, скопируйте ссылку в браузер:
+          </p>
+          <p style="color: #4a5568; font-size: 12px; background-color: #f7fafc; 
+             padding: 10px; border-radius: 4px; word-break: break-all;">
+            ${statusCheckUrl}
+          </p>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+        
+        <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
+          Это автоматическое уведомление от техподдержки QuickDiagnosis<br>
+          Номер заявки: ${requestId} • ${new Date().toLocaleDateString("ru-RU")}
+        </p>
       </div>
+    </div>
     `,
     };
   }

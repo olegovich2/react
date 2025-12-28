@@ -9,6 +9,7 @@ const AdminUsersController = require("../controllers/AdminUsersController");
 const AdminLogsController = require("../controllers/AdminLogsController");
 const AdminBackupsController = require("../controllers/AdminBackupsController");
 const AdminSystemController = require("../controllers/AdminSystemController");
+const SupportController = require("../../support/controllers/SupportController");
 
 // Логирование всех запросов к админ API
 router.use((req, res, next) => {
@@ -109,6 +110,13 @@ router.delete("/backups/:id", isAdmin, AdminBackupsController.deleteBackup);
 
 // ==================== СИСТЕМНЫЕ ====================
 console.log("⚙️ [AdminRoutes] Регистрация системных роутов");
+
+// ТЕХПОДДЕРЖКА
+router.get(
+  "/admin/request/:requestId",
+  isAdmin,
+  SupportController.getRequestDetails
+);
 
 // Диагностика и мониторинг
 router.get(

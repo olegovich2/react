@@ -1,0 +1,350 @@
+/* SupportConfirmPage.css */
+.support-confirm-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.support-confirm-container {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+}
+
+/* Общие стили состояний */
+.support-confirm-state {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Иконка */
+.support-confirm-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+}
+
+.support-confirm-state.loading .support-confirm-icon {
+  color: #4299e1;
+  animation: pulse 1.5s infinite;
+}
+
+.support-confirm-state.success .support-confirm-icon {
+  color: #38a169;
+}
+
+.support-confirm-state.error .support-confirm-icon {
+  color: #e53e3e;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Заголовки */
+.support-confirm-container h1 {
+  color: #2d3748;
+  margin-bottom: 15px;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.support-confirm-container p {
+  color: #4a5568;
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+/* Прогресс-бар */
+.support-confirm-progress {
+  width: 100%;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  margin: 30px 0;
+  overflow: hidden;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 100%;
+  background: #4299e1;
+  animation: loading 2s infinite linear;
+  border-radius: 2px;
+}
+
+@keyframes loading {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Детали заявки */
+.support-confirm-details {
+  margin: 25px 0;
+}
+
+.detail-card {
+  background: #f7fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: left;
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.detail-icon {
+  font-size: 24px;
+  color: #4299e1;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.detail-content h3 {
+  color: #2d3748;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.detail-content p {
+  margin: 8px 0;
+  color: #4a5568;
+}
+
+.detail-content strong {
+  color: #2d3748;
+  min-width: 120px;
+  display: inline-block;
+}
+
+/* Инструкции */
+.support-confirm-instructions {
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 25px 0;
+  text-align: left;
+}
+
+.support-confirm-instructions h3 {
+  color: #38a169;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.support-confirm-instructions ol {
+  color: #4a5568;
+  padding-left: 20px;
+  margin: 0;
+}
+
+.support-confirm-instructions li {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+/* Редирект */
+.support-confirm-redirect {
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 6px;
+  padding: 15px;
+  margin: 20px 0;
+  color: #0050b3;
+}
+
+.support-confirm-redirect p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Детали ошибки */
+.support-confirm-error-details {
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 25px 0;
+  text-align: left;
+}
+
+.support-confirm-error-details h3 {
+  color: #e53e3e;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.support-confirm-error-details ul {
+  color: #4a5568;
+  padding-left: 20px;
+  margin: 0;
+}
+
+.support-confirm-error-details li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+/* Кнопки */
+.support-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin: 30px 0;
+}
+
+.support-confirm-button {
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 900;
+  font-family: 'Montserrat', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: none;
+}
+
+.support-confirm-button.primary {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+}
+
+.support-confirm-button.primary:hover {
+  background: linear-gradient(135deg, #3182ce, #2b6cb0);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.support-confirm-button.secondary {
+  background: linear-gradient(135deg, #38a169, #2f855a);
+  color: white;
+}
+
+.support-confirm-button.secondary:hover {
+  background: linear-gradient(135deg, #2f855a, #276749);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.support-confirm-button.tertiary {
+  background: linear-gradient(135deg, #718096, #4a5568);
+  color: white;
+}
+
+.support-confirm-button.tertiary:hover {
+  background: linear-gradient(135deg, #4a5568, #2d3748);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Помощь */
+.support-confirm-help {
+  background: #fefcbf;
+  border: 1px solid #f6e05e;
+  border-radius: 6px;
+  padding: 15px;
+  margin-top: 20px;
+}
+
+.support-confirm-help p {
+  margin: 0;
+  color: #744210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .support-confirm-container {
+    padding: 30px 20px;
+  }
+  
+  .support-confirm-icon {
+    font-size: 60px;
+  }
+  
+  .support-confirm-container h1 {
+    font-size: 24px;
+  }
+  
+  .detail-card {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .detail-content strong {
+    min-width: 100px;
+  }
+  
+  .support-confirm-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .support-confirm-container {
+    padding: 25px 15px;
+  }
+  
+  .support-confirm-icon {
+    font-size: 50px;
+  }
+  
+  .support-confirm-container h1 {
+    font-size: 22px;
+  }
+  
+  .support-confirm-container p {
+    font-size: 14px;
+  }
+  
+  .support-confirm-button {
+    padding: 12px 15px;
+    font-size: 14px;
+  }
+}

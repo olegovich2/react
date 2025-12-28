@@ -1,18 +1,75 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const { query } = require("../../services/databaseService"); // Ваш пул соединений
-const emailService = require("../../utils/emailService"); // Ваш emailService
-const { validateEmail, validateLogin } = require("../../utils/validators"); // Существующие валидаторы
+const { query } = require("../../services/databaseService");
+const emailService = require("../../utils/emailService");
+const { validateEmail, validateLogin } = require("../../utils/validators");
 
-const SupportController = {
+class SupportController {
+  // Ключ шифрования (32 символа для AES-256)
+  static getEncryptionKey() {
+    return (
+      process.env.SUPPORT_ENCRYPTION_KEY ||
+      "default-tech-support-encryption-key-32-chars"
+    );
+  }
+
+  // Шифрование текста
+  static encryptText(text) {
+    if (!text || text.trim() === "") return null;
+
+    try {
+      const algorithm = "aes-256-cbc";
+      const key = crypto.scryptSync(this.getEncryptionKey(), "salt", 32);
+      const iv = crypto.randomBytes(16);
+
+      const cipher = crypto.createCipheriv(algorithm, key, iv);
+      let encrypted = cipher.update(text, "utf8", "hex");
+      encrypted += cipher.final("hex");
+
+      // Сохраняем IV:зашифрованный_текст
+      return iv.toString("hex") + ":" + encrypted;
+    } catch (error) {
+      console.error("❌ Ошибка шифрования:", error);
+      return null;
+    }
+  }
+
+  // Расшифровка текста
+  static decryptText(encryptedText) {
+    if (!encryptedText || encryptedText.trim() === "") return null;
+
+    try {
+      const algorithm = "aes-256-cbc";
+      const key = crypto.scryptSync(this.getEncryptionKey(), "salt", 32);
+
+      // Разделяем IV и зашифрованный текст
+      const parts = encryptedText.split(":");
+      if (parts.length !== 2) {
+        throw new Error("Неверный формат зашифрованных данных");
+      }
+
+      const iv = Buffer.from(parts[0], "hex");
+      const encrypted = parts[1];
+
+      const decipher = crypto.createDecipheriv(algorithm, key, iv);
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+
+      return decrypted;
+    } catch (error) {
+      console.error("❌ Ошибка расшифровки:", error);
+      return null;
+    }
+  }
+
   // Генерация публичного ID
-  generatePublicId() {
+  static generatePublicId() {
     return `SUP-${Date.now().toString(36).toUpperCase()}`;
-  },
+  }
 
   // Логирование действий
-  async logAction(
+  static async logAction(
     requestId,
     action,
     oldValue = null,
@@ -29,23 +86,20 @@ const SupportController = {
     } catch (error) {
       console.error("❌ Ошибка логирования:", error);
     }
-  },
+  }
 
   // 1. ОТПРАВКА ЗАЯВКИ
-  async submitRequest(req, res) {
+  static async submitRequest(req, res) {
     try {
-      console.log("📨 Получена новая заявка:", req.body);
+      console.log("📨 Получена нвая заявка:", {
+        type: req.body.type,
+        login: req.body.login,
+        email: req.body.email?.substring(0, 3) + "...",
+        secretWord: req.body.secretWord ? "***" : "не указано",
+      });
 
-      const { type, login, email, secretWord, message, newEmail, blockReason } =
+      const { type, login, email, secretWord, message, newEmail, password } =
         req.body;
-
-      // ВАЛИДАЦИЯ
-      if (!type || !login || !email || !secretWord || !message) {
-        return res.status(400).json({
-          success: false,
-          message: "Заполните все обязательные поля",
-        });
-      }
 
       // Проверка типа заявки
       const validTypes = [
@@ -62,28 +116,101 @@ const SupportController = {
         });
       }
 
-      // Валидация email и логина
-      try {
-        validateEmail(email);
-        validateLogin(login);
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: error.message,
-          field: error.field,
-        });
+      // РАЗДЕЛЬНАЯ ВАЛИДАЦИЯ ДЛЯ РАЗНЫХ ТИПОВ ЗАЯВОК
+
+      // ========== ВАЛИДАЦИЯ ДЛЯ ТИПА "other" ==========
+      if (type === "other") {
+        // Для типа "other" проверяем только основные поля
+        if (!login || !email || !message) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Для типа 'Другая проблема' заполните логин, email и сообщение",
+          });
+        }
+
+        // Валидация email и логина
+        try {
+          validateEmail(email);
+          validateLogin(login);
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: error.message,
+            field: error.field,
+          });
+        }
+
+        // Проверяем длину сообщения
+        if (message.length < 10) {
+          return res.status(400).json({
+            success: false,
+            message: "Опишите проблему подробнее (минимум 10 символов)",
+            field: "message",
+          });
+        }
+
+        // ========== ВАЛИДАЦИЯ ДЛЯ ВСЕХ ОСТАЛЬНЫХ ТИПОВ ==========
+      } else {
+        // Для всех остальных типов проверяем все обязательные поля
+        if (!type || !login || !email || !secretWord || !message) {
+          return res.status(400).json({
+            success: false,
+            message: "Заполните все обязательные поля",
+          });
+        }
+
+        // Валидация email и логина
+        try {
+          validateEmail(email);
+          validateLogin(login);
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: error.message,
+            field: error.field,
+          });
+        }
+
+        // Проверка кодового слова для не-"other" типов
+        if (!secretWord.trim()) {
+          return res.status(400).json({
+            success: false,
+            message: "Кодовое слово обязательно",
+            field: "secretWord",
+          });
+        }
+
+        if (secretWord.length < 3) {
+          return res.status(400).json({
+            success: false,
+            message: "Кодовое слово должно быть не менее 3 символов",
+            field: "secretWord",
+          });
+        }
+
+        // Проверяем длину сообщения
+        if (message.length < 10) {
+          return res.status(400).json({
+            success: false,
+            message: "Опишите проблему подробнее (минимум 10 символов)",
+            field: "message",
+          });
+        }
       }
 
-      // Дополнительная валидация для email_change
-      if (type === "email_change" && !newEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "Для смены email укажите новый email",
-          field: "newEmail",
-        });
-      }
+      // ДОПОЛНИТЕЛЬНАЯ ВАЛИДАЦИЯ ДЛЯ КОНКРЕТНЫХ ТИПОВ
 
+      // Для смены email требуется новый email
       if (type === "email_change") {
+        if (!newEmail) {
+          return res.status(400).json({
+            success: false,
+            message: "Для смены email укажите новый email",
+            field: "newEmail",
+          });
+        }
+
         try {
           validateEmail(newEmail);
         } catch (error) {
@@ -93,20 +220,43 @@ const SupportController = {
             field: "newEmail",
           });
         }
-      }
 
-      // ПРОВЕРКА СУЩЕСТВУЕТ ЛИ ПОЛЬЗОВАТЕЛЬ (опционально, но желательно)
-      try {
-        const userExists = await query(
-          "SELECT login FROM usersdata WHERE login = ? AND email = ?",
-          [login, email]
-        );
-
-        if (userExists.length === 0) {
+        if (newEmail === email) {
           return res.status(400).json({
             success: false,
-            message: "Пользователь с таким логином и email не найден",
+            message: "Новый email должен отличаться от текущего",
+            field: "newEmail",
           });
+        }
+      }
+
+      // Для определенных типов требуется пароль
+      if (
+        ["email_change", "unblock", "account_deletion"].includes(type) &&
+        !password
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Для этого типа заявки требуется пароль",
+          field: "password",
+        });
+      }
+
+      // ПРОВЕРКА СУЩЕСТВУЕТ ЛИ ПОЛЬЗОВАТЕЛЬ
+      try {
+        // Для всех типов кроме "other" проверяем существование пользователя
+        if (type !== "other") {
+          const userExists = await query(
+            "SELECT login FROM usersdata WHERE login = ? AND email = ?",
+            [login, email]
+          );
+
+          if (userExists.length === 0) {
+            return res.status(400).json({
+              success: false,
+              message: "Пользователь с таким логином и email не найден",
+            });
+          }
         }
       } catch (error) {
         console.log(
@@ -115,13 +265,22 @@ const SupportController = {
         );
       }
 
-      // ХЭШИРОВАНИЕ КОДОВОГО СЛОВА
-      const salt = await bcrypt.genSalt(12);
-      const secretWordHash = await bcrypt.hash(secretWord, salt);
+      // ШИФРОВАНИЕ ДАННЫХ
+      // Для типа "other" передаем пустое зашифрованное значение вместо null
+      const encryptedSecretWord =
+        type !== "other"
+          ? SupportController.encryptText(secretWord)
+          : SupportController.encryptText("N/A_OTHER_REQUEST"); // Специальное значение для "other"
+
+      let encryptedPassword = null;
+
+      if (["email_change", "unblock", "account_deletion"].includes(type)) {
+        encryptedPassword = SupportController.encryptText(password);
+      }
 
       // ГЕНЕРАЦИЯ ID И ТОКЕНА
       const requestId = crypto.randomUUID();
-      const publicId = this.generatePublicId();
+      const publicId = SupportController.generatePublicId();
 
       const confirmToken = jwt.sign(
         {
@@ -134,28 +293,29 @@ const SupportController = {
       );
 
       // СОХРАНЕНИЕ ЗАЯВКИ В БД
+      // ВАЖНО: Вставляем encryptedSecretWord даже для "other" (не null)
       await query(
         `INSERT INTO support_requests 
-         (id, public_id, type, login, email, secret_word_hash, message, new_email, block_reason, status) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+       (id, public_id, type, login, email, secret_word_hash, password, message, new_email, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
         [
           requestId,
           publicId,
           type,
           login,
           email,
-          secretWordHash,
+          encryptedSecretWord, // Всегда передаем значение, даже для "other"
+          encryptedPassword, // Зашифрованный пароль (или null)
           message,
           type === "email_change" ? newEmail : null,
-          type === "unblock" ? blockReason : null,
         ]
       );
 
       // СОХРАНЕНИЕ ТОКЕНА ПОДТВЕРЖДЕНИЯ
       await query(
         `INSERT INTO support_confirmation_tokens 
-         (token, request_id, email, expires_at) 
-         VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
+       (token, request_id, email, expires_at) 
+       VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
         [confirmToken, requestId, email]
       );
 
@@ -170,11 +330,10 @@ const SupportController = {
         });
       } catch (emailError) {
         console.error("❌ Ошибка отправки email:", emailError);
-        // Не прерываем процесс, только логируем
       }
 
       // ЛОГИРОВАНИЕ
-      await this.logAction(
+      await SupportController.logAction(
         requestId,
         "created",
         null,
@@ -203,10 +362,10 @@ const SupportController = {
         ...(process.env.NODE_ENV === "development" && { error: error.message }),
       });
     }
-  },
+  }
 
   // 2. ПОДТВЕРЖДЕНИЕ EMAIL
-  async confirmEmail(req, res) {
+  static async confirmEmail(req, res) {
     try {
       const { token } = req.params;
       console.log(
@@ -264,7 +423,7 @@ const SupportController = {
       }
 
       // ЛОГИРОВАНИЕ
-      await this.logAction(
+      await SupportController.logAction(
         request_id,
         "email_confirmed",
         "pending",
@@ -276,18 +435,18 @@ const SupportController = {
 
       // ПЕРЕНАПРАВЛЕНИЕ ИЛИ JSON ОТВЕТ
       if (req.accepts("html")) {
-        // Для браузера - редирект на страницу успеха
         const frontendUrl = process.env.CLIENT_URL || "http://localhost:3000";
         res.redirect(
           `${frontendUrl}/support/confirm/success?requestId=${public_id}`
         );
       } else {
-        // Для API - JSON ответ
         res.json({
           success: true,
           message: "Email успешно подтвержден. Заявка принята в работу.",
           data: {
             requestId: public_id,
+            type: type,
+            login: login,
             status: "confirmed",
           },
         });
@@ -301,10 +460,10 @@ const SupportController = {
         ...(process.env.NODE_ENV === "development" && { error: error.message }),
       });
     }
-  },
+  }
 
   // 3. ПРОВЕРКА СТАТУСА ЗАЯВКИ
-  async getRequestStatus(req, res) {
+  static async getRequestStatus(req, res) {
     try {
       const { publicId } = req.params;
       console.log(`🔍 Проверка статуса заявки: ${publicId}`);
@@ -319,14 +478,15 @@ const SupportController = {
       // ПОЛУЧЕНИЕ ДАННЫХ О ЗАЯВКЕ
       const request = await query(
         `SELECT 
-          public_id, 
-          type, 
-          status, 
-          created_at, 
-          updated_at,
-          resolved_at
-         FROM support_requests 
-         WHERE public_id = ?`,
+        id,
+        public_id, 
+        type, 
+        status, 
+        created_at, 
+        updated_at,
+        resolved_at
+       FROM support_requests 
+       WHERE public_id = ?`,
         [publicId]
       );
 
@@ -340,9 +500,15 @@ const SupportController = {
       const requestData = request[0];
 
       // ЛОГИРОВАНИЕ ПРОСМОТРА
-      await this.logAction(requestData.id, "viewed", null, null, "public");
+      await SupportController.logAction(
+        requestData.id,
+        "viewed",
+        null,
+        null,
+        "public"
+      );
 
-      // ПРЕОБРАЗОВАНИЕ ТИПОВ И СТАТУСОВ ДЛЯ ЧЕЛОВЕКА
+      // ПРЕОБРАЗОВАНИЕ ТИПОВ И СТАТУСОВ
       const typeNames = {
         password_reset: "Смена пароля",
         email_change: "Смена email",
@@ -370,7 +536,7 @@ const SupportController = {
           created: requestData.created_at,
           updated: requestData.updated_at,
           resolved: requestData.resolved_at,
-          rawStatus: requestData.status, // Для фронтенда
+          rawStatus: requestData.status,
         },
       });
     } catch (error) {
@@ -382,10 +548,10 @@ const SupportController = {
         ...(process.env.NODE_ENV === "development" && { error: error.message }),
       });
     }
-  },
+  }
 
-  // 4. ПОЛУЧЕНИЕ ТИПОВ ЗАЯВОК (для фронтенда)
-  async getRequestTypes(req, res) {
+  // 4. ПОЛУЧЕНИЕ ТИПОВ ЗАЯВОК
+  static async getRequestTypes(req, res) {
     try {
       const types = [
         {
@@ -426,7 +592,64 @@ const SupportController = {
         message: "Ошибка сервера",
       });
     }
-  },
-};
+  }
+
+  // 5. ДЛЯ АДМИНКИ: РАСШИФРОВКА ДАННЫХ
+  static async getRequestDetails(req, res) {
+    try {
+      const { requestId } = req.params;
+
+      // Только для админов (добавить проверку isAdmin)
+      const request = await query(
+        `SELECT 
+          id, public_id, type, login, email, 
+          secret_word_hash, password, message, new_email,
+          status, created_at, admin_notes
+         FROM support_requests 
+         WHERE id = ? OR public_id = ?`,
+        [requestId, requestId]
+      );
+
+      if (request.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Заявка не найдена",
+        });
+      }
+
+      const requestData = request[0];
+
+      // РАСШИФРОВКА данных для админа
+      const decryptedData = {
+        ...requestData,
+        secretWord: this.decryptText(requestData.secret_word_hash),
+        password: this.decryptText(requestData.password),
+        // Скрываем оригинальные зашифрованные данные
+        secret_word_hash: undefined,
+        password: undefined,
+      };
+
+      // ЛОГИРОВАНИЕ просмотра админом
+      await SupportController.logAction(
+        requestData.id,
+        "admin_viewed",
+        null,
+        null,
+        `admin:${req.admin?.id || "unknown"}`
+      );
+
+      res.json({
+        success: true,
+        data: decryptedData,
+      });
+    } catch (error) {
+      console.error("💥 Ошибка при получении деталей заявки:", error);
+      res.status(500).json({
+        success: false,
+        message: "Ошибка сервера",
+      });
+    }
+  }
+}
 
 module.exports = SupportController;

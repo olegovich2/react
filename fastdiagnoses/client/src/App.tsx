@@ -9,6 +9,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ConfirmEmailPage from "./components/ConfirmEmailPage/ConfirmEmailPage";
+import SupportConfirmPage from "./components/SupportPage/SupportConfirmPage/SupportConfirmPage";
 
 // Компоненты для отображения во время загрузки
 const LoadingSpinner = () => (
@@ -59,6 +60,9 @@ const SettingsPage = lazy(
   () => import("./components/AccountPage/pages/SettingsPage/SettingsPage")
 );
 const SupportPage = lazy(() => import("./components/SupportPage/SupportPage"));
+const SupportStatusPage = lazy(
+  () => import("./components/SupportPage/SupportStatusPage/SupportStatusPage")
+);
 
 // Компонент для защищенных маршрутов
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
@@ -97,7 +101,7 @@ const AuthRedirect: React.FC<{ children: React.ReactNode }> = ({
     try {
       JSON.parse(user);
       // ИСКЛЮЧЕНИЕ: не перенаправлять если пользователь на странице поддержки
-      if (location.pathname === '/support') {
+      if (location.pathname === "/support") {
         return <>{children}</>;
       }
       return <Navigate to="/" replace />;
@@ -185,9 +189,17 @@ const App: React.FC = () => {
             />
 
             {/* Страница поддержки - ДОСТУПНА ДЛЯ ВСЕХ */}
+            <Route path="/support" element={<SupportPage />} />
+
+            {/* Страница успешной заявки - ДОСТУПНА ДЛЯ ВСЕХ */}
             <Route
-              path="/support"
-              element={<SupportPage />} // Убираем AuthRedirect для поддержки
+              path="/support/confirm/:token"
+              element={<SupportConfirmPage />}
+            />
+            {/* Страница просмотра заявки */}
+            <Route
+              path="/support/status/:requestId"
+              element={<SupportStatusPage />}
             />
 
             {/* Страница успешной регистрации */}
