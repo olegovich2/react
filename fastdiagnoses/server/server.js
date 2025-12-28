@@ -33,6 +33,8 @@ const { HTML_TEMPLATES } = require("./src/templates/htmlTemplates");
 
 // ==================== АДМИН ИМПОРТЫ ====================
 const adminRoutes = require("./src/admin/routes/adminRoutes");
+// ==================== ТЕХПОДДЕРЖКА ИМПОРТЫ ===================
+const supportRoutes = require("./src/support/routes/supportRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -1829,7 +1831,7 @@ app.get("/api/settings/user-info", authenticateToken, async (req, res) => {
   }
 });
 
-// Смена пароля с проверкой кодового слова
+// Смена пароля с кодовым словом
 app.post(
   "/api/settings/change-password",
   authenticateToken,
@@ -2308,113 +2310,11 @@ app.delete(
   }
 );
 
-// Отправка запроса на смену email администратору
-app.post(
-  "/api/settings/email-change-request",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const { currentEmail, newEmail, reason } = req.body;
-      const login = req.user.login;
-
-      if (!currentEmail || !newEmail || !reason) {
-        return res.status(400).json({
-          success: false,
-          message: "Все поля обязательны для заполнения",
-        });
-      }
-
-      try {
-        validateEmail(currentEmail);
-        validateEmail(newEmail);
-      } catch (validationError) {
-        return res.status(400).json({
-          success: false,
-          message: validationError.message,
-          field: validationError.field,
-        });
-      }
-
-      const user = await query(
-        "SELECT email FROM usersdata WHERE login = ? AND logic = 'true'",
-        [login]
-      );
-
-      if (user.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "Пользователь не найден",
-        });
-      }
-
-      const actualEmail = user[0].email;
-
-      if (actualEmail !== currentEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "Текущий email не совпадает с email в системе",
-          field: "currentEmail",
-        });
-      }
-
-      if (currentEmail === newEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "Новый email должен отличаться от текущего",
-          field: "newEmail",
-        });
-      }
-
-      try {
-        await emailService.sendEmailChangeRequest({
-          login: login,
-          actualEmail: actualEmail,
-          currentEmail: currentEmail,
-          newEmail: newEmail,
-          reason: reason,
-          userIp: req.ip || req.connection.remoteAddress,
-          userAgent: req.headers["user-agent"] || "Неизвестное устройство",
-        });
-
-        console.log(
-          `📧 Запрос на смену email отправлен администратору для пользователя: ${login}`
-        );
-        console.log(`📧 От: ${actualEmail} → Кому: ${newEmail}`);
-      } catch (emailError) {
-        console.error(
-          "❌ Ошибка отправки email администратору:",
-          emailError.message
-        );
-      }
-
-      res.json({
-        success: true,
-        message:
-          "Запрос на смену email отправлен администратору. Вы получите уведомление после обработки.",
-        notification:
-          "Администратор получил ваш запрос и свяжется с вами после обработки.",
-      });
-    } catch (error) {
-      console.error("Ошибка обработки запроса смены email:", error);
-
-      if (error.name === "ValidationError") {
-        return res.status(400).json({
-          success: false,
-          message: error.message,
-          field: error.field,
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: "Ошибка обработки запроса",
-      });
-    }
-  }
-);
-
 // ==================== АДМИН API ====================
 app.use("/api/admin", adminRoutes);
+
+// =====================ТЕХПОДДЕРЖКА API ====================
+app.use("/api/support", supportRoutes);
 
 // ==================== ОБРАБОТКА ОШИБОК ====================
 app.use((err, req, res, next) => {

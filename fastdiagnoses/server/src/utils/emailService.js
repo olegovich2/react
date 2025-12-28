@@ -9,7 +9,9 @@ class EmailService {
       passwordReset: this._passwordResetTemplate.bind(this),
       passwordChanged: this._passwordChangedTemplate.bind(this),
       registrationConfirm: this._registrationConfirmTemplate.bind(this),
-      emailChangeRequest: this._emailChangeRequestTemplate.bind(this),
+      supportRequestCreated: this._supportRequestCreatedTemplate.bind(this),
+      supportRequestConfirmed: this._supportRequestConfirmedTemplate.bind(this),
+      supportStatusChanged: this._supportStatusChangedTemplate.bind(this),
     };
   }
 
@@ -223,146 +225,280 @@ class EmailService {
     };
   }
 
-  _emailChangeRequestTemplate({
+  // В класс EmailService (где другие templates, например после _emailChangeRequestTemplate):
+  _supportRequestCreatedTemplate({
     login,
-    actualEmail,
-    currentEmail,
-    newEmail,
-    timestamp,
-    userIp,
-    userAgent,
-    reason,
-    adminEmail,
+    email,
+    requestId,
+    confirmUrl,
+    requestType,
   }) {
-    const textVersion = `
-ЗАПРОС НА СМЕНУ EMAIL - QuickDiagnosis
-
-ТРЕБУЕТСЯ РУЧНОЕ ВМЕШАТЕЛЬСТВО
-
-ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
-- Пользователь: ${login}
-- Дата запроса: ${timestamp}
-- IP адрес: ${userIp}
-- Устройство: ${userAgent}
-
-ДАННЫЕ ДЛЯ СМЕНЫ EMAIL:
-- Текущий email (в системе): ${actualEmail}
-- Подтверждённый текущий email: ${currentEmail}
-- Запрошенный новый email: ${newEmail}
-
-ПРИЧИНА СМЕНЫ EMAIL:
-${reason}
-
-ИНСТРУКЦИЯ ДЛЯ АДМИНИСТРАТОРА:
-1. Проверьте, что новый email не занят другим пользователем
-2. Обновите email в таблице usersdata
-3. Уведомите пользователя о выполнении
-
-Это автоматическое уведомление от системы QuickDiagnosis
-Email сгенерирован: ${new Date().toISOString()}
-    `;
+    const typeNames = {
+      password_reset: "Смена пароля",
+      email_change: "Смена email",
+      unblock: "Разблокировка аккаунта",
+      account_deletion: "Удаление аккаунта",
+      other: "Другая проблема",
+    };
 
     return {
-      from: `"QuickDiagnosis - Система уведомлений" <${process.env.EMAIL_USER}>`,
-      to: adminEmail,
-      cc: actualEmail,
-      subject: `🔧 Запрос на смену email: ${login}`,
-      text: textVersion,
+      from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `📨 Заявка в техподдержку #${requestId}`,
       html: `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Запрос на смену email</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 20px 0; }
-        .info-box { background: #f8f9fa; border-left: 4px solid #4a90e2; padding: 15px; margin: 15px 0; }
-        .info-item { margin: 10px 0; }
-        .label { font-weight: bold; color: #333; }
-        .value { color: #666; }
-        .reason-box { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
-        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; text-align: center; }
-        .action-buttons { margin-top: 20px; text-align: center; }
-        .button { display: inline-block; background: #4a90e2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 0 10px; }
-        .warning { color: #e74c3c; font-weight: bold; background: #fdf2f2; padding: 10px; border-radius: 5px; margin: 15px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔧 Запрос на смену email</h1>
-            <p>QuickDiagnosis - Административная панель</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
+        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
+            📨 Подтверждение заявки в техподдержку
+          </h2>
+          
+          <p style="font-size: 16px; color: #4a5568;">
+            Здравствуйте, <strong>${login}</strong>!
+          </p>
+          
+          <p style="font-size: 16px; color: #4a5568;">
+            Вы отправили заявку в техподдержку QuickDiagnosis.
+          </p>
+          
+          <div style="background-color: #e6f7ff; border: 1px solid #91d5ff; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0; font-weight: bold; color: #0050b3;">
+              📋 Детали заявки:
+            </p>
+            <p style="margin: 5px 0 0 0;">
+              <strong>Номер заявки:</strong> ${requestId}<br>
+              <strong>Тип проблемы:</strong> ${
+                typeNames[requestType] || requestType
+              }<br>
+              <strong>Статус:</strong> Ожидает подтверждения
+            </p>
+          </div>
+          
+          <div style="background-color: #f6ffed; border: 1px solid #b7eb8f; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0; font-weight: bold; color: #389e0d;">
+              ⚠️ Для продолжения обработки необходимо подтвердить email
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${confirmUrl}" 
+               style="background-color: #1890ff; color: white; padding: 14px 30px; 
+                      text-decoration: none; border-radius: 6px; font-weight: bold;
+                      font-size: 16px; display: inline-block;">
+              Подтвердить заявку
+            </a>
+          </div>
+          
+          <p style="color: #718096; font-size: 14px; margin-bottom: 5px;">
+            Если кнопка не работает, скопируйте ссылку в браузер:
+          </p>
+          <p style="color: #4a5568; font-size: 12px; background-color: #f7fafc; 
+             padding: 10px; border-radius: 4px; word-break: break-all;">
+            ${confirmUrl}
+          </p>
+          
+          <div style="background-color: #fff7e6; border: 1px solid #ffd591; padding: 15px; border-radius: 6px; margin: 25px 0;">
+            <p style="color: #d46b08; margin: 0; font-weight: bold;">
+              💡 <strong>Важно!</strong> Без подтверждения email заявка не будет обработана.
+            </p>
+            <p style="color: #d46b08; margin: 10px 0 0 0;">
+              Ссылка действительна 24 часа. После подтверждения с вами свяжется специалист поддержки.
+            </p>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+          
+          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
+            Это автоматическое письмо системы техподдержки QuickDiagnosis.<br>
+            Пожалуйста, не отвечайте на него.
+          </p>
         </div>
-        
-        <div class="content">
-            <div class="warning">
-                ⚠️ ТРЕБУЕТСЯ РУЧНОЕ ВМЕШАТЕЛЬСТВО
-            </div>
-            
-            <div class="info-box">
-                <div class="info-item">
-                    <span class="label">👤 Пользователь:</span>
-                    <span class="value">${login}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">📅 Дата запроса:</span>
-                    <span class="value">${timestamp}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">🌐 IP адрес:</span>
-                    <span class="value">${userIp}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">🖥️ Устройство:</span>
-                    <span class="value">${userAgent.substring(0, 100)}</span>
-                </div>
-            </div>
-            
-            <div class="info-box">
-                <h3>📧 Данные для смены email</h3>
-                <div class="info-item">
-                    <span class="label">Текущий email (в системе):</span>
-                    <span class="value">${actualEmail}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Подтверждённый текущий email:</span>
-                    <span class="value">${currentEmail}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Запрошенный новый email:</span>
-                    <span class="value" style="color: #27ae60; font-weight: bold;">${newEmail}</span>
-                </div>
-            </div>
-            
-            <div class="reason-box">
-                <h3>📝 Причина смены email:</h3>
-                <p>${reason.replace(/\n/g, "<br>")}</p>
-            </div>
-            
-            <div class="action-buttons">
-                <p><strong>Действия администратора:</strong></p>
-                <p>1. Проверьте, что новый email не занят другим пользователем</p>
-                <p>2. Обновите email в таблице usersdata</p>
-                <p>3. Уведомите пользователя о выполнении</p>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <p>Это автоматическое уведомление от системы QuickDiagnosis</p>
-            <p>Email сгенерирован: ${new Date().toISOString()}</p>
-        </div>
-    </div>
-</body>
-</html>
-      `,
+      </div>
+    `,
     };
   }
 
+  _supportRequestConfirmedTemplate({ login, email, requestId, requestType }) {
+    const typeNames = {
+      password_reset: "Смена пароля",
+      email_change: "Смена email",
+      unblock: "Разблокировка аккаунта",
+      account_deletion: "Удаление аккаунта",
+      other: "Другая проблема",
+    };
+
+    return {
+      from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `✅ Заявка #${requestId} принята в работу`,
+      html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
+        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
+            ✅ Заявка подтверждена
+          </h2>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <div style="display: inline-block; background-color: #52c41a; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">
+              Заявка №${requestId}
+            </div>
+          </div>
+          
+          <p style="font-size: 16px; color: #4a5568; text-align: center;">
+            Ваша заявка <strong>"${
+              typeNames[requestType] || requestType
+            }"</strong><br>
+            успешно подтверждена и принята в работу.
+          </p>
+          
+          <div style="background-color: #f6ffed; border: 1px solid #b7eb8f; padding: 20px; border-radius: 6px; margin: 25px 0;">
+            <h3 style="color: #389e0d; margin-top: 0;">📝 Что дальше?</h3>
+            <ol style="color: #4a5568; padding-left: 20px;">
+              <li style="margin-bottom: 10px;">Специалист поддержки рассмотрит вашу заявку</li>
+              <li style="margin-bottom: 10px;">Вы получите уведомление о начале работы</li>
+              <li>Решение будет отправлено на этот email</li>
+            </ol>
+          </div>
+          
+          <div style="background-color: #e6f7ff; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0; color: #0050b3; font-weight: bold;">
+              🕒 Среднее время обработки: 1-24 часа
+            </p>
+            <p style="margin: 10px 0 0 0; color: #4a5568;">
+              Вы можете проверить статус заявки в любое время
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              По любым вопросам вы можете обратиться через систему техподдержки
+            </p>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+          
+          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
+            Это автоматическое уведомление от техподдержки QuickDiagnosis<br>
+            Номер заявки: ${requestId}
+          </p>
+        </div>
+      </div>
+    `,
+    };
+  }
+
+  _supportStatusChangedTemplate({
+    login,
+    email,
+    requestId,
+    oldStatus,
+    newStatus,
+    adminNotes,
+  }) {
+    const statusNames = {
+      pending: "Ожидает подтверждения",
+      confirmed: "Подтверждена",
+      in_progress: "В работе",
+      resolved: "Решена",
+      rejected: "Отклонена",
+      cancelled: "Отменена",
+    };
+
+    const statusColors = {
+      in_progress: "#fa8c16",
+      resolved: "#52c41a",
+      rejected: "#f5222d",
+      cancelled: "#d9d9d9",
+    };
+
+    return {
+      from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `🔄 Статус заявки #${requestId} изменен`,
+      html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
+        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
+            🔄 Обновление статуса заявки
+          </h2>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <div style="display: inline-block; background-color: ${
+              statusColors[newStatus] || "#1890ff"
+            }; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">
+              Заявка №${requestId}
+            </div>
+          </div>
+          
+          <div style="background-color: #f0f5ff; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #2d3748;">
+              Статус изменен
+            </p>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+              <span style="color: #8c8c8c;">${
+                statusNames[oldStatus] || oldStatus
+              }</span>
+              <span style="font-size: 20px;">→</span>
+              <span style="color: #1890ff; font-weight: bold;">${
+                statusNames[newStatus] || newStatus
+              }</span>
+            </div>
+          </div>
+          
+          ${
+            adminNotes
+              ? `
+          <div style="background-color: #f6ffed; border-left: 4px solid #52c41a; padding: 15px; margin: 20px 0;">
+            <h3 style="color: #389e0d; margin-top: 0;">💬 Комментарий специалиста:</h3>
+            <p style="color: #4a5568; white-space: pre-line;">${adminNotes}</p>
+          </div>
+          `
+              : ""
+          }
+          
+          ${
+            newStatus === "resolved"
+              ? `
+          <div style="background-color: #f6ffed; border: 1px solid #b7eb8f; padding: 20px; border-radius: 6px; margin: 25px 0; text-align: center;">
+            <h3 style="color: #389e0d; margin-top: 0;">✅ Проблема решена!</h3>
+            <p style="color: #4a5568;">
+              Ваша заявка была успешно обработана и закрыта.<br>
+              Если проблема осталась, создайте новую заявку.
+            </p>
+          </div>
+          `
+              : ""
+          }
+          
+          ${
+            newStatus === "rejected"
+              ? `
+          <div style="background-color: #fff2f0; border: 1px solid #ffccc7; padding: 20px; border-radius: 6px; margin: 25px 0;">
+            <h3 style="color: #cf1322; margin-top: 0;">❌ Заявка отклонена</h3>
+            <p style="color: #4a5568;">
+              Ваша заявка была отклонена специалистом поддержки.
+            </p>
+          </div>
+          `
+              : ""
+          }
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <p style="color: #718096; font-size: 14px;">
+              Это автоматическое уведомление об изменении статуса вашей заявки.
+            </p>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+          
+          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
+            Техподдержка QuickDiagnosis • Заявка №${requestId}<br>
+            ${new Date().toLocaleDateString("ru-RU")}
+          </p>
+        </div>
+      </div>
+    `,
+    };
+  }
   // ==================== МЕТОДЫ ОТПРАВКИ ====================
 
   async sendPasswordReset({ login, email, resetToken }) {
@@ -469,46 +605,6 @@ Email сгенерирован: ${new Date().toISOString()}
     }
   }
 
-  async sendEmailChangeRequest({
-    login,
-    actualEmail,
-    currentEmail,
-    newEmail,
-    reason,
-    userIp,
-    userAgent,
-  }) {
-    try {
-      await this._ensureInitialized();
-
-      const adminEmail = process.env.EMAIL_USER;
-      const timestamp = new Date().toLocaleString("ru-RU");
-
-      const mailOptions = this.templates.emailChangeRequest({
-        login,
-        actualEmail,
-        currentEmail,
-        newEmail,
-        timestamp,
-        userIp,
-        userAgent,
-        reason,
-        adminEmail,
-      });
-
-      const info = await this.transporter.sendMail(mailOptions);
-      console.log(
-        `📧 Запрос на смену email отправлен администратору для пользователя: ${login}`
-      );
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error("❌ Ошибка отправки запроса смены email:", error);
-      throw new Error(
-        `Не удалось отправить запрос смены email: ${error.message}`
-      );
-    }
-  }
-
   async sendCustomEmail({ to, subject, html, text, from }) {
     try {
       await this._ensureInitialized();
@@ -530,7 +626,6 @@ Email сгенерирован: ${new Date().toISOString()}
     }
   }
 
-  // В emailService.js добавьте:
   async sendAccountBlocked({
     login,
     email,
@@ -621,6 +716,98 @@ Email сгенерирован: ${new Date().toISOString()}
     } catch (error) {
       console.error("❌ Ошибка отправки email о блокировке:", error);
       throw error;
+    }
+  }
+
+  // В классе EmailService (после sendAccountBlocked):
+
+  async sendSupportRequestCreated({
+    login,
+    email,
+    requestId,
+    confirmToken,
+    requestType,
+  }) {
+    try {
+      await this._ensureInitialized();
+
+      const confirmUrl = `${
+        process.env.CLIENT_URL || "http://localhost:3000"
+      }/support/confirm/${confirmToken}`;
+
+      const mailOptions = this.templates.supportRequestCreated({
+        login,
+        email,
+        requestId,
+        confirmUrl,
+        requestType,
+      });
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(
+        `📧 Подтверждение заявки отправлено: ${email} (${requestId})`
+      );
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error("❌ Ошибка отправки подтверждения заявки:", error);
+      throw new Error(
+        `Не удалось отправить подтверждение заявки: ${error.message}`
+      );
+    }
+  }
+
+  async sendSupportRequestConfirmed({ login, email, requestId, requestType }) {
+    try {
+      await this._ensureInitialized();
+
+      const mailOptions = this.templates.supportRequestConfirmed({
+        login,
+        email,
+        requestId,
+        requestType,
+      });
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(
+        `📧 Уведомление о принятии заявки отправлено: ${email} (${requestId})`
+      );
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error("❌ Ошибка отправки уведомления о принятии:", error);
+      throw new Error(`Не удалось отправить уведомление: ${error.message}`);
+    }
+  }
+
+  async sendSupportStatusChanged({
+    login,
+    email,
+    requestId,
+    oldStatus,
+    newStatus,
+    adminNotes,
+  }) {
+    try {
+      await this._ensureInitialized();
+
+      const mailOptions = this.templates.supportStatusChanged({
+        login,
+        email,
+        requestId,
+        oldStatus,
+        newStatus,
+        adminNotes,
+      });
+
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(
+        `📧 Уведомление об изменении статуса отправлено: ${email} (${requestId}: ${oldStatus} → ${newStatus})`
+      );
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error("❌ Ошибка отправки уведомления о статусе:", error);
+      throw new Error(
+        `Не удалось отправить уведомление о статусе: ${error.message}`
+      );
     }
   }
   // ==================== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ====================

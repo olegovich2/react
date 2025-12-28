@@ -18,18 +18,6 @@ export interface ChangePasswordResponse {
   emailSent?: boolean;
 }
 
-export interface EmailChangeRequestData {
-  currentEmail: string;
-  newEmail: string;
-  reason: string;
-}
-
-export interface EmailChangeResponse {
-  success: boolean;
-  message: string;
-  notification?: string;
-}
-
 class SettingsAPI {
   /**
    * Получение информации о пользователе
@@ -51,13 +39,7 @@ class SettingsAPI {
   async deleteAccount() {
     return fetchClient.delete<{ message: string }>('/settings/delete-account');
   }
-
-  /**
-   * Отправка запроса на смену email администратору
-   */
-  async requestEmailChange(data: EmailChangeRequestData) {
-    return fetchClient.post<EmailChangeResponse>('/settings/email-change-request', data);
-  }
+ 
 }
 
 export const settingsAPI = new SettingsAPI();
