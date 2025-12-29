@@ -1,4 +1,27 @@
-// ==================== ОСНОВНЫЕ ТИПЫ ====================
+// ==================== БАЗОВЫЕ ТИПЫ API ====================
+
+export interface ApiResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  timestamp?: string;
+}
+
+// Основной ответ для админ-панели
+export interface AdminApiResponse extends ApiResponse {
+  token?: string;
+  admin?: {
+    id: number;
+    username: string;
+    email: string;
+    role: string;
+    createdAt: string;
+    lastLogin?: string;
+  };
+  data?: any;
+}
+
+// ==================== АВТОРИЗАЦИЯ ====================
 
 export interface AdminLoginCredentials {
   username: string;
@@ -16,59 +39,7 @@ export interface AdminUser {
   isActive: boolean;
 }
 
-// ==================== ДАШБОРД ====================
-
-export interface DashboardStats {
-  totalUsers: number;
-  activeUsers: number;
-  totalImages: number;
-  totalSurveys: number;
-  storageUsed: string;
-  recentActivity: ActivityLog[];
-  additionalStats?: {
-    newRegistrations7d?: number;
-    totalStorageMB?: number;
-  };
-}
-
-export interface ActivityLog {
-  id: number;
-  action: string;
-  user: string;
-  timestamp: string;
-  ip?: string;
-}
-
-export interface SystemLog {
-  id: number;
-  level: 'info' | 'warning' | 'error';
-  message: string;
-  timestamp: string;
-  source: string;
-  details?: string;
-}
-
-// ==================== ОТВЕТЫ API ====================
-
-export interface ApiResponse {
-  success: boolean;
-  message?: string;
-  error?: string;
-  timestamp: string;
-}
-
-// Базовый ответ для админ-панели
-export interface AdminApiResponse extends ApiResponse {
-  token?: string;
-  admin?: AdminUser;
-}
-
-// Ответ с данными (используем extends для конкретных ответов)
-export interface AdminApiResponseWithData<T = any> extends AdminApiResponse {
-  data?: T;
-}
-
-// ==================== ТИПЫ ДЛЯ БЛОКИРОВКИ ====================
+// ==================== БЛОКИРОВКА ПОЛЬЗОВАТЕЛЕЙ ====================
 
 export interface BlockUserRequest {
   duration: '7d' | '30d' | 'forever';
@@ -76,7 +47,6 @@ export interface BlockUserRequest {
   deleteSessions?: boolean;
 }
 
-// Упрощаем - данные сразу в корне
 export interface BlockUserResponse extends AdminApiResponse {
   login?: string;
   email?: string;
@@ -104,8 +74,9 @@ export interface UnblockUserResponse extends AdminApiResponse {
   };
 }
 
-// ==================== ТИПЫ ПОЛЬЗОВАТЕЛЕЙ ====================
+// ==================== ПОЛЬЗОВАТЕЛИ ====================
 
+// Основной интерфейс пользователя
 export interface User {
   id: string; // login используется как id
   login: string;
@@ -123,9 +94,23 @@ export interface User {
     surveys: number;
     images: number;
   };
+  
+  // НОВЫЕ ПОЛЯ ДЛЯ ЗАПРОСОВ ТЕХПОДДЕРЖКИ
+  supportRequests?: {
+    password_reset: number;
+    email_change: number;
+    unblock: number;
+    account_deletion: number;
+    other: number;
+    total: number;
+    overdue: boolean;
+    overdueCount: number;
+    oldestRequestId?: number | null;
+    oldestRequestType?: string | null;
+  };
 }
 
-// Ответ для списка пользователей - данные сразу в корне
+// Ответ для списка пользователей
 export interface UsersResponse extends AdminApiResponse {
   users?: User[];
   pagination?: {
@@ -140,17 +125,23 @@ export interface UsersResponse extends AdminApiResponse {
     pendingUsers: number;
     blockedUsers: number;
     notBlockedUsers: number;
+    usersWithRequests: number;
+    usersWithOverdueRequests: number;
   };
   filters?: {
-    search: string;
+    search?: string;
     isActive?: string;
     isBlocked?: string;
-    sortBy: string;
-    sortOrder: string;
+    hasRequests?: string;
+    requestType?: string;
+    isOverdue?: string;
+    requestStatus?: string;
+    sortBy?: string;
+    sortOrder?: string;
   };
 }
 
-// Ответ для деталей пользователя - данные сразу в корне
+// Ответ для деталей пользователя
 export interface UserDetailsResponse extends AdminApiResponse {
   user?: {
     login: string;
@@ -204,8 +195,7 @@ export interface UserDetailsResponse extends AdminApiResponse {
   }>;
 }
 
-// ==================== ФИЛЬТРЫ ====================
-
+// Параметры фильтрации пользователей
 export interface UsersFilterParams {
   search?: string;
   page?: number;
@@ -214,16 +204,161 @@ export interface UsersFilterParams {
   sortOrder?: 'asc' | 'desc';
   isActive?: string;
   isBlocked?: string;
+  // НОВЫЕ ФИЛЬТРЫ ДЛЯ ЗАПРОСОВ
+  hasRequests?: string;
+  requestType?: string;
+  isOverdue?: string;
+  requestStatus?: string;
 }
 
-// ==================== ЭКСПОРТ ВСЕХ ТИПОВ ====================
+// ==================== ДАШБОРД ====================
 
-export type {
-  AdminApiResponse as BaseAdminResponse,
-  BlockUserRequest as BlockRequest,
-  BlockUserResponse as BlockResponse,
-  UnblockUserResponse as UnblockResponse,
-  UsersResponse as UsersListResponse,
-  UserDetailsResponse as UserDetailResponse,
-  UsersFilterParams as FilterParams,
-};
+export interface DashboardStats {
+  totalUsers: number;
+  activeUsers: number;
+  totalImages: number;
+  totalSurveys: number;
+  storageUsed: string;
+  recentActivity: ActivityLog[];
+  additionalStats?: {
+    newRegistrations7d?: number;
+    totalStorageMB?: number;
+  };
+}
+
+export interface ActivityLog {
+  id: number;
+  action: string;
+  user: string;
+  timestamp: string;
+  ip?: string;
+}
+
+// ==================== ТИПЫ ДЛЯ ЗАПРОСОВ ТЕХПОДДЕРЖКИ ====================
+
+export interface SupportRequest {
+  id: number;
+  login: string;
+  email?: string;
+  type: 'password_reset' | 'email_change' | 'unblock' | 'account_deletion' | 'other';
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'rejected' | 'expired';
+  details: {
+    reason?: string;
+    secretWord?: string;
+    oldPassword?: string;
+    oldEmail?: string;
+    newEmail?: string;
+    requestedEmail?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    [key: string]: any;
+  };
+  encryptedData?: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+  isOverdue: boolean;
+  adminNotes?: string;
+  processedBy?: string;
+  processedAt?: string;
+}
+
+export interface ValidationResult extends AdminApiResponse {
+  isValid: boolean;
+  message?: string;
+  details?: {
+    secretWordMatch?: boolean;
+    passwordMatch?: boolean;
+    emailExists?: boolean;
+    [key: string]: any;
+  };
+}
+
+export interface ProcessResult extends AdminApiResponse {
+  requestId: string;
+  action: 'approve' | 'reject';
+  result: {
+    passwordReset?: boolean;
+    newPassword?: string;
+    emailChanged?: boolean;
+    userUnblocked?: boolean;
+    accountDeleted?: boolean;
+    [key: string]: any;
+  };
+  nextSteps?: string[];
+}
+
+// ==================== ТИПЫ ДЛЯ КОМПОНЕНТОВ USERS PAGE ====================
+
+export interface PaginationState {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+}
+
+export interface UsersPageStats {
+  totalUsers: number;
+  activeUsers: number;
+  pendingUsers: number;
+  blockedUsers: number;
+  notBlockedUsers: number;
+  usersWithRequests: number;
+  usersWithOverdueRequests: number;
+}
+
+export interface UsersPageFilters {
+  status: 'all' | 'active' | 'inactive';
+  isBlocked: 'all' | 'blocked' | 'not-blocked';
+  hasRequests: 'all' | 'true' | 'false';
+  requestType: 'all' | 'password_reset' | 'email_change' | 'unblock' | 'account_deletion' | 'other';
+  isOverdue: 'all' | 'true' | 'false';
+}
+
+export type UsersPagePartialFilters = Partial<UsersPageFilters>;
+
+export interface Notification {
+  type: 'success' | 'error' | 'info';
+  message: string;
+}
+
+// Типы для запросов техподдержки
+export type SupportRequestType = 'password_reset' | 'email_change' | 'unblock' | 'account_deletion' | 'other';
+export type SupportRequestStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'rejected' | 'expired';
+
+// Улучшенный тип User с гарантированными supportRequests
+export interface UserWithSupport extends User {
+  supportRequests: {
+    password_reset: number;
+    email_change: number;
+    unblock: number;
+    account_deletion: number;
+    other: number;
+    total: number;
+    overdue: boolean;
+    overdueCount: number;
+    oldestRequestId?: number | null;
+    oldestRequestType?: string | null;
+  };
+}
+
+// ==================== ЛОГИ ====================
+
+export interface SystemLog {
+  id: number;
+  level: 'info' | 'warning' | 'error';
+  message: string;
+  timestamp: string;
+  source: string;
+  details?: string;
+}
+
+// ==================== АЛЬЯСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
+
+export type BaseAdminResponse = AdminApiResponse;
+export type BlockRequest = BlockUserRequest;
+export type BlockResponse = BlockUserResponse;
+export type UnblockResponse = UnblockUserResponse;
+export type UsersListResponse = UsersResponse;
+export type UserDetailResponse = UserDetailsResponse;
+export type FilterParams = UsersFilterParams;

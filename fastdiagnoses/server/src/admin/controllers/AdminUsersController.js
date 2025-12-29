@@ -6,10 +6,14 @@ const validator = require("validator");
 class AdminUsersController {
   // Получение списка пользователей
   static async getUsers(req, res) {
-    console.log("👥 [AdminUsersController.getUsers] Запрос пользователей:", {
-      query: req.query,
-      adminId: req.admin.id,
-    });
+    console.log(
+      "👥 [AdminUsersController.getUsers] Запрос пользователей с фильтрами:",
+      {
+        query: req.query,
+        adminId: req.admin.id,
+        timestamp: new Date().toISOString(),
+      }
+    );
 
     const {
       search = "",
@@ -18,7 +22,13 @@ class AdminUsersController {
       sortBy = "created_at",
       sortOrder = "DESC",
       isActive, // фильтр по статусу активации
-      isBlocked, // НОВЫЙ ПАРАМЕТР: фильтр по статусу блокировки
+      isBlocked, // фильтр по статусу блокировки
+
+      // НОВЫЕ ФИЛЬТРЫ ДЛЯ ЗАПРОСОВ ТЕХПОДДЕРЖКИ
+      hasRequests, // 'all', 'true', 'false' - есть активные запросы
+      requestType, // 'all', 'password_reset', 'email_change', 'unblock', 'account_deletion', 'other'
+      isOverdue, // 'all', 'true', 'false' - есть просроченные запросы (>24ч)
+      requestStatus, // 'all', 'confirmed', 'in_progress' - статус запроса
     } = req.query;
 
     const pageNum = parseInt(page);
@@ -26,33 +36,161 @@ class AdminUsersController {
     const offsetNum = (pageNum - 1) * limitNum;
 
     try {
-      // Формируем условия WHERE
+      console.log("🔍 [AdminUsersController.getUsers] Параметры запроса:", {
+        search,
+        page: pageNum,
+        limit: limitNum,
+        isActive,
+        isBlocked,
+        hasRequests,
+        requestType,
+        isOverdue,
+        requestStatus,
+        sortBy,
+        sortOrder,
+      });
+
+      // 1. Формируем условия WHERE для основной таблицы usersdata
       const whereConditions = [];
 
       // Поиск по логину или email
       if (search.trim() !== "") {
         const searchTerm = `%${search.trim()}%`;
         whereConditions.push(
-          `(login LIKE '${searchTerm}' OR email LIKE '${searchTerm}')`
+          `(u.login LIKE '${searchTerm}' OR u.email LIKE '${searchTerm}')`
         );
       }
 
       // Фильтрация по статусу активности
       if (isActive !== undefined) {
         if (isActive === "true") {
-          whereConditions.push('logic = "true"');
+          whereConditions.push('u.logic = "true"');
         } else if (isActive === "false") {
-          whereConditions.push('logic = "false"');
+          whereConditions.push('u.logic = "false"');
         }
       }
 
-      // НОВЫЙ: Фильтрация по статусу блокировки
+      // Фильтрация по статусу блокировки
       if (isBlocked !== undefined) {
         if (isBlocked === "true") {
-          whereConditions.push("blocked = 1");
+          whereConditions.push("u.blocked = 1");
         } else if (isBlocked === "false") {
-          whereConditions.push("(blocked = 0 OR blocked IS NULL)");
+          whereConditions.push("(u.blocked = 0 OR u.blocked IS NULL)");
         }
+      }
+
+      // 2. ФОРМИРУЕМ ПОДЗАПРОСЫ ДЛЯ СЧЕТЧИКОВ ЗАПРОСОВ
+      const supportRequestSubqueries = `
+      -- Количество активных запросов по типам
+      (SELECT COUNT(*) FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')
+         AND sr.type = 'password_reset') as password_reset_count,
+      
+      (SELECT COUNT(*) FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')
+         AND sr.type = 'email_change') as email_change_count,
+      
+      (SELECT COUNT(*) FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')
+         AND sr.type = 'unblock') as unblock_count,
+      
+      (SELECT COUNT(*) FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')
+         AND sr.type = 'account_deletion') as account_deletion_count,
+      
+      (SELECT COUNT(*) FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')
+         AND sr.type = 'other') as other_count,
+      
+      -- Общее количество активных запросов
+      (SELECT COUNT(*) FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')) as total_active_requests,
+      
+      -- Количество просроченных запросов (>24 часов)
+      (SELECT COUNT(*) FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')
+         AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)) as overdue_count,
+      
+      -- ID самого старого активного запроса (для ссылки)
+      (SELECT sr.id FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')
+       ORDER BY sr.created_at ASC 
+       LIMIT 1) as oldest_request_id,
+      
+      -- Тип самого старого активного запроса
+      (SELECT sr.type FROM support_requests sr 
+       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+         AND sr.status IN ('confirmed', 'in_progress')
+       ORDER BY sr.created_at ASC 
+       LIMIT 1) as oldest_request_type
+    `;
+
+      // 3. ДОБАВЛЯЕМ УСЛОВИЯ ДЛЯ ФИЛЬТРАЦИИ ПО ЗАПРОСАМ
+      if (hasRequests === "true") {
+        // Только пользователи с активными запросами
+        whereConditions.push(`EXISTS (
+        SELECT 1 FROM support_requests sr 
+        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          AND sr.status IN ('confirmed', 'in_progress')
+      )`);
+      } else if (hasRequests === "false") {
+        // Только пользователи БЕЗ активных запросов
+        whereConditions.push(`NOT EXISTS (
+        SELECT 1 FROM support_requests sr 
+        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          AND sr.status IN ('confirmed', 'in_progress')
+      )`);
+      }
+
+      // Фильтр по типу запроса
+      if (requestType && requestType !== "all") {
+        whereConditions.push(`EXISTS (
+        SELECT 1 FROM support_requests sr 
+        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          AND sr.status IN ('confirmed', 'in_progress')
+          AND sr.type = '${requestType}'
+      )`);
+      }
+
+      // Фильтр по просроченным запросам
+      if (isOverdue === "true") {
+        whereConditions.push(`EXISTS (
+        SELECT 1 FROM support_requests sr 
+        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          AND sr.status IN ('confirmed', 'in_progress')
+          AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+      )`);
+      } else if (isOverdue === "false") {
+        // Только непросроченные (или нет запросов)
+        whereConditions.push(`(
+        NOT EXISTS (
+          SELECT 1 FROM support_requests sr 
+          WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+            AND sr.status IN ('confirmed', 'in_progress')
+        ) OR NOT EXISTS (
+          SELECT 1 FROM support_requests sr 
+          WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+            AND sr.status IN ('confirmed', 'in_progress')
+            AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        )
+      )`);
+      }
+
+      // Фильтр по статусу запроса
+      if (requestStatus && requestStatus !== "all") {
+        whereConditions.push(`EXISTS (
+        SELECT 1 FROM support_requests sr 
+        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          AND sr.status = '${requestStatus}'
+      )`);
       }
 
       const whereClause =
@@ -60,58 +198,102 @@ class AdminUsersController {
           ? `WHERE ${whereConditions.join(" AND ")}`
           : "";
 
-      // ОСНОВНОЙ ЗАПРОС - ДОБАВЛЯЕМ ПОЛЯ БЛОКИРОВКИ
+      // 4. ОСНОВНОЙ SQL ЗАПРОС
       const sql = `
       SELECT 
-        login, 
-        email, 
-        logic as is_active,
-        blocked,
-        blocked_until,
-        created_at,
-        (SELECT COUNT(*) FROM sessionsdata WHERE login = usersdata.login) as active_sessions       
-      FROM usersdata 
+        u.login, 
+        u.email, 
+        u.logic as is_active,
+        u.blocked,
+        u.blocked_until,
+        u.created_at,
+        (SELECT COUNT(*) FROM sessionsdata WHERE login = u.login) as active_sessions,
+        ${supportRequestSubqueries}
+        
+      FROM usersdata u 
       ${whereClause}
       ORDER BY ${sortBy} ${sortOrder}
       LIMIT ${limitNum} OFFSET ${offsetNum}
     `;
 
-      console.log("🔍 [AdminUsersController.getUsers] SQL запрос:", sql);
-      const users = await query(sql);
-
-      // Общее количество с учетом фильтров
-      const [totalResult] = await query(
-        `SELECT COUNT(*) as total FROM usersdata ${whereClause}`
-      );
-
-      // Статистика с учетом фильтров - ДОБАВЛЯЕМ СТАТИСТИКУ ПО БЛОКИРОВКАМ
-      const [statsResult] = await query(`
-      SELECT 
-        COUNT(*) as total_users,
-        SUM(CASE WHEN logic = "true" THEN 1 ELSE 0 END) as active_users,
-        SUM(CASE WHEN logic = "false" THEN 1 ELSE 0 END) as pending_users,
-        SUM(CASE WHEN blocked = 1 THEN 1 ELSE 0 END) as blocked_users,
-        SUM(CASE WHEN blocked = 0 OR blocked IS NULL THEN 1 ELSE 0 END) as not_blocked_users
-      FROM usersdata 
-      ${whereClause}
-    `);
-
-      console.log("📊 [AdminUsersController.getUsers] Статистика получена:", {
-        total: statsResult.total_users,
-        active: statsResult.active_users,
-        pending: statsResult.pending_users,
-        blocked: statsResult.blocked_users,
-        notBlocked: statsResult.not_blocked_users,
+      console.log("🔍 [AdminUsersController.getUsers] SQL запрос:", {
+        sqlPreview: sql.substring(0, 300) + "...",
+        whereConditions,
+        parameters: { limit: limitNum, offset: offsetNum },
       });
 
-      // Получаем статистику для каждого пользователя
+      const users = await query(sql);
+
+      // 5. ОБЩЕЕ КОЛИЧЕСТВО С УЧЕТОМ ФИЛЬТРОВ
+      const countSql = `
+      SELECT COUNT(*) as total 
+      FROM usersdata u 
+      ${whereClause}
+    `;
+
+      const [totalResult] = await query(countSql);
+      const totalUsers = totalResult.total || 0;
+
+      console.log("📊 [AdminUsersController.getUsers] Найдено пользователей:", {
+        total: totalUsers,
+        onPage: users.length,
+        withActiveRequests: users.filter((u) => u.total_active_requests > 0)
+          .length,
+        withOverdueRequests: users.filter((u) => u.overdue_count > 0).length,
+      });
+
+      // 6. СТАТИСТИКА С УЧЕТОМ ФИЛЬТРОВ
+      const statsSql = `
+      SELECT 
+        COUNT(*) as total_users,
+        SUM(CASE WHEN u.logic = "true" THEN 1 ELSE 0 END) as active_users,
+        SUM(CASE WHEN u.logic = "false" THEN 1 ELSE 0 END) as pending_users,
+        SUM(CASE WHEN u.blocked = 1 THEN 1 ELSE 0 END) as blocked_users,
+        SUM(CASE WHEN u.blocked = 0 OR u.blocked IS NULL THEN 1 ELSE 0 END) as not_blocked_users,
+        
+        -- Статистика по запросам
+        SUM(CASE WHEN EXISTS (
+          SELECT 1 FROM support_requests sr 
+          WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+            AND sr.status IN ('confirmed', 'in_progress')
+        ) THEN 1 ELSE 0 END) as users_with_requests,
+        
+        SUM(CASE WHEN EXISTS (
+          SELECT 1 FROM support_requests sr 
+          WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+            AND sr.status IN ('confirmed', 'in_progress')
+            AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
+        ) THEN 1 ELSE 0 END) as users_with_overdue_requests
+        
+      FROM usersdata u 
+      ${whereClause}
+    `;
+
+      const [statsResult] = await query(statsSql);
+
+      console.log("📈 [AdminUsersController.getUsers] Статистика:", {
+        totalUsers: statsResult.total_users,
+        withRequests: statsResult.users_with_requests,
+        withOverdue: statsResult.users_with_overdue_requests,
+      });
+
+      // 7. ПОЛУЧАЕМ СТАТИСТИКУ ДЛЯ КАЖДОГО ПОЛЬЗОВАТЕЛЯ
       const usersWithStats = await Promise.all(
         users.map(async (user) => {
           let surveyCount = 0;
           let imageCount = 0;
 
-          if (user.has_user_table > 0) {
-            try {
+          // Получаем статистику из таблицы пользователя
+          try {
+            const [tableExists] = await query(
+              `SELECT COUNT(*) as exists_flag 
+             FROM information_schema.tables 
+             WHERE table_schema = DATABASE() 
+               AND table_name = ?`,
+              [user.login]
+            );
+
+            if (tableExists.exists_flag > 0) {
               const statsSql = `
               SELECT 
                 COUNT(CASE WHEN type = 'survey' THEN 1 END) as survey_count,
@@ -125,12 +307,12 @@ class AdminUsersController {
                 surveyCount = parseInt(statsResult.survey_count) || 0;
                 imageCount = parseInt(statsResult.image_count) || 0;
               }
-            } catch (statsError) {
-              console.warn(
-                `⚠️ [AdminUsersController.getUsers] Не удалось получить статистику для ${user.login}:`,
-                statsError.message
-              );
             }
+          } catch (statsError) {
+            console.warn(
+              `⚠️ [AdminUsersController.getUsers] Не удалось получить статистику для ${user.login}:`,
+              statsError.message
+            );
           }
 
           // РАСЧЕТ ДОПОЛНИТЕЛЬНЫХ ПОЛЕЙ ДЛЯ БЛОКИРОВКИ
@@ -143,15 +325,12 @@ class AdminUsersController {
             const blockedUntil = new Date(user.blocked_until);
             const now = new Date();
 
-            // Проверяем бессрочную блокировку (2099 год)
             isPermanentlyBlocked = blockedUntil.getFullYear() >= 2099;
 
             if (!isPermanentlyBlocked && blockedUntil > now) {
-              // Рассчитываем оставшиеся дни
               const diffTime = blockedUntil - now;
               daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-              // Форматируем дату
               const day = blockedUntil.getDate();
               const month = blockedUntil.toLocaleString("ru-RU", {
                 month: "long",
@@ -161,59 +340,94 @@ class AdminUsersController {
             }
           }
 
+          // Формируем объект пользователя
           return {
-            id: user.login, // используем login как id для фронтенда
+            id: user.login,
             login: user.login,
             email: user.email,
             isActive: user.is_active === "true",
-            isBlocked: isBlocked, // НОВОЕ ПОЛЕ
+            isBlocked: isBlocked,
             blockedUntil: user.blocked_until,
             blockedUntilFormatted: blockedUntilFormatted,
             isPermanentlyBlocked: isPermanentlyBlocked,
             daysRemaining: daysRemaining,
             createdAt: user.created_at,
             activeSessions: user.active_sessions || 0,
-            hasUserTable: user.has_user_table > 0,
+            hasUserTable: surveyCount > 0 || imageCount > 0,
+
+            // Статистика пользователя
             stats: {
               surveys: surveyCount,
               images: imageCount,
+            },
+
+            // НОВЫЕ ПОЛЯ: ЗАПРОСЫ ТЕХПОДДЕРЖКИ
+            supportRequests: {
+              password_reset: user.password_reset_count || 0,
+              email_change: user.email_change_count || 0,
+              unblock: user.unblock_count || 0,
+              account_deletion: user.account_deletion_count || 0,
+              other: user.other_count || 0,
+              total: user.total_active_requests || 0,
+              overdue: (user.overdue_count || 0) > 0,
+              overdueCount: user.overdue_count || 0,
+              oldestRequestId: user.oldest_request_id,
+              oldestRequestType: user.oldest_request_type,
             },
           };
         })
       );
 
-      console.log(
-        "✅ [AdminUsersController.getUsers] Пользователи обработаны:",
-        {
-          totalUsers: usersWithStats.length,
-          blockedCount: usersWithStats.filter((u) => u.isBlocked).length,
-        }
-      );
+      console.log("✅ [AdminUsersController.getUsers] Обработка завершена:", {
+        processedUsers: usersWithStats.length,
+        usersWithRequests: usersWithStats.filter(
+          (u) => u.supportRequests.total > 0
+        ).length,
+      });
 
-      res.json({
+      // 8. ФОРМИРУЕМ ОТВЕТ
+      const response = {
         success: true,
         users: usersWithStats,
         pagination: {
           currentPage: pageNum,
-          totalPages: Math.ceil(totalResult.total / limitNum),
-          totalItems: totalResult.total,
+          totalPages: Math.ceil(totalUsers / limitNum),
+          totalItems: totalUsers,
           itemsPerPage: limitNum,
         },
         stats: {
+          // Основная статистика
           totalUsers: statsResult.total_users,
           activeUsers: statsResult.active_users,
           pendingUsers: statsResult.pending_users,
-          blockedUsers: statsResult.blocked_users, // НОВОЕ ПОЛЕ
+          blockedUsers: statsResult.blocked_users,
           notBlockedUsers: statsResult.not_blocked_users,
+
+          // Статистика по запросам
+          usersWithRequests: statsResult.users_with_requests,
+          usersWithOverdueRequests: statsResult.users_with_overdue_requests,
         },
         filters: {
           search,
           isActive,
-          isBlocked, // НОВОЕ ПОЛЕ
+          isBlocked,
+          hasRequests,
+          requestType,
+          isOverdue,
+          requestStatus,
           sortBy,
           sortOrder,
         },
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log("📤 [AdminUsersController.getUsers] Отправка ответа:", {
+        usersCount: response.users.length,
+        hasRequestsFilter: response.filters.hasRequests,
+        totalWithRequests: response.stats.usersWithRequests,
       });
+
+      res.json(response);
     } catch (error) {
       console.error(
         "❌ [AdminUsersController.getUsers] Ошибка получения списка пользователей:",
@@ -221,12 +435,16 @@ class AdminUsersController {
           error: error.message,
           stack: error.stack,
           adminId: req.admin.id,
+          query: req.query,
         }
       );
 
       res.status(500).json({
         success: false,
         message: "Ошибка получения списка пользователей",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+        timestamp: new Date().toISOString(),
       });
     }
   }

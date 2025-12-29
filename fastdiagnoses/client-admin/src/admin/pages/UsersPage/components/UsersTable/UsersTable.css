@@ -1,0 +1,617 @@
+/* ==================== ТАБЛИЦА (АДАПТИВНАЯ) ==================== */
+.users-table-container {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+  margin-bottom: 32px;
+}
+
+/* Десктопная таблица (показывается только на больших экранах) */
+.users-table-desktop {
+  width: 100%;
+  border-collapse: collapse;
+  display: table;
+}
+
+/* Мобильные карточки (скрыты на десктопе) */
+.users-table-mobile {
+  display: none;
+}
+
+.users-table th {
+  background: #f8f9fa;
+  padding: 16px 20px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+  border-bottom: 2px solid #e9ecef;
+  white-space: nowrap;
+}
+
+.users-table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: top;
+}
+
+.users-table-row:hover {
+  background: #f8f9fa;
+}
+
+.users-table-row.row-overdue {
+  background-color: #fff5f5;
+  border-left: 4px solid #ff6b6b;
+}
+
+.users-table-row.row-overdue:hover {
+  background-color: #ffe6e6;
+}
+
+.users-table-row:last-child td {
+  border-bottom: none;
+}
+
+/* ==================== КОМПАКТНАЯ ЯЧЕЙКА ПОЛЬЗОВАТЕЛЯ ==================== */
+.users-table-user-cell {
+  min-width: 250px;
+}
+
+.users-table-user-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.users-table-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.users-table-user-login {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.users-table-user-id {
+  font-size: 12px;
+  color: #666;
+  background: #f1f3f4;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+}
+
+.users-table-user-email {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+  word-break: break-all;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.users-table-user-email-icon {
+  color: #999;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.users-table-user-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.users-table-user-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  white-space: nowrap;
+}
+
+.users-table-user-meta-icon {
+  font-size: 12px;
+}
+
+/* ==================== ДАННЫЕ В ОДНОЙ СТРОКЕ ==================== */
+.users-table-data-cell {
+  min-width: 200px;
+}
+
+.users-table-data-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 60px;
+}
+
+.users-table-data-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #495057;
+}
+
+.users-table-data-label {
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.users-table-data-value {
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+
+.users-table-data-icon {
+  font-size: 16px;
+  color: #666;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ==================== ЗАПРОСЫ ==================== */
+.users-table-requests-cell {
+  min-width: 150px;
+}
+
+.users-table-requests-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+}
+
+.users-table-request-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 1px solid #e9ecef;
+  font-size: 13px;
+  cursor: default;
+}
+
+.users-table-request-icon {
+  font-size: 14px;
+}
+
+.users-table-request-count {
+  font-size: 12px;
+  font-weight: 700;
+  background: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.users-table-overdue-badge-small {
+  background: #ff6b6b;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: help;
+  animation: users-table-blink 1s infinite;
+}
+
+/* ==================== ДЕЙСТВИЯ ==================== */
+.users-table-actions-cell {
+  min-width: 200px;
+}
+
+.users-table-actions-compact {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 40px;
+}
+
+.users-table-action-button-compact {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  background: #f8f9fa;
+  color: #495057;
+  position: relative;
+}
+
+.users-table-action-button-compact:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.users-table-action-button-compact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Цвета кнопок */
+.users-table-action-password {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.users-table-action-password:hover:not(:disabled) {
+  background: #ffe0b2;
+}
+
+.users-table-action-email {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.users-table-action-email:hover:not(:disabled) {
+  background: #bbdefb;
+}
+
+.users-table-action-block {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.users-table-action-block:hover:not(:disabled) {
+  background: #ffcdd2;
+}
+
+.users-table-action-unblock {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.users-table-action-unblock:hover:not(:disabled) {
+  background: #c8e6c9;
+}
+
+.users-table-action-delete {
+  background: #fce4ec;
+  color: #c2185b;
+}
+
+.users-table-action-delete:hover:not(:disabled) {
+  background: #f8bbd9;
+}
+
+.users-table-action-other {
+  background: #f5f5f5;
+  color: #757575;
+}
+
+.users-table-action-other:hover:not(:disabled) {
+  background: #eeeeee;
+}
+
+.users-table-request-badge-small {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== МОБИЛЬНЫЕ КАРТОЧКИ (ДЕЙСТВИЯ ВНИЗУ) ==================== */
+.users-table-mobile-card {
+  padding: 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+  position: relative;
+}
+
+.users-table-mobile-card.row-overdue {
+  background-color: #fff5f5;
+  border-left: 4px solid #ff6b6b;
+}
+
+/* Убираем actions из header */
+.users-table-mobile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.users-table-mobile-user {
+  flex: 1;
+}
+
+.users-table-mobile-login {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.users-table-mobile-email {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Actions теперь в отдельной секции внизу */
+.users-table-mobile-actions-header {
+  display: none; /* Скрываем actions в header */
+}
+
+.users-table-mobile-actions-bottom {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid #f0f0f0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.users-table-mobile-actions-title {
+  font-size: 13px;
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: center;
+}
+
+.users-table-mobile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.users-table-mobile-section {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.users-table-mobile-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.users-table-mobile-section-title {
+  font-size: 13px;
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.users-table-mobile-data-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.users-table-mobile-data-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.users-table-mobile-data-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.users-table-mobile-data-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.users-table-mobile-requests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ==================== СТАТУСЫ ==================== */
+.users-table-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.users-table-status-badge.active {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.users-table-status-badge.inactive {
+  background: #ffebee;
+  color: #d32f2f;
+  border: 1px solid #ffcdd2;
+}
+
+.users-table-status-badge.blocked {
+  background: #fff3e0;
+  color: #ef6c00;
+  border: 1px solid #ffe0b2;
+}
+
+.users-table-status-badge.permanently-blocked {
+  background: #fce4ec;
+  color: #c2185b;
+  border: 1px solid #f8bbd9;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+
+/* На 1199px и меньше показываем мобильную версию */
+@media (max-width: 1199px) {
+  .users-table-desktop {
+    display: none;
+  }
+  
+  .users-table-mobile {
+    display: block;
+  }
+  
+  .users-table th,
+  .users-table td {
+    padding: 14px 16px;
+  }
+  
+  /* Показываем actions внизу карточки */
+  .users-table-mobile-actions-bottom {
+    display: flex;
+  }
+  
+  /* Скрываем actions в header */
+  .users-table-mobile-actions-header {
+    display: none;
+  }
+}
+
+/* Большие телефоны (576px - 768px) */
+@media (max-width: 768px) {
+  .users-table-mobile-card {
+    padding: 16px;
+  }
+  
+  .users-table-mobile-data-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .users-table-mobile-actions-bottom {
+    justify-content: center;
+    padding-top: 14px;
+  }
+}
+
+/* Телефоны (до 576px) */
+@media (max-width: 576px) {
+  .users-table-container {
+    margin-left: -16px;
+    margin-right: -16px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  
+  .users-table-mobile-card {
+    padding: 14px 16px;
+  }
+  
+  .users-table-mobile-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .users-table-mobile-actions-bottom {
+    width: 100%;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .users-table-mobile-meta {
+    gap: 6px;
+  }
+  
+  .users-table-mobile-user-meta-item {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+  
+  .users-table-action-button-compact {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+}
+
+/* Очень маленькие телефоны (до 480px) */
+@media (max-width: 480px) {
+  .users-table-mobile-login {
+    font-size: 16px;
+  }
+  
+  .users-table-mobile-email {
+    font-size: 13px;
+  }
+  
+  .users-table-action-button-compact {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .users-table-request-item {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .users-table-mobile-actions-bottom {
+    gap: 6px;
+  }
+}
+
+/* Анимация для просроченных */
+@keyframes users-table-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

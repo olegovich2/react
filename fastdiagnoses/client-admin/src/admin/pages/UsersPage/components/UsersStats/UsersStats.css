@@ -1,0 +1,125 @@
+/* ==================== СТАТИСТИКА ==================== */
+.users-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.users-stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #e9ecef;
+}
+
+.users-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.users-stat-icon {
+  font-size: 28px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.users-stat-total .users-stat-icon {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.users-stat-active .users-stat-icon {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.users-stat-pending .users-stat-icon {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.users-stat-blocked .users-stat-icon {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.users-stat-requests .users-stat-icon {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.users-stat-overdue .users-stat-icon {
+  background: #fff3e0;
+  color: #ff9800;
+  animation: users-stat-pulse 2s infinite;
+}
+
+@keyframes users-stat-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.users-stat-content {
+  flex: 1;
+}
+
+.users-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  line-height: 1;
+}
+
+.users-stat-label {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+/* ==================== АДАПТИВНОСТЬ ==================== */
+@media (max-width: 1400px) {
+  .users-stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1200px) {
+  .users-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .users-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .users-stat-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .users-stat-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+  }
+  
+  .users-stat-value {
+    font-size: 24px;
+  }
+}

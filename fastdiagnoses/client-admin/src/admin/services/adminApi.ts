@@ -8,7 +8,10 @@ import {
   UserDetailsResponse,
   UsersFilterParams,
   User,
-  DashboardStats
+  DashboardStats,
+  SupportRequest,
+  ValidationResult,
+  ProcessResult
 } from '../types';
 
 // Конфигурация API
@@ -304,6 +307,8 @@ export const usersService = {
         blockedCount: response.users?.filter((u: User) => u.isBlocked).length || 0,
         totalUsers: response.stats?.totalUsers,
         blockedUsers: response.stats?.blockedUsers,
+        usersWithRequests: response.stats?.usersWithRequests,
+        usersWithOverdueRequests: response.stats?.usersWithOverdueRequests,
       });
       
       return response;
@@ -466,6 +471,98 @@ export const usersService = {
       throw error;
     }
   },
+  
+  // Получить активные запросы пользователя
+  getUserSupportRequests: async (login: string): Promise<SupportRequest[]> => {
+    console.log('📩 [usersService] getUserSupportRequests запрос для:', login);
+    
+    try {
+      const response = await apiRequest<AdminApiResponse & { data?: SupportRequest[] }>('get', `/users/${login}/support-requests`);
+      
+      console.log('✅ [usersService] getUserSupportRequests ответ:', {
+        success: response.success,
+        requestsCount: response.data?.length || 0,
+      });
+      
+      return response.data || [];
+    } catch (error: any) {
+      console.error('❌ [usersService] getUserSupportRequests ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Получить детали конкретного запроса (с расшифрованными данными)
+  getSupportRequestDetails: async (requestId: string): Promise<SupportRequest> => {
+    console.log('🔍 [usersService] getSupportRequestDetails запрос:', requestId);
+    
+    try {
+      const response = await apiRequest<AdminApiResponse & { data?: SupportRequest }>('get', `/support-requests/${requestId}`);
+      
+      console.log('✅ [usersService] getSupportRequestDetails ответ:', {
+        success: response.success,
+        hasData: !!response.data,
+        requestType: response.data?.type,
+        status: response.data?.status,
+        isOverdue: response.data?.isOverdue,
+      });
+      
+      if (!response.data) {
+        throw new Error('Данные запроса не найдены');
+      }
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ [usersService] getSupportRequestDetails ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Валидировать запрос (проверить кодовое слово, пароль и т.д.)
+  validateSupportRequest: async (requestId: string): Promise<ValidationResult> => {
+    console.log('🔐 [usersService] validateSupportRequest запрос:', requestId);
+    
+    try {
+      const response = await apiRequest<ValidationResult>('post', `/support-requests/${requestId}/validate`);
+      
+      console.log('✅ [usersService] validateSupportRequest ответ:', {
+        success: response.success,
+        isValid: response.isValid,
+        message: response.message,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] validateSupportRequest ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Выполнить действие по запросу (сброс пароля и т.д.)
+  processSupportRequest: async (
+    requestId: string, 
+    action: 'approve' | 'reject',
+    data?: { reason?: string; newPassword?: string }
+  ): Promise<ProcessResult> => {
+    console.log('⚡ [usersService] processSupportRequest запрос:', { requestId, action, data });
+    
+    try {
+      const response = await apiRequest<ProcessResult>('post', `/support-requests/${requestId}/process`, {
+        action,
+        ...data
+      });
+      
+      console.log('✅ [usersService] processSupportRequest ответ:', {
+        success: response.success,
+        action: response.action,
+        result: response.result,
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [usersService] processSupportRequest ошибка:', error);
+      throw error;
+    }
+  }
 };
 
 // API методы для дашборда
