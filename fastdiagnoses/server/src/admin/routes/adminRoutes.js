@@ -3,6 +3,7 @@ const router = express.Router();
 const isAdmin = require("../middleware/isAdmin");
 
 // Импорт контроллеров
+const AdminSupportController = require("../controllers/AdminSupportController");
 const AdminAuthController = require("../controllers/AdminAuthController");
 const AdminDashboardController = require("../controllers/AdminDashboardController");
 const AdminUsersController = require("../controllers/AdminUsersController");
@@ -62,6 +63,37 @@ router.post(
 router.delete("/users/:login", isAdmin, AdminUsersController.deleteUser);
 router.post("/users/:login/block", isAdmin, AdminUsersController.blockUser);
 router.post("/users/:login/unblock", isAdmin, AdminUsersController.unblockUser);
+
+// ==================== ТЕХПОДДЕРЖКА ДЛЯ АДМИНОВ ====================
+console.log("🛠️ [AdminRoutes] Регистрация роутов для техподдержки");
+
+// Получить все запросы пользователя
+router.get(
+  "/support/user/:login/requests",
+  isAdmin,
+  AdminSupportController.getUserRequests
+);
+
+// Получить информацию о конкретном запросе
+router.get(
+  "/support/requests/:id",
+  isAdmin,
+  AdminSupportController.getRequestInfo
+);
+
+// АВТОМАТИЧЕСКАЯ проверка запроса (расшифровка + сравнение)
+router.post(
+  "/support/requests/:id/validate",
+  isAdmin,
+  AdminSupportController.validateRequest
+);
+
+// Обработка запроса (одобрить/отклонить)
+router.post(
+  "/support/requests/:id/process",
+  isAdmin,
+  AdminSupportController.processRequest
+);
 
 // ==================== EMAIL ЗАПРОСЫ ====================
 console.log("📧 [AdminRoutes] Регистрация роутов email запросов");

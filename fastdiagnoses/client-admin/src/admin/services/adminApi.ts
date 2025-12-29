@@ -11,7 +11,10 @@ import {
   DashboardStats,
   SupportRequest,
   ValidationResult,
-  ProcessResult
+  ProcessResult,
+  SupportRequestsResponse,
+  SupportRequestInfoResponse,
+  ValidationResponse
 } from '../types';
 
 // Конфигурация API
@@ -537,21 +540,29 @@ export const usersService = {
     }
   },
   
-  // Выполнить действие по запросу (сброс пароля и т.д.)
   processSupportRequest: async (
     requestId: string, 
     action: 'approve' | 'reject',
-    data?: { reason?: string; newPassword?: string }
+    data?: { 
+      reason?: string; 
+      emailResponse?: string; // для типа "other"
+    }
   ): Promise<ProcessResult> => {
-    console.log('⚡ [usersService] processSupportRequest запрос:', { requestId, action, data });
+    console.log('⚡ [supportService.processSupportRequest] Запрос:', { 
+      requestId, 
+      action, 
+      data 
+    });
     
     try {
-      const response = await apiRequest<ProcessResult>('post', `/support-requests/${requestId}/process`, {
-        action,
-        ...data
-      });
+      // URL совпадает с роутом который мы добавили
+      const response = await apiRequest<ProcessResult>(
+        'post', 
+        `/support/requests/${requestId}/process`, 
+        { action, ...data }
+      );
       
-      console.log('✅ [usersService] processSupportRequest ответ:', {
+      console.log('✅ [supportService.processSupportRequest] Ответ:', {
         success: response.success,
         action: response.action,
         result: response.result,
@@ -559,7 +570,7 @@ export const usersService = {
       
       return response;
     } catch (error: any) {
-      console.error('❌ [usersService] processSupportRequest ошибка:', error);
+      console.error('❌ [supportService.processSupportRequest] Ошибка:', error);
       throw error;
     }
   }
@@ -647,6 +658,97 @@ export const settingsService = {
     return await apiRequest<AdminApiResponse>('post', `/backups/${backupId}/restore`);
   },
 };
+
+// ==================== API ДЛЯ ТЕХПОДДЕРЖКИ (АДМИНСКИЕ) ====================
+
+export const supportService = {
+  // Получить запросы пользователя
+  getUserSupportRequests: async (
+    login: string, 
+    type: string = 'all', 
+    status: string = 'all'
+  ): Promise<SupportRequestsResponse> => {
+    console.log('📩 [supportService.getUserSupportRequests] Запрос:', { 
+      login, 
+      type, 
+      status 
+    });
+    
+    try {
+      const response = await apiRequest<SupportRequestsResponse>(
+        'get', 
+        `/support/user/${login}/requests`, 
+        undefined, 
+        { type, status }
+      );
+      
+      console.log('✅ [supportService.getUserSupportRequests] Ответ:', {
+        success: response.success,
+        requestsCount: response.data?.requests?.length || 0,
+        user: response.data?.user?.login,
+        stats: response.data?.stats
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [supportService.getUserSupportRequests] Ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // Получить информацию о конкретном запросе
+  getSupportRequestInfo: async (requestId: string): Promise<SupportRequestInfoResponse> => {
+    console.log('🔍 [supportService.getSupportRequestInfo] Запрос:', requestId);
+    
+    try {
+      const response = await apiRequest<SupportRequestInfoResponse>(
+        'get', 
+        `/support/requests/${requestId}`
+      );
+      
+      console.log('✅ [supportService.getSupportRequestInfo] Ответ:', {
+        success: response.success,
+        hasRequest: !!response.data?.request,
+        requestType: response.data?.request?.type,
+        status: response.data?.request?.status,
+        logsCount: response.data?.logs?.length || 0
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [supportService.getSupportRequestInfo] Ошибка:', error);
+      throw error;
+    }
+  },
+  
+  // АВТОМАТИЧЕСКАЯ проверка запроса (расшифровка + сравнение)
+  validateSupportRequest: async (requestId: string): Promise<ValidationResponse> => {
+    console.log('🔐 [supportService.validateSupportRequest] Запрос:', requestId);
+    
+    try {
+      const response = await apiRequest<ValidationResponse>(
+        'post', 
+        `/support/requests/${requestId}/validate`
+      );
+      
+      console.log('✅ [supportService.validateSupportRequest] Ответ:', {
+        success: response.success,
+        isValid: response.isValid,
+        errors: response.errors?.length || 0,
+        checkedFields: response.checkedFields,
+        requestInfo: response.requestInfo
+      });
+      
+      return response;
+    } catch (error: any) {
+      console.error('❌ [supportService.validateSupportRequest] Ошибка:', error);
+      throw error;
+    }
+  }
+};
+
+// Экспортируем обновленный объект (уже есть в конце файла)
+// export default adminApi;
 
 // Экспортируем базовый инстанс для кастомных запросов
 export default adminApi;

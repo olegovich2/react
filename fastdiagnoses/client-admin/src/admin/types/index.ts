@@ -353,6 +353,102 @@ export interface SystemLog {
   details?: string;
 }
 
+// ==================== ТИПЫ ДЛЯ ПРОВЕРКИ ЗАПРОСОВ ====================
+
+export interface SupportRequestValidation {
+  id: string;
+  publicId: string;
+  type: SupportRequestType;
+  login: string;
+  email: string;
+  status: SupportRequestStatus;
+  createdAt: string;
+  updatedAt: string;
+  isOverdue: boolean;
+  newEmail?: string;
+  message: string;
+  adminNotes?: string;
+}
+
+export interface ValidationResult {
+  success: boolean;
+  isValid: boolean;  // true = все проверки прошли успешно
+  errors?: string[]; // Список ошибок, если isValid = false
+  checkedFields: {
+    login: boolean;
+    secretWord: boolean;
+    password: boolean | null;
+  };
+  requestInfo: {
+    id: string;
+    publicId: string;
+    type: SupportRequestType;
+    login: string;
+    email: string;
+    status: SupportRequestStatus;
+    createdAt: string;
+    isOverdue: boolean;
+  };
+}
+
+export interface SupportRequestLog {
+  action: string;
+  oldValue?: string;
+  newValue?: string;
+  actorType: 'system' | 'user' | 'admin';
+  actorId?: string;
+  createdAt: string;
+}
+
+export interface SupportRequestWithLogs {
+  request: SupportRequestValidation;
+  logs: SupportRequestLog[];
+}
+
+// ==================== ТИПЫ ДЛЯ ОТВЕТОВ API ====================
+
+export interface SupportRequestsResponse extends AdminApiResponse {
+  data?: {
+    user: {
+      login: string;
+    };
+    requests: SupportRequestValidation[];
+    stats: {
+      total: number;
+      byType: Record<string, number>;
+      byStatus: Record<string, number>;
+    };
+    filters: {
+      type?: string;
+      status?: string;
+    };
+  };
+}
+
+export interface SupportRequestInfoResponse extends AdminApiResponse {
+  data?: SupportRequestWithLogs;
+}
+
+export interface ValidationResponse extends AdminApiResponse {
+  isValid: boolean;
+  errors?: string[];
+  checkedFields: {
+    login: boolean;
+    secretWord: boolean;
+    password: boolean | null;
+  };
+  requestInfo: {
+    id: string;
+    publicId: string;
+    type: SupportRequestType;
+    login: string;
+    email: string;
+    status: SupportRequestStatus;
+    createdAt: string;
+    isOverdue: boolean;
+  };
+}
+
 // ==================== АЛЬЯСЫ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ====================
 
 export type BaseAdminResponse = AdminApiResponse;
