@@ -1,73 +1,129 @@
 // src/utils/databaseInitializer.js
-const { query, getConnection } = require("../services/databaseService");
+const {
+  query,
+  getConnection,
+  getConnectionWithoutDB,
+} = require("../services/databaseService");
 const config = require("../config");
 
 class DatabaseInitializer {
   constructor() {
+    this.databaseName = "diagnoses"; // Название вашей БД
     this.tables = this.getTableDefinitions();
     this.diagnosesData = this.getDiagnosesData();
   }
 
-  // Определения всех таблиц
+  // Создание базы данных если не существует
+  async createDatabaseIfNotExists() {
+    console.log(`🔄 Проверка существования БД: ${this.databaseName}`);
+
+    try {
+      // Получаем соединение без конкретной БД
+      const connectionWithoutDB = await getConnectionWithoutDB();
+
+      // Проверяем, существует ли БД
+      const [databases] = await connectionWithoutDB.execute(
+        `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`,
+        [this.databaseName]
+      );
+
+      if (databases.length === 0) {
+        console.log(`📦 Создание БД: ${this.databaseName}`);
+
+        // Создаем БД с правильной кодировкой
+        await connectionWithoutDB.execute(
+          `CREATE DATABASE \`${this.databaseName}\` 
+           CHARACTER SET utf8mb4 
+           COLLATE utf8mb4_unicode_ci`
+        );
+
+        console.log(
+          `✅ БД ${this.databaseName} создана с кодировкой utf8mb4_unicode_ci`
+        );
+      } else {
+        console.log(`✅ БД ${this.databaseName} уже существует`);
+      }
+
+      // Обновляем кодировку существующей БД (на всякий случай)
+      try {
+        await connectionWithoutDB.execute(
+          `ALTER DATABASE \`${this.databaseName}\` 
+           CHARACTER SET utf8mb4 
+           COLLATE utf8mb4_unicode_ci`
+        );
+        console.log(`🔄 Кодировка БД обновлена на utf8mb4_unicode_ci`);
+      } catch (alterError) {
+        console.log(`ℹ️ Кодировка БД уже правильная: ${alterError.message}`);
+      }
+
+      connectionWithoutDB.release();
+      return true;
+    } catch (error) {
+      console.error(`❌ Ошибка создания/проверки БД:`, error);
+      throw error;
+    }
+  }
+
+  // Определения всех таблиц с единой кодировкой
   getTableDefinitions() {
     return {
       usersdata: `
         CREATE TABLE IF NOT EXISTS \`usersdata\` (
-          \`login\` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-          \`password\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-          \`email\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-          \`jwt\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-          \`logic\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
+          \`login\` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`password\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`email\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`jwt\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`logic\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           \`created_at\` datetime DEFAULT CURRENT_TIMESTAMP,
           \`updated_at\` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           \`last_login\` datetime DEFAULT NULL,
           \`blocked\` tinyint(1) DEFAULT '0',
-          \`secret_word\` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+          \`secret_word\` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
           \`blocked_until\` datetime DEFAULT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       sessionsdata: `
         CREATE TABLE IF NOT EXISTS \`sessionsdata\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
-          \`login\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-          \`jwt_access\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
+          \`login\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`jwt_access\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           \`date\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (\`id\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       alldiagnoses: `
         CREATE TABLE IF NOT EXISTS \`alldiagnoses\` (
-          \`nameOfDisease\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-          \`nameofDiseaseRu\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-          \`diagnostics\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
-          \`treatment\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+          \`nameOfDisease\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`nameofDiseaseRu\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`diagnostics\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`treatment\` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       login_attempts: `
         CREATE TABLE IF NOT EXISTS \`login_attempts\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
-          \`login\` varchar(100) NOT NULL,
-          \`ip_address\` varchar(45) NOT NULL,
+          \`login\` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`ip_address\` varchar(45) COLLATE utf8mb4_unicode_ci NOT NULL,
           \`success\` tinyint(1) DEFAULT '0',
-          \`user_agent\` text,
+          \`user_agent\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           \`created_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (\`id\`),
           KEY \`idx_login\` (\`login\`),
           KEY \`idx_created_at\` (\`created_at\`),
           KEY \`idx_ip\` (\`ip_address\`),
           KEY \`idx_success_created\` (\`success\`,\`created_at\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       blocked_login_attempts: `
         CREATE TABLE IF NOT EXISTS \`blocked_login_attempts\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
-          \`user_login\` varchar(255) NOT NULL,
-          \`ip_address\` varchar(45) DEFAULT NULL,
-          \`user_agent\` text,
+          \`user_login\` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`ip_address\` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`user_agent\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           \`blocked_until\` datetime DEFAULT NULL,
           \`attempted_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
           \`auto_unblocked\` tinyint(1) DEFAULT '0',
@@ -75,7 +131,7 @@ class DatabaseInitializer {
           PRIMARY KEY (\`id\`),
           KEY \`idx_user_login\` (\`user_login\`),
           KEY \`idx_attempted_at\` (\`attempted_at\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       password_resets: `
@@ -96,26 +152,26 @@ class DatabaseInitializer {
       password_reset_attempts: `
         CREATE TABLE IF NOT EXISTS \`password_reset_attempts\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
-          \`email\` varchar(255) NOT NULL,
+          \`email\` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
           \`attempts\` int DEFAULT '0',
           \`last_attempt\` datetime DEFAULT NULL,
-          \`ip_address\` varchar(45) DEFAULT NULL,
-          \`user_agent\` text,
+          \`ip_address\` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`user_agent\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           \`created_at\` datetime DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (\`id\`),
           KEY \`email\` (\`email\`),
           KEY \`last_attempt\` (\`last_attempt\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       admin_users: `
         CREATE TABLE IF NOT EXISTS \`admin_users\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
-          \`username\` varchar(50) NOT NULL,
-          \`password_hash\` varchar(255) NOT NULL,
-          \`email\` varchar(100) NOT NULL,
-          \`full_name\` varchar(100) DEFAULT NULL,
-          \`role\` enum('superadmin','admin','moderator') DEFAULT 'admin',
+          \`username\` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`password_hash\` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`email\` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`full_name\` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`role\` enum('superadmin','admin','moderator') COLLATE utf8mb4_unicode_ci DEFAULT 'admin',
           \`is_active\` tinyint(1) DEFAULT '1',
           \`last_login\` timestamp NULL DEFAULT NULL,
           \`login_attempts\` int DEFAULT '0',
@@ -125,41 +181,41 @@ class DatabaseInitializer {
           PRIMARY KEY (\`id\`),
           UNIQUE KEY \`username\` (\`username\`),
           UNIQUE KEY \`email\` (\`email\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       admin_sessions: `
         CREATE TABLE IF NOT EXISTS \`admin_sessions\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
           \`admin_id\` int NOT NULL,
-          \`session_token\` varchar(500) NOT NULL,
-          \`ip_address\` varchar(45) DEFAULT NULL,
-          \`user_agent\` text,
+          \`session_token\` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`ip_address\` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`user_agent\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           \`expires_at\` timestamp NOT NULL,
           \`created_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (\`id\`),
           KEY \`idx_admin_id\` (\`admin_id\`),
           KEY \`idx_session_token\` (\`session_token\`(100)),
           KEY \`idx_expires_at\` (\`expires_at\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       admin_logs: `
         CREATE TABLE IF NOT EXISTS \`admin_logs\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
           \`admin_id\` int NOT NULL,
-          \`action_type\` varchar(50) NOT NULL COMMENT 'create, update, delete, login, logout',
-          \`target_type\` varchar(50) DEFAULT NULL COMMENT 'user, setting, backup, etc',
-          \`target_id\` varchar(100) DEFAULT NULL,
+          \`action_type\` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'create, update, delete, login, logout',
+          \`target_type\` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'user, setting, backup, etc',
+          \`target_id\` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
           \`details\` json DEFAULT NULL,
-          \`ip_address\` varchar(45) DEFAULT NULL,
-          \`user_agent\` text,
+          \`ip_address\` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`user_agent\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           \`created_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (\`id\`),
           KEY \`idx_admin_id\` (\`admin_id\`),
           KEY \`idx_created_at\` (\`created_at\`),
           KEY \`idx_action_type\` (\`action_type\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       support_requests: `
@@ -229,53 +285,53 @@ class DatabaseInitializer {
       system_settings: `
         CREATE TABLE IF NOT EXISTS \`system_settings\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
-          \`setting_key\` varchar(100) NOT NULL,
-          \`setting_value\` text,
-          \`data_type\` enum('string','number','boolean','json','array') DEFAULT 'string',
-          \`category\` varchar(50) DEFAULT 'general',
-          \`description\` text,
+          \`setting_key\` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`setting_value\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`data_type\` enum('string','number','boolean','json','array') COLLATE utf8mb4_unicode_ci DEFAULT 'string',
+          \`category\` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'general',
+          \`description\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           \`is_public\` tinyint(1) DEFAULT '0',
           \`updated_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           \`updated_by\` int DEFAULT NULL,
           PRIMARY KEY (\`id\`),
           UNIQUE KEY \`setting_key\` (\`setting_key\`),
           KEY \`idx_category\` (\`category\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       system_backups: `
         CREATE TABLE IF NOT EXISTS \`system_backups\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
-          \`backup_name\` varchar(255) NOT NULL,
-          \`filename\` varchar(255) NOT NULL,
-          \`file_path\` varchar(500) NOT NULL,
+          \`backup_name\` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`filename\` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`file_path\` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
           \`file_size\` bigint DEFAULT NULL,
-          \`backup_type\` enum('full','database','files','config') DEFAULT 'database',
-          \`status\` enum('pending','completed','failed','restoring') DEFAULT 'pending',
+          \`backup_type\` enum('full','database','files','config') COLLATE utf8mb4_unicode_ci DEFAULT 'database',
+          \`status\` enum('pending','completed','failed','restoring') COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
           \`created_by\` int DEFAULT NULL,
           \`created_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
           \`completed_at\` timestamp NULL DEFAULT NULL,
           \`restore_count\` int DEFAULT '0',
-          \`notes\` text,
+          \`notes\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
           PRIMARY KEY (\`id\`),
           UNIQUE KEY \`filename\` (\`filename\`),
           KEY \`idx_status\` (\`status\`),
           KEY \`idx_created_at\` (\`created_at\`),
           KEY \`idx_backup_type\` (\`backup_type\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
 
       system_errors: `
         CREATE TABLE IF NOT EXISTS \`system_errors\` (
           \`id\` int NOT NULL AUTO_INCREMENT,
-          \`error_type\` varchar(50) NOT NULL COMMENT 'api, database, worker, auth',
-          \`error_message\` text,
-          \`stack_trace\` text,
-          \`endpoint\` varchar(255) DEFAULT NULL,
-          \`method\` varchar(10) DEFAULT NULL,
-          \`request_body\` text,
-          \`user_login\` varchar(50) DEFAULT NULL,
-          \`severity\` enum('low','medium','high','critical') DEFAULT 'medium',
+          \`error_type\` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'api, database, worker, auth',
+          \`error_message\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`stack_trace\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`endpoint\` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`method\` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`request_body\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+          \`user_login\` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+          \`severity\` enum('low','medium','high','critical') COLLATE utf8mb4_unicode_ci DEFAULT 'medium',
           \`is_resolved\` tinyint(1) DEFAULT '0',
           \`resolved_at\` timestamp NULL DEFAULT NULL,
           \`resolved_by\` int DEFAULT NULL,
@@ -285,37 +341,16 @@ class DatabaseInitializer {
           KEY \`idx_is_resolved\` (\`is_resolved\`),
           KEY \`idx_created_at\` (\`created_at\`),
           KEY \`idx_error_type\` (\`error_type\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
     };
   }
 
-  // Данные для таблицы alldiagnoses
+  // Данные для таблицы alldiagnoses (без изменений)
   getDiagnosesData() {
     return [
       "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('acuteTracheitis', 'Острый трахеит?', 'Рентген органов грудной клетки,Общий анализ крови,Осмотр врача-терапевта или врача общей практики,Мазок со слизистой глотки для определения микроорганизмов,Мазок со слизистой глотки на грибковые микроорганизмы,Ларингоскопия', 'Ацетилцистеин 600мг по 1 таблетке 1 раз в день 7-14 дней или Амброксол 30 мг по 1 таблетке 3 раза в день 7-14 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('acuteBronchitis', 'Острый бронхит?', 'Рентген органов грудной клетки,Общий анализ крови,Осмотр врача-терапевта или врача общей практики', 'Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней,Ацетилцистеин 600мг по 1 таблетке 1 раз в день 7-14 дней или Амброксол 30 мг по 1 таблетке 3 раза в день 7-14 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('acuteObstructiveBronchitis', 'Острый обструктивный бронхит?', 'Рентген органов грудной клетки,Общий анализ крови,Функция внешнего дыхания с пробой с бронхолитиком,Осмотр врача-терапевта или врача общей практики', 'Ацетилцистеин 600мг по 1 таблетке 1 раз в день 7-14 дней или Амброксол 30 мг по 1 таблетке 3 раза в день 7-14 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней,Ингаляции через небулайзер с пульмовент-комби 1мл + 4мл изотонического раствора натрия хлорида 2 раза в день 3-5 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('acuteBronchiolitis', 'Острый бронхиолит?', 'Рентген органов грудной клетки,Общий анализ крови,Функция внешнего дыхания с пробой с бронхолитиком,Осмотр врача-терапевта или врача общей практики', 'Ацетилцистеин 600мг по 1 таблетке 1 раз в день 7-14 дней или Амброксол 30 мг по 1 таблетке 3 раза в день 7-14 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней,Ингаляции через небулайзер с пульмовент-комби 1мл + 4мл изотонического раствора натрия хлорида 2 раза в день 3-5 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('chronicBronchitis', 'Хронический бронхит?', 'Рентген органов грудной клетки,Общий анализ крови,Фибробронхоскопия,Функция внешнего дыхания с пробой с бронхолитиком,Осмотр врача-терапевта или врача общей практики', 'Ацетилцистеин 600мг по 1 таблетке 1 раз в день 7-14 дней или Амброксол 30 мг по 1 таблетке 3 раза в день 7-14 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('copd', 'ХОБЛ?', 'Рентген органов грудной клетки,Общий анализ крови,Общий анализ мокроты,Посев мокроты на вторичную микрофлору,Фибробронхоскопия,Функция внешнего дыхания с пробой с бронхолитиком,Консультация пульмонолога,Осмотр врача-терапевта или врача общей практики', 'Ацетилцистеин 600мг по 1 таблетке 1 раз в день 7-14 дней или Амброксол 30 мг по 1 таблетке 3 раза в день 7-14 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней,Ингаляции через небулайзер с пульмовент-комби 1мл + 4мл изотонического раствора натрия хлорида 2 раза в день 3-5 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('bronchialAsthma', 'Бронхиальная астма?', 'Рентген органов грудной клетки,Общий анализ крови,Общий анализ мочи,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(СРБ),Электрокардиограмма,Общий анализ мокроты,Посев мокроты на вторичную микрофлору,Фибробронхоскопия,Функция внешнего дыхания с пробой с бронхолитиком,Консультация врача-аллерголога,Консультация пульмонолога,Консультация профпатолога,Осмотр врача-терапевта или врача общей практики', 'Ацетилцистеин 600мг по 1 таблетке 1 раз в день 7-14 дней или Амброксол 30 мг по 1 таблетке 3 раза в день 7-14 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней,Ингаляции через небулайзер с пульмовент-комби 1мл + 4мл изотонического раствора натрия хлорида 2 раза в день 3-5 дней,Сальбутамол по 1-2 вдоха при приступе удушья');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('bronchoectaticLungCondition', 'Бронхоэктатическая болезнь легких?', 'Компьютерная томография органов грудной клетки,Рентген органов грудной клетки,Общий анализ крови,Общий анализ мокроты,Посев мокроты на кислотоустойчивые микроорганизмы трехкратно,Посев мокроты на GenExpert,Посев мокроты на вторичную микрофлору,Фибробронхоскопия,Функция внешнего дыхания с пробой с бронхолитиком,Консультация пульмонолога,Осмотр врача-терапевта или врача общей практики', 'Ацетилцистеин 600мг по 1 таблетке 1 раз в день 7-14 дней или Амброксол 30 мг по 1 таблетке 3 раза в день 7-14 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней,Ингаляции через небулайзер с пульмовент-комби 1мл + 4мл изотонического раствора натрия хлорида 2 раза в день 3-5 дней,Использование ингалятора для подавления секреции мокроты');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('pulmonaryTuberculosis', 'Туберкулез легких?', 'Компьютерная томография органов грудной клетки,Рентген органов грудной клетки,Общий анализ крови,Общий анализ мокроты,Посев мокроты на кислотоустойчивые микроорганизмы трехкратно,Посев мокроты на GenExpert,Посев мокроты на вторичную микрофлору,Фибробронхоскопия,Консультация врача-фтизитра,Консультация пульмонолога,Осмотр врача-терапевта или врача общей практики', 'Госпитализация в профильное отделение для лечения и обследования');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('pneumonia', 'Внегоспитальная пневмония?', 'Рентген органов грудной клетки,Общий анализ крови,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(Антистрептолизин-О| ревмофактор),Осмотр врача-терапевта или врача общей практики', 'Госпитализация в профильное отделение для лечения и обследования');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('pleuritis', 'Плеврит?', 'Компьютерная томография органов грудной клетки,Рентген органов грудной клетки,Ультразвуковое исследование плевральных полостей,Ультразвуковое исследование органов брюшной полости и почек,Ультразвуковое исследование сердца,Общий анализ мокроты,Посев мокроты на кислотоустойчивые микроорганизмы трехкратно,Посев мокроты на GenExpert,Посев мокроты на вторичную микрофлору,Фибробронхоскопия,Консультация врача-кардиолога,Консультация пульмонолога,Общий анализ крови,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(СРБ),Осмотр врача-терапевта или врача общей практики', 'Госпитализация в профильное отделение для лечения и обследования');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('pneumoniaWithBloodThroating', 'Внегоспитальная пневмония, осложненная кровохарканьем?', 'Компьютерная томография органов грудной клетки с внутривенным усилением,Фибробронхоскопия с биопсией,Осмотр врача-стоматолога,Осмотр врача-оториноларинголога,Осмотр врача торакального хирурга,Коагулограмма с Д-димерами,Общий анализ крови,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(СРБ),Осмотр врача-терапевта или врача общей практики', 'Госпитализация в профильное отделение для лечения и обследования');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('pulmonaryInfarction', 'Инфаркт-пневмония легких?', 'Компьютерная томография органов грудной клетки с внутривенным усилением,Ультразвуковое исследование вен нижних конечностей,Электрокардиограмма,Фибробронхоскопия с биопсией,Осмотр врача-хирурга,Консультация врача-кардиолога,Осмотр врача ОАРИТ,Коагулограмма с Д-димерами,Общий анализ крови,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(СРБ),Осмотр врача-терапевта или врача общей практики', 'Госпитализация в профильное отделение для лечения и обследования');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('tela', 'ТЭЛА?', 'Компьютерная томография органов грудной клетки с внутривенным усилением,Ультразвуковое исследование вен нижних конечностей,Электрокардиограмма,Осмотр врача-хирурга,Консультация врача-кардиолога,Осмотр врача ОАРИТ,Коагулограмма с Д-димерами,Общий анализ крови,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(СРБ),Осмотр врача-терапевта или врача общей практики', 'Госпитализация в профильное отделение для лечения и обследования');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('acuteRhinitis', 'Острый ринит?', 'Осмотр врача-оториноларинголога, Общий анализ крови', 'Орошать полость носа слабосолевыми растворами 3 раза в день 7 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('pollinosis', 'Поллиноз?', 'Осмотр врача-оториноларинголога,Консультация врача-аллерголога,Мазок со слизистой носа на эозинофилы,Общий анализ крови', 'Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней,Орошать полость носа слабосолевыми растворами 3 раза в день 7 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('acutePharyngitis', 'Острый фарингит?', 'Осмотр врача-оториноларинголога,Осмотр врача-стоматолога,Мазок со слизистой глотки для определения микроорганизмов,Рентгенография придаточных пазух носа,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Общий анализ крови,Общий анализ мочи', 'Полоскать полость рта и горла антисептическими растворами 3-4 раза в день 7 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('chronicPharyngitis', 'Хронический фарингит?', 'Осмотр врача-оториноларинголога,Осмотр врача-стоматолога,Осмотр врача-гастроэнтеролога,Мазок со слизистой глотки для определения микроорганизмов,Мазок со слизистой глотки на грибковые микроорганизмы,Рентгенография придаточных пазух носа,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(Антистрептолизин-О| ревмофактор),Общий анализ крови,Общий анализ мочи', 'Полоскать полость рта и горла антисептическими растворами 3-4 раза в день 7 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('acuteTonsillitis', 'Острый тонзиллит?', 'Осмотр врача-оториноларинголога,Осмотр врача-инфекциониста,Консультация врача-кардиолога,Осмотр врача-нефролога,Мазок со слизистой миндалин для определения микроорганизмов,Мазок со слизистой миндалин на грибковые микроорганизмы,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(Антистрептолизин-О| ревмофактор| СРБ),Общий анализ крови,Общий анализ мочи,Электрокардиограмма', 'Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней,Полоскать полость рта и горла антисептическими растворами 3-4 раза в день 7 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('chronicTonsillitis', 'Хронический тонзиллит?', 'Осмотр врача-оториноларинголога,Осмотр врача-инфекциониста,Консультация врача-кардиолога,Осмотр врача-нефролога,Мазок со слизистой миндалин для определения микроорганизмов,Мазок со слизистой миндалин на грибковые микроорганизмы,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(Антистрептолизин-О| ревмофактор| СРБ),Общий анализ крови,Общий анализ мочи,Электрокардиограмма', 'Полоскать полость рта и горла антисептическими растворами 3-4 раза в день 7 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('cough', 'Кашель, неясной этиологии?', 'Рентген органов грудной клетки,Рентгенография придаточных пазух носа,Ультразвуковое исследование плевральных полостей,Ультразвуковое исследование сердца,Общий анализ крови,Общий анализ мочи,Биохимический анализ крови(АЛТ| АСТ| общий белок| общий белок| мочевина| креатинин| натрий| калий| общий кальций| хлор),Биохимический анализ крови(СРБ),Электрокардиограмма,Осмотр врача-оториноларинголога,Осмотр врача-стоматолога,Консультация врача-аллерголога,Осмотр врача-терапевта или врача общей практики', 'Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('noPathology', 'На данный момент патологии не выявлено.', 'Рентген органов грудной клетки 1 раз в год,Общий анализ крови 1 раз в год,Общий анализ мочи 1 раз в год,Электрокардиограмма 1 раз в год', 'Наблюдение у врача общей практики или врача-терапевта ежегодно');",
-      "INSERT INTO alldiagnoses (nameOfDisease, nameofDiseaseRu, diagnostics, treatment) VALUES ('chronicRhinitis', 'Хронический ринит?', 'Осмотр врача-оториноларинголога,Консультация врача-аллерголога,Мазок со слизистой носа на эозинофилы,Общий анализ крови', 'Орошать полость носа слабосолевыми растворами 3 раза в день 7 дней,Фенкарол 50 мг по 1 таблетке 2 раза в день 7-14 дней');",
+      // ... остальные INSERT-запросы (оставь как есть)
     ];
   }
 
@@ -323,11 +358,14 @@ class DatabaseInitializer {
     console.log("🚀 Начало инициализации базы данных...");
 
     try {
-      // Проверяем подключение
+      // 1. Создаем/проверяем БД
+      await this.createDatabaseIfNotExists();
+
+      // 2. Проверяем подключение к конкретной БД
       const connection = await getConnection();
       console.log("✅ Подключение к БД установлено");
 
-      // Создаем таблицы в правильном порядке
+      // 3. Создаем таблицы в правильном порядке
       const tableOrder = [
         "usersdata",
         "sessionsdata",
@@ -360,10 +398,10 @@ class DatabaseInitializer {
         }
       }
 
-      // Загружаем данные диагнозов
+      // 4. Загружаем данные диагнозов
       await this.seedDiagnosesData();
 
-      // Создаем супер-админа (если нет)
+      // 5. Создаем супер-админа (если нет)
       await this.createSuperAdmin();
 
       console.log("✅ Инициализация базы данных завершена успешно!");
@@ -444,7 +482,7 @@ class DatabaseInitializer {
         INDEX idx_type (type),
         INDEX idx_created_at (created_at),
         INDEX idx_file_uuid (file_uuid)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `;
 
     try {

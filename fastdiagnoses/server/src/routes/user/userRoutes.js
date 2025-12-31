@@ -8,8 +8,10 @@ const { authenticateToken } = require("../../middleware/auth");
 const { query, getConnection } = require("../../services/databaseService");
 const { validatePassword } = require("../../utils/validators");
 const emailService = require("../../utils/emailService");
-const { deleteImageFromDisk } = require("../../utils/fileSystem");
 const config = require("../../config");
+
+// ИМПОРТ fs - ВАЖНО! Добавлены все необходимые импорты
+const fs = require("fs").promises;
 const path = require("path");
 
 // Получение информации о пользователе
@@ -440,73 +442,82 @@ router.post("/change-password", authenticateToken, async (req, res) => {
   }
 });
 
-// Удаление аккаунта
+// Удаление аккаунта (оптимальная версия)
 router.delete("/delete-account", authenticateToken, async (req, res) => {
-  const connection = await getConnection();
+  let connection;
 
   try {
     const login = req.user.login;
+    const userDir = path.join(config.UPLOAD_DIR, login);
 
-    console.log(`🗑️ Начало удаления аккаунта: ${login}`);
+    console.log(`🗑️ Удаление аккаунта: ${login}`);
 
+    connection = await getConnection();
     await connection.beginTransaction();
 
-    try {
-      await connection.execute(`DROP TABLE IF EXISTS \`${login}\``);
-      console.log(`✅ Таблица пользователя ${login} удалена`);
-    } catch (tableError) {
-      console.warn(
-        `⚠️ Таблица пользователя ${login} не найдена:`,
-        tableError.message
-      );
-    }
+    // Удаляем данные пользователя
+    await connection.execute(`DROP TABLE IF EXISTS \`${login}\``);
+    await connection.execute("DELETE FROM sessionsdata WHERE login = ?", [
+      login,
+    ]);
 
-    const sessionResult = await connection.execute(
-      "DELETE FROM sessionsdata WHERE login = ?",
-      [login]
-    );
-    console.log(`✅ Удалено сессий: ${sessionResult[0].affectedRows}`);
-
-    const userResult = await connection.execute(
+    const [userResult] = await connection.execute(
       "DELETE FROM usersdata WHERE login = ? AND logic = 'true'",
       [login]
     );
 
-    if (userResult[0].affectedRows === 0) {
-      throw new Error("Пользователь не найден в usersdata");
+    if (userResult.affectedRows === 0) {
+      throw new Error("Пользователь не найден в базе данных");
     }
-    console.log(`✅ Пользователь ${login} удален из usersdata`);
 
-    const userDir = path.join(config.UPLOAD_DIR, login);
+    await connection.execute("DELETE FROM login_attempts WHERE login = ?", [
+      login,
+    ]);
+
+    await connection.execute(
+      "DELETE FROM password_resets WHERE email IN (SELECT email FROM usersdata WHERE login = ?)",
+      [login]
+    );
+
+    // Удаляем файлы пользователя
     try {
       await fs.access(userDir);
       await fs.rm(userDir, { recursive: true, force: true });
-      console.log(`✅ Директория пользователя удалена: ${userDir}`);
-    } catch (fsError) {
-      console.warn(`⚠️ Директория пользователя не найдена: ${fsError.message}`);
+      console.log(`📁 Директория пользователя удалена: ${userDir}`);
+    } catch {
+      console.log(`📁 Директория пользователя не найдена`);
     }
 
     await connection.commit();
 
-    console.log(`✅ Аккаунт ${login} полностью удален`);
+    console.log(`✅ Аккаунт ${login} успешно удален`);
 
     res.json({
       success: true,
       message: "Аккаунт успешно удален",
     });
   } catch (error) {
-    await connection.rollback();
+    console.error(
+      `❌ Ошибка удаления аккаунта ${req.user.login}:`,
+      error.message
+    );
 
-    console.error("❌ Ошибка удаления аккаунта:", error);
+    if (connection) {
+      await connection.rollback();
+    }
 
-    res.status(500).json({
+    const statusCode = error.message.includes("не найден") ? 404 : 500;
+
+    res.status(statusCode).json({
       success: false,
-      message: "Ошибка удаления аккаунта",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: error.message.includes("не найден")
+        ? "Пользователь не найден"
+        : "Ошибка удаления аккаунта",
     });
   } finally {
-    connection.release();
+    if (connection) {
+      connection.release();
+    }
   }
 });
 

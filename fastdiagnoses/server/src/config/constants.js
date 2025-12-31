@@ -1,3 +1,6 @@
+// config.js
+const path = require("path");
+
 // URL для поддержки
 const getSupportUrl = () => {
   const baseUrl = process.env.CLIENT_URL || "http://localhost:3000";
@@ -11,8 +14,9 @@ module.exports = {
   MAX_SESSION_AGE: 2 * 60 * 60 * 1000, // 2 часа
   MAX_FILE_SIZE: 15 * 1024 * 1024, // 15MB
 
-  // Пути
-  UPLOAD_DIR: "UploadIMG",
+  // Пути - ВАЖНО: указываем абсолютные пути
+  UPLOAD_DIR: path.join(process.cwd(), "UploadIMG"),
+  UPLOAD_DIR_RELATIVE: "UploadIMG", // относительный путь для логирования
 
   // Валидация
   ALLOWED_MIME_TYPES: [
