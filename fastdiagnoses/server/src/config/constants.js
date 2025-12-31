@@ -3,7 +3,7 @@ const path = require("path");
 
 // URL для поддержки
 const getSupportUrl = () => {
-  const baseUrl = process.env.CLIENT_URL || "http://localhost:3000";
+  const baseUrl = process.env.CLIENT_URL || "http://localhost:5000";
   return `${baseUrl}/support`;
 };
 
@@ -47,11 +47,11 @@ module.exports = {
     support: getSupportUrl(),
     resetPassword: (token) =>
       `${
-        process.env.CLIENT_URL || "http://localhost:3000"
+        process.env.CLIENT_URL || "http://localhost:5000"
       }/reset-password/${token}`,
     confirmEmail: (token) =>
-      `${process.env.CLIENT_URL || "http://localhost:3000"}/confirm/${token}`,
-    login: `${process.env.CLIENT_URL || "http://localhost:3000"}/login`,
-    register: `${process.env.CLIENT_URL || "http://localhost:3000"}/register`,
+      `${process.env.CLIENT_URL || "http://localhost:5000"}/confirm/${token}`,
+    login: `${process.env.CLIENT_URL || "http://localhost:5000"}/login`,
+    register: `${process.env.CLIENT_URL || "http://localhost:5000"}/register`,
   },
 };

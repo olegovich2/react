@@ -91,7 +91,7 @@ class SupportController {
   // 1. ОТПРАВКА ЗАЯВКИ
   static async submitRequest(req, res) {
     try {
-      console.log("📨 Получена нвая заявка:", {
+      console.log("📨 Получена новая заявка:", {
         type: req.body.type,
         login: req.body.login,
         email: req.body.email?.substring(0, 3) + "...",
@@ -242,10 +242,56 @@ class SupportController {
         });
       }
 
-      // ПРОВЕРКА СУЩЕСТВУЕТ ЛИ ПОЛЬЗОВАТЕЛЬ
-      try {
-        // Для всех типов кроме "other" проверяем существование пользователя
-        if (type !== "other") {
+      // ========== СПЕЦИАЛЬНАЯ ОБРАБОТКА ДЛЯ ТИПА "other" ==========
+      let userEmailForSending = email; // email для отправки письма
+      let shouldSendEmail = true;
+      let autoResolve = false;
+      let adminNotes = null;
+
+      if (type === "other") {
+        try {
+          // Проверяем существование пользователя по логину
+          const [user] = await query(
+            "SELECT login, email FROM usersdata WHERE login = ?",
+            [login]
+          );
+
+          if (user) {
+            // ✅ Логин верный - берем реальный email из базы
+            userEmailForSending = user.email;
+            console.log(
+              "✅ [submitRequest] Логин найден, используем email из базы:",
+              {
+                login: login,
+                formEmail: email,
+                realEmail: user.email,
+              }
+            );
+          } else {
+            // ❌ Логин НЕверный - не отправляем письмо, сразу резолвим
+            shouldSendEmail = false;
+            autoResolve = true;
+            adminNotes = "Обработано вебсервером: пользователь не найден";
+
+            console.log(
+              "⚠️ [submitRequest] Логин не найден, заявка будет автоматически разрешена:",
+              {
+                login: login,
+                formEmail: email,
+              }
+            );
+          }
+        } catch (dbError) {
+          console.error(
+            "❌ [submitRequest] Ошибка проверки пользователя:",
+            dbError.message
+          );
+          // В случае ошибки БД все равно продолжаем, но отмечаем
+          adminNotes = "Ошибка проверки пользователя в БД";
+        }
+      } else {
+        // Для всех других типов проверяем существование пользователя
+        try {
           const userExists = await query(
             "SELECT login FROM usersdata WHERE login = ? AND email = ?",
             [login, email]
@@ -257,20 +303,19 @@ class SupportController {
               message: "Пользователь с таким логином и email не найден",
             });
           }
+        } catch (error) {
+          console.log(
+            "⚠️ Пропускаем проверку существования пользователя:",
+            error.message
+          );
         }
-      } catch (error) {
-        console.log(
-          "⚠️ Пропускаем проверку существования пользователя:",
-          error.message
-        );
       }
 
       // ШИФРОВАНИЕ ДАННЫХ
-      // Для типа "other" передаем пустое зашифрованное значение вместо null
       const encryptedSecretWord =
         type !== "other"
           ? SupportController.encryptText(secretWord)
-          : SupportController.encryptText("N/A_OTHER_REQUEST"); // Специальное значение для "other"
+          : SupportController.encryptText("N/A_OTHER_REQUEST");
 
       let encryptedPassword = null;
 
@@ -282,10 +327,13 @@ class SupportController {
       const requestId = crypto.randomUUID();
       const publicId = SupportController.generatePublicId();
 
+      const initialStatus = autoResolve ? "resolved" : "pending";
+      const finalEmailForDb = email; // Сохраняем email из формы
+
       const confirmToken = jwt.sign(
         {
           requestId,
-          email,
+          email: userEmailForSending, // Токен для реального email
           purpose: "support_confirm",
         },
         process.env.JWT_SECRET || "your-secret-key",
@@ -293,64 +341,96 @@ class SupportController {
       );
 
       // СОХРАНЕНИЕ ЗАЯВКИ В БД
-      // ВАЖНО: Вставляем encryptedSecretWord даже для "other" (не null)
       await query(
         `INSERT INTO support_requests 
-       (id, public_id, type, login, email, secret_word_hash, password, message, new_email, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+           (id, public_id, type, login, email, secret_word_hash, password, message, new_email, status, admin_notes) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           requestId,
           publicId,
           type,
           login,
-          email,
-          encryptedSecretWord, // Всегда передаем значение, даже для "other"
-          encryptedPassword, // Зашифрованный пароль (или null)
+          finalEmailForDb, // Сохраняем email из формы
+          encryptedSecretWord,
+          encryptedPassword,
           message,
           type === "email_change" ? newEmail : null,
+          initialStatus,
+          adminNotes,
         ]
       );
 
-      // СОХРАНЕНИЕ ТОКЕНА ПОДТВЕРЖДЕНИЯ
-      await query(
-        `INSERT INTO support_confirmation_tokens 
-       (token, request_id, email, expires_at) 
-       VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
-        [confirmToken, requestId, email]
-      );
+      // СОХРАНЕНИЕ ТОКЕНА ПОДТВЕРЖДЕНИЯ (только если нужно отправлять письмо)
+      if (shouldSendEmail) {
+        await query(
+          `INSERT INTO support_confirmation_tokens 
+             (token, request_id, email, expires_at) 
+             VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
+          [confirmToken, requestId, userEmailForSending] // Сохраняем реальный email для токена
+        );
+      }
 
-      // ОТПРАВКА EMAIL ПОДТВЕРЖДЕНИЯ
-      try {
-        await emailService.sendSupportRequestCreated({
-          login,
-          email,
-          requestId: publicId,
-          confirmToken,
-          requestType: type,
-        });
-      } catch (emailError) {
-        console.error("❌ Ошибка отправки email:", emailError);
+      // ОТПРАВКА EMAIL ПОДТВЕРЖДЕНИЯ (только если нужно)
+      if (shouldSendEmail && !autoResolve) {
+        try {
+          await emailService.sendSupportRequestCreated({
+            login,
+            email: userEmailForSending, // ← Отправляем на реальный email из базы!
+            requestId: publicId,
+            confirmToken,
+            requestType: type,
+          });
+
+          console.log(
+            "📧 [submitRequest] Письмо подтверждения отправлено на реальный email:",
+            {
+              login: login,
+              realEmail: userEmailForSending,
+              formEmail: email,
+            }
+          );
+        } catch (emailError) {
+          console.error("❌ Ошибка отправки email:", emailError);
+        }
       }
 
       // ЛОГИРОВАНИЕ
-      await SupportController.logAction(
-        requestId,
-        "created",
-        null,
-        publicId,
-        `user:${login}`
-      );
-
-      console.log(`✅ Заявка создана: ${publicId} (${type}) для ${login}`);
+      if (autoResolve) {
+        // Логируем автоматическое разрешение
+        await SupportController.logAction(
+          requestId,
+          "auto_resolved",
+          "pending",
+          "resolved",
+          `system:user_not_found`
+        );
+        console.log(
+          `⚠️ Заявка автоматически разрешена: ${publicId} - пользователь ${login} не найден`
+        );
+      } else {
+        await SupportController.logAction(
+          requestId,
+          "created",
+          null,
+          publicId,
+          `user:${login}`
+        );
+        console.log(`✅ Заявка создана: ${publicId} (${type}) для ${login}`);
+      }
 
       // УСПЕШНЫЙ ОТВЕТ
       res.status(201).json({
         success: true,
-        message: "Заявка успешно создана. Проверьте email для подтверждения.",
+        message: autoResolve
+          ? "Заявка автоматически обработана (пользователь не найден)"
+          : "Заявка успешно создана. Проверьте email для подтверждения.",
         data: {
           requestId: publicId,
-          email: email,
-          note: "Ссылка подтверждения отправлена на email",
+          email: shouldSendEmail ? userEmailForSending : null,
+          status: initialStatus,
+          note: autoResolve
+            ? "Заявка автоматически обработана"
+            : "Ссылка подтверждения отправлена на email",
         },
       });
     } catch (error) {

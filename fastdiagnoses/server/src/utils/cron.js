@@ -36,6 +36,23 @@ function startCleanupSchedule() {
     await cleanupService.cleanupOldLoginAttempts();
   });
 
+  // В твой файл с cron задачами добавляем новую задачу:
+
+  // 5. Обработка очереди удаления файлов - каждые 10 минут
+  cron.schedule("*/10 * * * *", async () => {
+    console.log("⏰ [*/10 * * * *] Запуск обработки очереди удаления файлов");
+    try {
+      const result = await cleanupService.processFileDeletionQueue();
+      console.log(
+        `✅ Очередь удаления обработана: ${
+          result.processed || 0
+        } файлов удалено, ${result.failed || 0} ошибок`
+      );
+    } catch (error) {
+      console.error("❌ Ошибка обработки очереди удаления:", error.message);
+    }
+  });
+
   console.log(
     `   • Истекшие сессии: каждый день в ${config.CRON_SCHEDULES.CLEANUP_SESSIONS}`
   );
@@ -47,6 +64,9 @@ function startCleanupSchedule() {
   );
   console.log(`   • Старые login_attempts: каждый день в 0 5 * * *`);
   console.log(`   • Время сервера: ${new Date().toString()}`);
+  console.log(
+    `   • Очередь удаления файлов: каждые 10 минут (0,10,20,30,40,50 минуты)`
+  );
 }
 
 module.exports = {

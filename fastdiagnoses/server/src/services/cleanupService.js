@@ -141,9 +141,79 @@ async function cleanupOldLoginAttempts() {
   }
 }
 
+// В самом конце файла, перед module.exports, добавляем:
+
+// Обработка очереди отложенного удаления файлов
+async function processFileDeletionQueue() {
+  const operationId = Date.now();
+  console.log(
+    `🗑️ Начало обработки очереди удаления файлов [ID: ${operationId}]`
+  );
+
+  try {
+    // Импортируем динамически, чтобы избежать циклических зависимостей
+    const FileDeletionService = require("./FileDeletionService");
+
+    const startTime = Date.now();
+
+    // Обрабатываем очередь
+    const result = await FileDeletionService.processDeletionQueue();
+
+    const executionTime = Date.now() - startTime;
+
+    console.log(
+      `✅ Обработка очереди удаления завершена [ID: ${operationId}]\n` +
+        `   📊 Обработано файлов: ${result.processed || 0}\n` +
+        `   ❌ Ошибок: ${result.failed || 0}\n` +
+        `   ⏱️  Время выполнения: ${executionTime}ms\n` +
+        `   🕒 Время сервера: ${new Date().toLocaleTimeString()}`
+    );
+
+    // Получаем статистику для логов
+    try {
+      const stats = await FileDeletionService.getQueueStats();
+      if (stats.success) {
+        console.log(
+          `   📈 Статистика очереди:\n` +
+            `      • Всего записей: ${stats.stats.total || 0}\n` +
+            `      • Ожидает обработки: ${stats.stats.pending || 0}\n` +
+            `      • В обработке: ${stats.stats.processing || 0}\n` +
+            `      • Завершено: ${stats.stats.completed || 0}\n` +
+            `      • Ошибок: ${stats.stats.failed || 0}\n` +
+            `      • Самое раннее удаление: ${
+              stats.stats.earliest_scheduled
+                ? new Date(stats.stats.earliest_scheduled).toLocaleString(
+                    "ru-RU"
+                  )
+                : "нет"
+            }\n` +
+            `      • Самое позднее удаление: ${
+              stats.stats.latest_scheduled
+                ? new Date(stats.stats.latest_scheduled).toLocaleString("ru-RU")
+                : "нет"
+            }`
+        );
+      }
+    } catch (statsError) {
+      console.log(
+        `   ℹ️ Не удалось получить статистику: ${statsError.message}`
+      );
+    }
+
+    return result;
+  } catch (error) {
+    console.error(
+      `❌ Ошибка обработки очереди удаления [ID: ${operationId}]:`,
+      error.message
+    );
+    return { processed: 0, failed: 0, error: error.message };
+  }
+}
+
 module.exports = {
   cleanupExpiredSessions,
   cleanupExpiredRegistrations,
   cleanupExpiredResetTokens,
   cleanupOldLoginAttempts,
+  processFileDeletionQueue,
 };

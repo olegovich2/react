@@ -205,7 +205,7 @@ class DatabaseInitializer {
           \`id\` int NOT NULL AUTO_INCREMENT,
           \`admin_id\` int NOT NULL,
           \`action_type\` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'create, update, delete, login, logout',
-          \`target_type\` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'user, setting, backup, etc',
+          \`target_type\` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'user, setting, backup, support, etc',
           \`target_id\` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
           \`details\` json DEFAULT NULL,
           \`ip_address\` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -343,6 +343,30 @@ class DatabaseInitializer {
           KEY \`idx_error_type\` (\`error_type\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `,
+
+      file_deletion_queue: `
+  CREATE TABLE IF NOT EXISTS \`file_deletion_queue\` (
+    \`id\` int NOT NULL AUTO_INCREMENT,
+    \`user_login\` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    \`table_name\` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Имя таблицы пользователя (логин)',
+    \`file_path\` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Полный путь к файлу',
+    \`file_uuid\` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'UUID файла для связи',
+    \`file_type\` enum('image','survey','other') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'image',
+    \`scheduled_at\` datetime NOT NULL COMMENT 'Когда запланировано удаление',
+    \`processed_at\` datetime DEFAULT NULL COMMENT 'Когда фактически удалено',
+    \`status\` enum('pending','processing','completed','failed') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+    \`retry_count\` int DEFAULT '0',
+    \`error_message\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+    \`created_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+    \`updated_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (\`id\`),
+    KEY \`idx_status\` (\`status\`),
+    KEY \`idx_scheduled_at\` (\`scheduled_at\`),
+    KEY \`idx_user_login\` (\`user_login\`),
+    KEY \`idx_processed_at\` (\`processed_at\`),
+    KEY \`idx_retry_count\` (\`retry_count\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Очередь отложенного удаления файлов'
+`,
     };
   }
 
@@ -383,6 +407,7 @@ class DatabaseInitializer {
         "system_settings",
         "system_backups",
         "system_errors",
+        "file_deletion_queue",
       ];
 
       for (const tableName of tableOrder) {
