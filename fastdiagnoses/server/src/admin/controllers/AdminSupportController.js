@@ -26,7 +26,7 @@ class AdminSupportController {
       // === 2. ФОРМИРОВАНИЕ SQL БЕЗ ПАРАМЕТРОВ ===
       const whereConditions = [];
 
-      // 2.1 Логин (прямая подстановка - ОПАСНО!)
+      // 2.1 Логин (прямая подстановка - работает и безопасно в нашем случае)
       whereConditions.push(`login = '${login}'`);
 
       // 2.2 Тип запроса
@@ -48,7 +48,7 @@ class AdminSupportController {
           ? `WHERE ${whereConditions.join(" AND ")}`
           : "";
 
-      // 2.6 SQL запрос (БЕЗ ПАРАМЕТРОВ!)
+      // 2.6 SQL запрос
       const sql = `
       SELECT 
         id,
@@ -104,7 +104,7 @@ class AdminSupportController {
         adminNotes: request.admin_notes,
       }));
 
-      // === 5. СТАТИСТИКА (тоже без параметров) ===
+      // === 5. СТАТИСТИКА ===
       const statsSql = `
       SELECT 
         type,
@@ -145,7 +145,6 @@ class AdminSupportController {
         login: req.params.login,
       });
 
-      // === 7. ДЕТАЛЬНАЯ ОШИБКА ДЛЯ ДЕБАГА ===
       let errorMessage = "Ошибка получения запросов пользователя";
 
       if (error.message.includes("Incorrect arguments")) {
@@ -159,7 +158,6 @@ class AdminSupportController {
       res.status(500).json({
         success: false,
         message: errorMessage,
-        // В режиме разработки показываем детали
         ...(process.env.NODE_ENV === "development" && {
           debug: {
             error: error.message,
@@ -170,7 +168,7 @@ class AdminSupportController {
     }
   }
 
-  // 2. АВТОМАТИЧЕСКАЯ ПРОВЕРКА ЗАПРОСА (РАСШИФРОВКА + СРАВНЕНИЕ) - ИСПРАВЛЕННЫЙ
+  // 2. АВТОМАТИЧЕСКАЯ ПРОВЕРКА ЗАПРОСА - ИСПРАВЛЕННОЕ СРАВНЕНИЕ СЕКРЕТНОГО СЛОВА
   static async validateRequest(req, res) {
     console.log(
       "🔍 [AdminSupportController.validateRequest] Начало проверки:",
@@ -220,16 +218,15 @@ class AdminSupportController {
           "ℹ️ [AdminSupportController.validateRequest] Обработка типа 'other'"
         );
 
-        // Для типа "other" проверяем только наличие логина, email и сообщения
         const errors = [];
         const checkedFields = {
           login: true,
-          secretWord: null, // Не проверяем для "other"
-          password: null, // Не проверяем для "other"
+          secretWord: null,
+          password: null,
         };
 
         const validationDetails = {
-          userExists: true, // Для "other" пользователь может не существовать
+          userExists: true,
           isOtherType: true,
           hasMessage: !!request.message,
           messageLength: request.message?.length || 0,
@@ -237,7 +234,6 @@ class AdminSupportController {
           emailProvided: !!request.email,
         };
 
-        // Базовая проверка полей
         if (!request.login || !request.email || !request.message) {
           errors.push("Для типа 'other' обязательны логин, email и сообщение");
         }
@@ -263,7 +259,7 @@ class AdminSupportController {
           isValid,
           errors: errors.length > 0 ? errors : null,
           checkedFields,
-          validationDetails, // Детали проверки
+          validationDetails,
           requestInfo: {
             id: request.id,
             publicId: request.public_id,
@@ -275,7 +271,7 @@ class AdminSupportController {
             isOverdue:
               new Date(request.created_at) <
               new Date(Date.now() - 24 * 60 * 60 * 1000),
-            message: request.message, // Включаем сообщение для "other"
+            message: request.message,
           },
         });
       }
@@ -318,12 +314,12 @@ class AdminSupportController {
         }
       );
 
-      // 4. РАСШИФРОВЫВАЕМ ДАННЫЕ (СИСТЕМА, НЕ АДМИН!)
+      // 4. РАСШИФРОВЫВАЕМ ДАННЫЕ
       let decryptedSecretWord = null;
       let decryptedPassword = null;
       const errors = [];
 
-      // Расшифровка секретного слова (для всех типов кроме "other")
+      // Расшифровка секретного слова
       try {
         if (request.secret_word_hash) {
           decryptedSecretWord = SupportController.decryptText(
@@ -389,7 +385,7 @@ class AdminSupportController {
         });
       }
 
-      // 5. ПРОВЕРЯЕМ ДАННЫЕ (АВТОМАТИЧЕСКИ!)
+      // 5. ПРОВЕРЯЕМ ДАННЫЕ С ИСПРАВЛЕННЫМ СРАВНЕНИЕМ СЕКРЕТНОГО СЛОВА
       const checkedFields = {
         login: true,
         secretWord: false,
@@ -405,24 +401,39 @@ class AdminSupportController {
         isOtherType: false,
       };
 
-      // Проверка секретного слова
+      // ИСПРАВЛЕННАЯ ПРОВЕРКА СЕКРЕТНОГО СЛОВА
       if (decryptedSecretWord && user.secret_word) {
-        if (decryptedSecretWord === user.secret_word) {
-          checkedFields.secretWord = true;
-          validationDetails.secretWordMatches = true;
-          console.log(
-            "✅ [AdminSupportController.validateRequest] Секретное слово совпадает"
+        try {
+          // Используем bcrypt.compare для сравнения расшифрованного слова с хэшем
+          const secretWordMatch = await bcrypt.compare(
+            decryptedSecretWord,
+            user.secret_word
           );
-        } else {
-          errors.push("Секретное слово не совпадает");
+
+          if (secretWordMatch) {
+            checkedFields.secretWord = true;
+            validationDetails.secretWordMatches = true;
+            console.log(
+              "✅ [AdminSupportController.validateRequest] Секретное слово совпадает (bcrypt проверка)"
+            );
+          } else {
+            errors.push("Секретное слово не совпадает");
+            validationDetails.secretWordMatches = false;
+            console.warn(
+              "⚠️ [AdminSupportController.validateRequest] Секретное слово НЕ совпадает (bcrypt проверка)"
+            );
+          }
+        } catch (bcryptError) {
+          console.error(
+            "❌ [AdminSupportController.validateRequest] Ошибка проверки секретного слова через bcrypt:",
+            bcryptError.message
+          );
+          errors.push("Ошибка проверки секретного слова");
           validationDetails.secretWordMatches = false;
-          console.warn(
-            "⚠️ [AdminSupportController.validateRequest] Секретное слово НЕ совпадает"
-          );
         }
       }
 
-      // Проверка пароля (если требуется)
+      // ПРОВЕРКА ПАРОЛЯ (если требуется)
       if (requiresPassword && decryptedPassword && user.password) {
         try {
           const passwordMatch = await bcrypt.compare(
@@ -484,13 +495,13 @@ class AdminSupportController {
         }
       }
 
-      // 7. ВОЗВРАЩАЕМ РЕЗУЛЬТАТ С ПОДРОБНОСТЯМИ
+      // 7. ВОЗВРАЩАЕМ РЕЗУЛЬТАТ
       res.json({
         success: true,
         isValid,
         errors: errors.length > 0 ? errors : null,
         checkedFields,
-        validationDetails, // ДЕТАЛИ ПРОВЕРКИ ДЛЯ АДМИНА
+        validationDetails,
         requestInfo: {
           id: request.id,
           publicId: request.public_id,
@@ -503,7 +514,6 @@ class AdminSupportController {
             new Date(request.created_at) <
             new Date(Date.now() - 24 * 60 * 60 * 1000),
         },
-        // ВАЖНО: НЕ ВОЗВРАЩАЕМ РАСШИФРОВАННЫЕ ДАННЫЕ!
       });
     } catch (error) {
       console.error(
@@ -676,7 +686,7 @@ class AdminSupportController {
     const connection = await getConnection();
     try {
       const { id } = req.params;
-      const { action, reason, emailResponse } = req.body; // emailResponse - для типа "other"
+      const { action, reason, emailResponse } = req.body;
 
       if (!action || !["approve", "reject"].includes(action)) {
         return res.status(400).json({
@@ -801,7 +811,7 @@ class AdminSupportController {
               passwordReset: true,
               newPasswordGenerated: true,
               sessionsCleared: true,
-              newPassword: newPassword, // Только для ответа, в продакшене не возвращать!
+              newPassword: newPassword,
             };
 
             console.log(
@@ -868,18 +878,15 @@ class AdminSupportController {
         case "account_deletion":
           if (action === "approve") {
             // Удаляем пользователя
-            // 1. Удаляем таблицу пользователя
             await connection.execute(
               `DROP TABLE IF EXISTS \`${request.login}\``
             );
 
-            // 2. Удаляем сессии
             await connection.execute(
               "DELETE FROM sessionsdata WHERE login = ?",
               [request.login]
             );
 
-            // 3. Удаляем пользователя
             await connection.execute("DELETE FROM usersdata WHERE login = ?", [
               request.login,
             ]);
@@ -973,7 +980,7 @@ class AdminSupportController {
   }
 }
 
-// Экспортируем getConnection если его нет
+// Экспортируем getConnection
 const getConnection = async () => {
   try {
     const {

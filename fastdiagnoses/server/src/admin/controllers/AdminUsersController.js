@@ -79,73 +79,73 @@ class AdminUsersController {
         }
       }
 
-      // 2. ФОРМИРУЕМ ПОДЗАПРОСЫ ДЛЯ СЧЕТЧИКОВ ЗАПРОСОВ
+      // 2. ФОРМИРУЕМ ПОДЗАПРОСЫ ДЛЯ СЧЕТЧИКОВ ЗАПРОСОВ (БЕЗ COLLATE)
       const supportRequestSubqueries = `
       -- Количество активных запросов по типам
       (SELECT COUNT(*) FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
          AND sr.type = 'password_reset') as password_reset_count,
       
       (SELECT COUNT(*) FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
          AND sr.type = 'email_change') as email_change_count,
       
       (SELECT COUNT(*) FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
          AND sr.type = 'unblock') as unblock_count,
       
       (SELECT COUNT(*) FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
          AND sr.type = 'account_deletion') as account_deletion_count,
       
       (SELECT COUNT(*) FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
          AND sr.type = 'other') as other_count,
       
       -- Общее количество активных запросов
       (SELECT COUNT(*) FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')) as total_active_requests,
       
       -- Количество просроченных запросов (>24 часов)
       (SELECT COUNT(*) FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
          AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)) as overdue_count,
       
       -- ID самого старого активного запроса (для ссылки)
       (SELECT sr.id FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
        ORDER BY sr.created_at ASC 
        LIMIT 1) as oldest_request_id,
       
       -- Тип самого старого активного запроса
       (SELECT sr.type FROM support_requests sr 
-       WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+       WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
        ORDER BY sr.created_at ASC 
        LIMIT 1) as oldest_request_type
     `;
 
-      // 3. ДОБАВЛЯЕМ УСЛОВИЯ ДЛЯ ФИЛЬТРАЦИИ ПО ЗАПРОСАМ
+      // 3. ДОБАВЛЯЕМ УСЛОВИЯ ДЛЯ ФИЛЬТРАЦИИ ПО ЗАПРОСАМ (БЕЗ COLLATE)
       if (hasRequests === "true") {
         // Только пользователи с активными запросами
         whereConditions.push(`EXISTS (
         SELECT 1 FROM support_requests sr 
-        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+        WHERE sr.login = u.login 
           AND sr.status IN ('confirmed', 'in_progress')
       )`);
       } else if (hasRequests === "false") {
         // Только пользователи БЕЗ активных запросов
         whereConditions.push(`NOT EXISTS (
         SELECT 1 FROM support_requests sr 
-        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+        WHERE sr.login = u.login 
           AND sr.status IN ('confirmed', 'in_progress')
       )`);
       }
@@ -154,7 +154,7 @@ class AdminUsersController {
       if (requestType && requestType !== "all") {
         whereConditions.push(`EXISTS (
         SELECT 1 FROM support_requests sr 
-        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+        WHERE sr.login = u.login 
           AND sr.status IN ('confirmed', 'in_progress')
           AND sr.type = '${requestType}'
       )`);
@@ -164,7 +164,7 @@ class AdminUsersController {
       if (isOverdue === "true") {
         whereConditions.push(`EXISTS (
         SELECT 1 FROM support_requests sr 
-        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+        WHERE sr.login = u.login 
           AND sr.status IN ('confirmed', 'in_progress')
           AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
       )`);
@@ -173,11 +173,11 @@ class AdminUsersController {
         whereConditions.push(`(
         NOT EXISTS (
           SELECT 1 FROM support_requests sr 
-          WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          WHERE sr.login = u.login 
             AND sr.status IN ('confirmed', 'in_progress')
         ) OR NOT EXISTS (
           SELECT 1 FROM support_requests sr 
-          WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          WHERE sr.login = u.login 
             AND sr.status IN ('confirmed', 'in_progress')
             AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
         )
@@ -188,7 +188,7 @@ class AdminUsersController {
       if (requestStatus && requestStatus !== "all") {
         whereConditions.push(`EXISTS (
         SELECT 1 FROM support_requests sr 
-        WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+        WHERE sr.login = u.login 
           AND sr.status = '${requestStatus}'
       )`);
       }
@@ -254,13 +254,13 @@ class AdminUsersController {
         -- Статистика по запросам
         SUM(CASE WHEN EXISTS (
           SELECT 1 FROM support_requests sr 
-          WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          WHERE sr.login = u.login 
             AND sr.status IN ('confirmed', 'in_progress')
         ) THEN 1 ELSE 0 END) as users_with_requests,
         
         SUM(CASE WHEN EXISTS (
           SELECT 1 FROM support_requests sr 
-          WHERE sr.login COLLATE utf8mb4_general_ci = u.login 
+          WHERE sr.login = u.login 
             AND sr.status IN ('confirmed', 'in_progress')
             AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
         ) THEN 1 ELSE 0 END) as users_with_overdue_requests
@@ -597,7 +597,7 @@ class AdminUsersController {
         `SELECT ip_address, success, created_at 
          FROM login_attempts 
          WHERE login = ? 
-           AND success = TRUE  // только успешные
+           AND success = TRUE
          ORDER BY created_at DESC 
          LIMIT 10`,
         [login]
@@ -656,8 +656,8 @@ class AdminUsersController {
           login: userData.login,
           email: userData.email,
           isActive: userData.is_active === "true",
-          isBlocked: isBlocked, // НОВОЕ ПОЛЕ
-          blockStatus: blockStatus, // "active", "temporarily_blocked", "permanently_blocked", "expired_block"
+          isBlocked: isBlocked,
+          blockStatus: blockStatus,
           blockedUntil: userData.blocked_until,
           blockedUntilFormatted: blockedUntilFormatted,
           isPermanentlyBlocked: isPermanentlyBlocked,
@@ -972,8 +972,6 @@ class AdminUsersController {
       // 1. Делаем бэкап данных пользователя (опционально)
       let backupCreated = false;
       if (backupUserData) {
-        // Здесь можно реализовать логику бэкапа
-        // Например, экспорт данных в JSON
         backupCreated = true;
       }
 
@@ -1455,7 +1453,6 @@ class AdminUsersController {
           blockedUntil.setDate(now.getDate() + 30);
           break;
         case "forever":
-          // Используем 2099 год как "бессрочно" (согласовано с login эндпоинтом)
           blockedUntil = new Date("2099-12-31 23:59:59");
           break;
       }
@@ -1502,7 +1499,6 @@ class AdminUsersController {
             "⚠️ [AdminUsersController.blockUser] Ошибка удаления сессий:",
             deleteError.message
           );
-          // Не прерываем выполнение если не удалось удалить сессии
         }
       }
 
@@ -1688,7 +1684,6 @@ class AdminUsersController {
       );
 
       // 4. Обновляем запись в blocked_login_attempts
-      // Находим последнюю запись блокировки этого пользователя
       let blockedRecordUpdated = false;
       try {
         const [blockedRecords] = await connection.execute(
@@ -1731,7 +1726,6 @@ class AdminUsersController {
           "⚠️ [AdminUsersController.unblockUser] Ошибка обновления blocked_login_attempts:",
           blockedLogError.message
         );
-        // Не прерываем выполнение
       }
 
       // 5. Логируем действие в admin_logs
