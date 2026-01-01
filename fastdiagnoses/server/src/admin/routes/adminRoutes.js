@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const isAdmin = require("../middleware/isAdmin");
+const { query } = require("../../services/databaseService");
 
 // Импорт контроллеров
 const AdminSupportController = require("../controllers/AdminSupportController");
@@ -12,28 +13,41 @@ const AdminBackupsController = require("../controllers/AdminBackupsController");
 const AdminSystemController = require("../controllers/AdminSystemController");
 const SupportController = require("../../support/controllers/SupportController");
 
-// Логирование всех запросов к админ API
-router.use((req, res, next) => {
-  console.log("🌐 [AdminRoutes] Запрос к админ API:", {
-    method: req.method,
-    path: req.path,
-    ip: req.ip,
-    userAgent: req.headers["user-agent"]?.substring(0, 100),
-    bodySize: JSON.stringify(req.body).length,
-    query: Object.keys(req.query).length > 0 ? req.query : undefined,
-  });
+// Логирование всех запросов к админ API в admin_logs
+router.use(async (req, res, next) => {
+  try {
+    if (req.admin) {
+      await query(
+        `INSERT INTO admin_logs (admin_id, action_type, target_type, ip_address, user_agent) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          req.admin.id,
+          "api_request",
+          req.method + " " + req.path,
+          req.ip || req.connection.remoteAddress,
+          req.headers["user-agent"] || "Неизвестно",
+        ]
+      );
+    }
+  } catch (error) {
+    // Логируем ошибку логирования в system_errors
+    await query(
+      `INSERT INTO system_errors 
+       (error_type, error_message, endpoint, method, severity) 
+       VALUES (?, ?, ?, ?, ?)`,
+      ["api_logging", error.message, req.path, req.method, "low"]
+    );
+  }
   next();
 });
 
 // ==================== АУТЕНТИФИКАЦИЯ ====================
-console.log("🔐 [AdminRoutes] Регистрация роутов аутентификации");
 router.post("/auth/login", AdminAuthController.login);
 router.post("/auth/logout", isAdmin, AdminAuthController.logout);
 router.post("/auth/verify", AdminAuthController.verify);
 router.get("/auth/profile", isAdmin, AdminAuthController.getProfile);
 
 // ==================== ДАШБОРД ====================
-console.log("📊 [AdminRoutes] Регистрация роутов дашборда");
 router.get("/dashboard/stats", isAdmin, AdminDashboardController.getStats);
 router.get(
   "/dashboard/activity",
@@ -47,7 +61,6 @@ router.get(
 );
 
 // ==================== ПОЛЬЗОВАТЕЛИ ====================
-console.log("👥 [AdminRoutes] Регистрация роутов пользователей");
 router.get("/users", isAdmin, AdminUsersController.getUsers);
 router.get("/users/:login", isAdmin, AdminUsersController.getUserDetails);
 router.post(
@@ -65,8 +78,6 @@ router.post("/users/:login/block", isAdmin, AdminUsersController.blockUser);
 router.post("/users/:login/unblock", isAdmin, AdminUsersController.unblockUser);
 
 // ==================== ТЕХПОДДЕРЖКА ДЛЯ АДМИНОВ ====================
-console.log("🛠️ [AdminRoutes] Регистрация роутов для техподдержки");
-
 // Получить все запросы пользователя
 router.get(
   "/support/user/:login/requests",
@@ -96,7 +107,6 @@ router.post(
 );
 
 // ==================== EMAIL ЗАПРОСЫ ====================
-console.log("📧 [AdminRoutes] Регистрация роутов email запросов");
 router.get("/email-requests", isAdmin, AdminUsersController.getEmailRequests);
 router.put(
   "/email-requests/:id/approve",
@@ -110,7 +120,6 @@ router.put(
 );
 
 // ==================== МОНИТОРИНГ ====================
-console.log("🚨 [AdminRoutes] Регистрация роутов мониторинга");
 router.get(
   "/monitoring/errors",
   isAdmin,
@@ -125,12 +134,10 @@ router.get("/monitoring/logs", isAdmin, AdminDashboardController.getAdminLogs);
 router.get("/monitoring/workers", AdminDashboardController.getWorkersStatus);
 
 // ==================== ЛОГИ БЭКАПЫ ====================
-console.log("📋 [AdminRoutes] Регистрация роутов логов");
 router.get("/logs", isAdmin, AdminLogsController.getCombinedLogs);
 router.get("/logs/export", isAdmin, AdminLogsController.exportLogs);
 router.delete("/logs/cleanup", isAdmin, AdminLogsController.cleanupOldLogs);
 
-console.log("💾 [AdminRoutes] Регистрация роутов бэкапов");
 router.get("/backups", isAdmin, AdminBackupsController.getBackups);
 router.post("/backups", isAdmin, AdminBackupsController.createBackup);
 router.post(
@@ -141,8 +148,6 @@ router.post(
 router.delete("/backups/:id", isAdmin, AdminBackupsController.deleteBackup);
 
 // ==================== СИСТЕМНЫЕ ====================
-console.log("⚙️ [AdminRoutes] Регистрация системных роутов");
-
 // ТЕХПОДДЕРЖКА
 router.get(
   "/admin/request/:requestId",
@@ -170,30 +175,22 @@ router.post(
 );
 router.post("/system/clear-cache", isAdmin, AdminSystemController.clearCache);
 
-// Расширенные настройки (будем дополнять)
-// router.get(
-//   "/system/settings/advanced",
-//   isAdmin,
-//   AdminSystemController.getAdvancedSettings
-// );
-// router.put(
-//   "/system/settings/advanced",
-//   isAdmin,
-//   AdminSystemController.updateAdvancedSettings
-// );
-
 // ==================== НАСТРОЙКИ ====================
-console.log("⚙️ [AdminRoutes] Регистрация роутов настроек");
 router.get("/settings", isAdmin, AdminDashboardController.getSettings);
 router.put("/settings", isAdmin, AdminDashboardController.updateSettings);
 
-// Логирование ошибок 404 для админ API
-router.use((req, res) => {
-  console.warn("🔍 [AdminRoutes] 404 - Роут не найден:", {
-    method: req.method,
-    path: req.path,
-    ip: req.ip,
-  });
+// Логирование ошибок 404 для админ API в system_errors
+router.use(async (req, res) => {
+  try {
+    await query(
+      `INSERT INTO system_errors 
+       (error_type, error_message, endpoint, method, severity) 
+       VALUES (?, ?, ?, ?, ?)`,
+      ["api_404", "Админ API маршрут не найден", req.path, req.method, "low"]
+    );
+  } catch (error) {
+    // Если не удалось записать в system_errors - игнорируем
+  }
 
   res.status(404).json({
     success: false,
@@ -202,14 +199,26 @@ router.use((req, res) => {
 });
 
 // Глобальный обработчик ошибок для админ API
-router.use((err, req, res, next) => {
-  console.error("💥 [AdminRoutes] Глобальная ошибка:", {
-    error: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-    adminId: req.admin?.id,
-  });
+router.use(async (err, req, res, next) => {
+  try {
+    await query(
+      `INSERT INTO system_errors 
+       (error_type, error_message, stack_trace, endpoint, method, user_login, severity) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        "api_error",
+        err.message,
+        err.stack,
+        req.path,
+        req.method,
+        req.admin?.username || "unknown",
+        "high",
+      ]
+    );
+  } catch (logError) {
+    // Если даже system_errors не работает - критическая ситуация
+    // В этом случае ничего не делаем, чтобы не зациклиться
+  }
 
   res.status(500).json({
     success: false,
@@ -218,5 +227,4 @@ router.use((err, req, res, next) => {
   });
 });
 
-console.log("✅ [AdminRoutes] Все роуты зарегистрированы");
 module.exports = router;

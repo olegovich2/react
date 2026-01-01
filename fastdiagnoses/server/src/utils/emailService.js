@@ -5,17 +5,65 @@ class EmailService {
   constructor() {
     this.transporter = null;
     this.isInitialized = false;
+
+    // Унифицированная цветовая схема
+    this.COLORS = {
+      primary: "#1890ff",
+      primaryDark: "#0050b3",
+      primaryLight: "#e6f7ff",
+      success: "#52c41a",
+      successDark: "#389e0d",
+      successLight: "#f6ffed",
+      danger: "#f5222d",
+      dangerDark: "#cf1322",
+      dangerLight: "#fff2f0",
+      warning: "#fa8c16",
+      warningDark: "#d46b08",
+      warningLight: "#fff7e6",
+      info: "#1890ff",
+      infoDark: "#0050b3",
+      infoLight: "#e6f7ff",
+      purple: "#722ed1",
+      purpleLight: "#f9f0ff",
+      cyan: "#13c2c2",
+      cyanLight: "#e6fffb",
+      gray100: "#f8f9fa",
+      gray200: "#e9ecef",
+      gray300: "#dee2e6",
+      gray600: "#6c757d",
+      gray700: "#495057",
+      gray800: "#343a40",
+      white: "#ffffff",
+    };
+
+    // Статусы заявок
+    this.STATUS_COLORS = {
+      pending: this.COLORS.primary,
+      confirmed: this.COLORS.primary,
+      in_progress: this.COLORS.warning,
+      resolved: this.COLORS.success,
+      rejected: this.COLORS.danger,
+      cancelled: this.COLORS.gray600,
+    };
+
+    // Шаблоны с использованием стрелочных функций для доступа к this
     this.templates = {
-      passwordReset: this._passwordResetTemplate.bind(this),
-      passwordChanged: this._passwordChangedTemplate.bind(this),
-      registrationConfirm: this._registrationConfirmTemplate.bind(this),
-      supportRequestCreated: this._supportRequestCreatedTemplate.bind(this),
-      supportRequestConfirmed: this._supportRequestConfirmedTemplate.bind(this),
-      supportStatusChanged: this._supportStatusChangedTemplate.bind(this),
-      supportRequestProcessed: this._supportRequestProcessedTemplate.bind(this),
-      supportEmailChangeNotification:
-        this._supportEmailChangeNotificationTemplate.bind(this),
-      supportAdminResponse: this._supportAdminResponseTemplate.bind(this),
+      passwordReset: (params) => this._passwordResetTemplate(params),
+      passwordChanged: (params) => this._passwordChangedTemplate(params),
+      registrationConfirm: (params) =>
+        this._registrationConfirmTemplate(params),
+      supportRequestCreated: (params) =>
+        this._supportRequestCreatedTemplate(params),
+      supportRequestConfirmed: (params) =>
+        this._supportRequestConfirmedTemplate(params),
+      supportStatusChanged: (params) =>
+        this._supportStatusChangedTemplate(params),
+      supportRequestProcessed: (params) =>
+        this._supportRequestProcessedTemplate(params),
+      supportEmailChangeNotification: (params) =>
+        this._supportEmailChangeNotificationTemplate(params),
+      supportAdminResponse: (params) =>
+        this._supportAdminResponseTemplate(params),
     };
   }
 
@@ -51,70 +99,275 @@ class EmailService {
     }
   }
 
+  // ==================== БАЗОВЫЕ СТИЛИ И ШАБЛОНЫ ====================
+
+  _getBaseStyles() {
+    return `
+      <style>
+        /* Базовые стили для лучшей поддержки в почтовых клиентах */
+        @media only screen and (max-width: 480px) {
+          .container {
+            padding: 10px !important;
+          }
+          .content-box {
+            padding: 15px !important;
+          }
+          .btn {
+            padding: 12px 20px !important;
+            font-size: 14px !important;
+            display: block !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .flex-mobile {
+            display: block !important;
+          }
+          .flex-mobile > * {
+            width: 100% !important;
+            margin-bottom: 10px !important;
+          }
+          .text-center-mobile {
+            text-align: center !important;
+          }
+          .hidden-mobile {
+            display: none !important;
+          }
+          .badge {
+            display: block !important;
+            width: fit-content !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+          .status-badge {
+            display: inline-block !important;
+            width: auto !important;
+            margin: 5px auto !important;
+          }
+        }
+        
+        @media only screen and (min-width: 481px) and (max-width: 600px) {
+          .container {
+            padding: 15px !important;
+          }
+          .content-box {
+            padding: 20px !important;
+          }
+          .btn {
+            padding: 13px 25px !important;
+          }
+        }
+        
+        /* Улучшенная поддержка темной темы */
+        @media (prefers-color-scheme: dark) {
+          .dark-mode-bg {
+            background-color: #1a1a1a !important;
+          }
+          .dark-mode-text {
+            color: #f0f0f0 !important;
+          }
+        }
+        
+        /* Безопасные стили для Outlook */
+        .outlook-fix {
+          mso-table-lspace: 0pt;
+          mso-table-rspace: 0pt;
+        }
+        
+        /* Улучшенная типографика */
+        body, p, li {
+          line-height: 1.6 !important;
+        }
+        
+        h1, h2, h3 {
+          line-height: 1.3 !important;
+        }
+      </style>
+    `;
+  }
+
+  _getEmailTemplate(content, title = "") {
+    return `
+      <!DOCTYPE html>
+      <html lang="ru">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="color-scheme" content="light dark">
+        <meta name="supported-color-schemes" content="light dark">
+        ${this._getBaseStyles()}
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: ${
+        this.COLORS.gray100
+      };">
+        <div class="container" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div class="content-box" style="background-color: ${
+            this.COLORS.white
+          }; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            ${content}
+          </div>
+          
+          <!-- Футер -->
+          <div style="text-align: center; margin-top: 20px; padding: 15px; color: ${
+            this.COLORS.gray600
+          }; font-size: 12px;">
+            <p style="margin: 0 0 5px 0;">Это автоматическое письмо системы QuickDiagnosis</p>
+            <p style="margin: 0;">Пожалуйста, не отвечайте на него</p>
+            ${
+              process.env.CLIENT_URL
+                ? `<p style="margin: 5px 0 0 0;"><a href="${process.env.CLIENT_URL}" style="color: ${this.COLORS.gray600}; text-decoration: none;">Перейти в QuickDiagnosis</a></p>`
+                : ""
+            }
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  _createButton(href, text, options = {}) {
+    const color = options.color || this.COLORS.primary;
+    const isMobile = options.isMobile || false;
+
+    return `
+      <a href="${href}" 
+         class="btn"
+         style="background-color: ${color}; color: ${this.COLORS.white}; 
+                padding: ${isMobile ? "12px 20px" : "14px 30px"}; 
+                text-decoration: none; border-radius: 6px; 
+                font-weight: bold; font-size: ${isMobile ? "14px" : "16px"}; 
+                display: inline-block; text-align: center;
+                border: none; cursor: pointer; transition: background-color 0.2s;">
+        ${text}
+      </a>
+    `;
+  }
+
+  _createBadge(text, color = this.COLORS.primary) {
+    return `
+      <div class="badge status-badge" style="display: inline-block; background-color: ${color}; 
+            color: ${this.COLORS.white}; padding: 6px 12px; 
+            border-radius: 20px; font-size: 12px; font-weight: bold;">
+        ${text}
+      </div>
+    `;
+  }
+
+  _createAlertBox(content, type = "info", options = {}) {
+    const colors = {
+      info: {
+        bg: this.COLORS.infoLight,
+        border: this.COLORS.primary,
+        icon: "ℹ️",
+      },
+      success: {
+        bg: this.COLORS.successLight,
+        border: this.COLORS.success,
+        icon: "✅",
+      },
+      warning: {
+        bg: this.COLORS.warningLight,
+        border: this.COLORS.warning,
+        icon: "⚠️",
+      },
+      danger: {
+        bg: this.COLORS.dangerLight,
+        border: this.COLORS.danger,
+        icon: "❌",
+      },
+    };
+
+    const style = colors[type] || colors.info;
+    const title = options.title
+      ? `<p style="margin: 0 0 10px 0; font-weight: bold; font-size: 16px;">${options.title}</p>`
+      : "";
+
+    return `
+      <div style="background-color: ${style.bg}; border-left: 4px solid ${
+      style.border
+    }; 
+            padding: 15px; border-radius: 6px; margin: 20px 0;">
+        ${title}
+        <p style="margin: 0; color: ${
+          type === "danger" ? this.COLORS.dangerDark : this.COLORS.gray800
+        };">
+          ${style.icon} ${content}
+        </p>
+      </div>
+    `;
+  }
+
+  _createInfoBox(items) {
+    let itemsHtml = "";
+    items.forEach((item, index) => {
+      itemsHtml += `
+        <p style="margin: ${index === 0 ? "0" : "10px"} 0 5px 0; color: ${
+        this.COLORS.gray800
+      }; font-weight: bold;">
+          ${item.label}
+        </p>
+        <p style="margin: 0 0 10px 0; color: ${this.COLORS.gray700};">
+          ${item.value}
+        </p>
+      `;
+    });
+
+    return `
+      <div style="background-color: ${this.COLORS.infoLight}; border-left: 4px solid ${this.COLORS.primary}; 
+            padding: 15px; border-radius: 6px; margin: 20px 0;">
+        ${itemsHtml}
+      </div>
+    `;
+  }
+
   // ==================== ШАБЛОНЫ EMAIL ====================
 
   _passwordResetTemplate({ login, resetUrl, email }) {
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        🔐 Восстановление пароля
+      </h2>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Здравствуйте, <strong>${login}</strong>!
+      </p>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Мы получили запрос на восстановление пароля для вашего аккаунта в QuickDiagnosis.
+      </p>
+      
+      ${this._createAlertBox("Ссылка действительна 1 час", "warning")}
+      
+      <div style="text-align: center; margin: 30px 0;">
+        ${this._createButton(resetUrl, "Восстановить пароль", {
+          color: this.COLORS.primary,
+        })}
+      </div>
+      
+      <p style="color: ${
+        this.COLORS.gray600
+      }; font-size: 14px; margin-bottom: 5px;">
+        Если кнопка не работает, скопируйте ссылку в браузер:
+      </p>
+      <div style="color: ${
+        this.COLORS.gray700
+      }; font-size: 12px; background-color: ${this.COLORS.gray100}; 
+           padding: 10px; border-radius: 4px; word-break: break-all; font-family: monospace;">
+        ${resetUrl}
+      </div>
+      
+      ${this._createAlertBox(
+        "<strong>Важно!</strong> Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.",
+        "danger"
+      )}
+    `;
+
     return {
       from: `"QuickDiagnosis - Восстановление пароля" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "🔐 Восстановление пароля в QuickDiagnosis",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-          <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-              🔐 Восстановление пароля
-            </h2>
-            
-            <p style="font-size: 16px; color: #4a5568;">
-              Здравствуйте, <strong>${login}</strong>!
-            </p>
-            
-            <p style="font-size: 16px; color: #4a5568;">
-              Мы получили запрос на восстановление пароля для вашего аккаунта в QuickDiagnosis.
-            </p>
-            
-            <div style="background-color: #f0fff4; border: 1px solid #38a169; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
-              <p style="margin: 0; font-weight: bold; color: #22543d;">
-                ⏰ Ссылка действительна 1 час
-              </p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetUrl}" 
-                 style="background-color: #4299e1; color: white; padding: 14px 30px; 
-                        text-decoration: none; border-radius: 6px; font-weight: bold;
-                        font-size: 16px; display: inline-block;">
-                Восстановить пароль
-              </a>
-            </div>
-            
-            <p style="color: #718096; font-size: 14px; margin-bottom: 5px;">
-              Если кнопка не работает, скопируйте ссылку в браузер:
-            </p>
-            <p style="color: #4a5568; font-size: 12px; background-color: #f7fafc; 
-               padding: 10px; border-radius: 4px; word-break: break-all;">
-              ${resetUrl}
-            </p>
-            
-            <div style="background-color: #fff5f5; border: 1px solid #fed7d7; padding: 15px; border-radius: 6px; margin: 25px 0;">
-              <p style="color: #9b2c2c; margin: 0; font-weight: bold;">
-                ⚠️ <strong>Важно!</strong> Если вы не запрашивали сброс пароля, 
-                просто проигнорируйте это письмо.
-              </p>
-              <p style="color: #9b2c2c; margin: 10px 0 0 0;">
-                Ваш пароль останется неизменным.
-              </p>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-            
-            <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-              Это автоматическое письмо системы QuickDiagnosis.<br>
-              Пожалуйста, не отвечайте на него.
-            </p>
-          </div>
-        </div>
-      `,
+      html: this._getEmailTemplate(content, "Восстановление пароля"),
     };
   }
 
@@ -126,71 +379,61 @@ class EmailService {
     timestamp,
     loginUrl,
   }) {
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        🔐 Пароль изменен в QuickDiagnosis
+      </h2>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Здравствуйте, <strong>${login}</strong>!
+      </p>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        <strong>Пароль для вашего аккаунта был успешно изменен.</strong>
+      </p>
+      
+      ${this._createInfoBox([
+        { label: "📅 Дата изменения:", value: timestamp },
+        { label: "🌐 IP адрес:", value: userIp },
+        { label: "🖥️ Устройство:", value: deviceType },
+      ])}
+      
+      <h3 style="color: ${
+        this.COLORS.gray800
+      }; margin-top: 25px; font-size: 18px;">
+        📋 Что нужно сделать:
+      </h3>
+      <ol style="color: ${
+        this.COLORS.gray700
+      }; font-size: 16px; padding-left: 20px;">
+        <li style="margin-bottom: 10px;">Перейдите на <a href="${loginUrl}" style="color: ${
+      this.COLORS.primary
+    };">страницу входа</a></li>
+        <li style="margin-bottom: 10px;">Введите ваш <strong style="color: ${
+          this.COLORS.gray800
+        };">НОВЫЙ пароль</strong></li>
+        <li>Сохраните пароль в менеджере паролей для удобства</li>
+      </ol>
+      
+      ${this._createAlertBox(
+        "Пароль в этом письме <strong>НЕ указан</strong> в целях безопасности.",
+        "danger"
+      )}
+      
+      <div style="text-align: center; margin: 30px 0;">
+        ${this._createButton(loginUrl, "Перейти на страницу входа", {
+          color: this.COLORS.primary,
+        })}
+      </div>
+    `;
+
     return {
       from: `"QuickDiagnosis - Безопасность" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "🔐 Пароль изменен в QuickDiagnosis",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-          <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #2d3748; margin-top: 0; text-align: center;">
-              🔐 Пароль изменен в QuickDiagnosis
-            </h2>
-            
-            <p style="font-size: 16px; color: #4a5568;">
-              Здравствуйте, <strong>${login}</strong>!
-            </p>
-            
-            <p style="font-size: 16px; color: #4a5568;">
-              <strong>Пароль для вашего аккаунта был успешно изменен.</strong>
-            </p>
-            
-            <div style="background-color: #f0fff4; border-left: 4px solid #38a169; padding: 15px; margin: 20px 0;">
-              <p style="margin: 5px 0; color: #2d3748;">
-                <strong>📅 Дата изменения:</strong> ${timestamp}
-              </p>
-              <p style="margin: 5px 0; color: #2d3748;">
-                <strong>🌐 IP адрес:</strong> ${userIp}
-              </p>
-              <p style="margin: 5px 0; color: #2d3748;">
-                <strong>🖥️ Устройство:</strong> ${deviceType}
-              </p>
-            </div>
-            
-            <h3 style="color: #2d3748; margin-top: 25px;">📋 Что нужно сделать:</h3>
-            <ol style="color: #4a5568; font-size: 16px; padding-left: 20px;">
-              <li style="margin-bottom: 10px;">Перейдите на <a href="${loginUrl}" style="color: #4299e1;">страницу входа</a></li>
-              <li style="margin-bottom: 10px;">Введите ваш <strong style="color: #2d3748;">НОВЫЙ пароль</strong></li>
-              <li>Сохраните пароль в менеджере паролей для удобства</li>
-            </ol>
-            
-            <div style="background-color: #fff5f5; border: 1px solid #fed7d7; padding: 15px; border-radius: 6px; margin: 25px 0;">
-              <p style="color: #9b2c2c; margin: 0; font-weight: bold;">
-                ⚠️ <strong>Важно!</strong> Пароль в этом письме <strong>НЕ указан</strong> в целях безопасности.
-              </p>
-              <p style="color: #9b2c2c; margin: 10px 0 0 0;">
-                Если это были не вы, немедленно войдите в аккаунт и смените пароль!
-              </p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${loginUrl}" 
-                 style="background-color: #4299e1; color: white; padding: 12px 30px; 
-                        text-decoration: none; border-radius: 6px; font-weight: bold;
-                        font-size: 16px; display: inline-block;">
-                Перейти на страницу входа
-              </a>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-            
-            <p style="color: #718096; font-size: 14px; text-align: center; margin: 0;">
-              Это автоматическое уведомление системы безопасности QuickDiagnosis.<br>
-              Пожалуйста, не отвечайте на это письмо.
-            </p>
-          </div>
-        </div>
-      `,
+      html: this._getEmailTemplate(content, "Пароль изменен"),
     };
   }
 
@@ -201,35 +444,53 @@ class EmailService {
     maxUsers,
     confirmUrl,
   }) {
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        Подтверждение регистрации
+      </h2>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Здравствуйте, ${login}!
+      </p>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Для завершения регистрации в медицинской системе QuickDiagnosis, пожалуйста, подтвердите ваш email.
+      </p>
+      
+      <div style="background-color: ${
+        this.COLORS.infoLight
+      }; padding: 15px; border-radius: 6px; margin: 20px 0;">
+        <p style="margin: 0; color: ${this.COLORS.gray700};">
+          <strong>Информация о лимите:</strong> На этот email активно ${activeUserCount} из ${maxUsers} возможных пользователей.
+        </p>
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        ${this._createButton(confirmUrl, "Подтвердить Email", {
+          color: this.COLORS.success,
+        })}
+      </div>
+      
+      ${this._createAlertBox(
+        "Ссылка действительна в течение 24 часов.",
+        "warning"
+      )}
+      
+      <p style="color: ${this.COLORS.gray700}; font-size: 16px;">
+        Если вы не регистрировались в QuickDiagnosis, проигнорируйте это письмо.
+      </p>
+    `;
+
     return {
       from: `"QuickDiagnosis" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Подтверждение регистрации в QuickDiagnosis",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Подтверждение регистрации</h2>
-          <p>Здравствуйте, ${login}!</p>
-          <p>Для завершения регистрации в медицинской системе QuickDiagnosis, пожалуйста, подтвердите ваш email.</p>
-          <p><strong>Информация о лимите:</strong> На этот email активно ${activeUserCount} из ${maxUsers} возможных пользователей.</p>
-          <p style="text-align: center; margin: 30px 0;">
-            <a href="${confirmUrl}" 
-               style="background-color: #4CAF50; color: white; padding: 12px 24px; 
-                      text-decoration: none; border-radius: 4px; font-weight: bold;">
-              Подтвердить Email
-            </a>
-          </p>
-          <p>Ссылка действительна в течение 24 часов.</p>
-          <p>Если вы не регистрировались в QuickDiagnosis, проигнорируйте это письмо.</p>
-          <hr>
-          <p style="color: #666; font-size: 12px;">
-            Это автоматическое письмо, пожалуйста, не отвечайте на него.
-          </p>
-        </div>
-      `,
+      html: this._getEmailTemplate(content, "Подтверждение регистрации"),
     };
   }
 
-  // В класс EmailService (где другие templates, например после _emailChangeRequestTemplate):
   _supportRequestCreatedTemplate({
     login,
     email,
@@ -245,79 +506,64 @@ class EmailService {
       other: "Другая проблема",
     };
 
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        📨 Подтверждение заявки в техподдержку
+      </h2>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Здравствуйте, <strong>${login}</strong>!
+      </p>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Вы отправили заявку в техподдержку QuickDiagnosis.
+      </p>
+      
+      ${this._createInfoBox([
+        { label: "Номер заявки:", value: requestId },
+        {
+          label: "Тип проблемы:",
+          value: typeNames[requestType] || requestType,
+        },
+        { label: "Статус:", value: "Ожидает подтверждения" },
+      ])}
+      
+      ${this._createAlertBox(
+        "Для продолжения обработки необходимо подтвердить email",
+        "warning"
+      )}
+      
+      <div style="text-align: center; margin: 30px 0;">
+        ${this._createButton(confirmUrl, "Подтвердить заявку", {
+          color: this.COLORS.primary,
+        })}
+      </div>
+      
+      <p style="color: ${
+        this.COLORS.gray600
+      }; font-size: 14px; margin-bottom: 5px;">
+        Если кнопка не работает, скопируйте ссылку в браузер:
+      </p>
+      <div style="color: ${
+        this.COLORS.gray700
+      }; font-size: 12px; background-color: ${this.COLORS.gray100}; 
+           padding: 10px; border-radius: 4px; word-break: break-all; font-family: monospace;">
+        ${confirmUrl}
+      </div>
+      
+      ${this._createAlertBox(
+        "Без подтверждения email заявка не будет обработана. Ссылка действительна 24 часа.",
+        "warning"
+      )}
+    `;
+
     return {
       from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: `📨 Заявка в техподдержку #${requestId}`,
-      html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-            📨 Подтверждение заявки в техподдержку
-          </h2>
-          
-          <p style="font-size: 16px; color: #4a5568;">
-            Здравствуйте, <strong>${login}</strong>!
-          </p>
-          
-          <p style="font-size: 16px; color: #4a5568;">
-            Вы отправили заявку в техподдержку QuickDiagnosis.
-          </p>
-          
-          <div style="background-color: #e6f7ff; border: 1px solid #91d5ff; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; font-weight: bold; color: #0050b3;">
-              📋 Детали заявки:
-            </p>
-            <p style="margin: 5px 0 0 0;">
-              <strong>Номер заявки:</strong> ${requestId}<br>
-              <strong>Тип проблемы:</strong> ${
-                typeNames[requestType] || requestType
-              }<br>
-              <strong>Статус:</strong> Ожидает подтверждения
-            </p>
-          </div>
-          
-          <div style="background-color: #f6ffed; border: 1px solid #b7eb8f; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
-            <p style="margin: 0; font-weight: bold; color: #389e0d;">
-              ⚠️ Для продолжения обработки необходимо подтвердить email
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${confirmUrl}" 
-               style="background-color: #1890ff; color: white; padding: 14px 30px; 
-                      text-decoration: none; border-radius: 6px; font-weight: bold;
-                      font-size: 16px; display: inline-block;">
-              Подтвердить заявку
-            </a>
-          </div>
-          
-          <p style="color: #718096; font-size: 14px; margin-bottom: 5px;">
-            Если кнопка не работает, скопируйте ссылку в браузер:
-          </p>
-          <p style="color: #4a5568; font-size: 12px; background-color: #f7fafc; 
-             padding: 10px; border-radius: 4px; word-break: break-all;">
-            ${confirmUrl}
-          </p>
-          
-          <div style="background-color: #fff7e6; border: 1px solid #ffd591; padding: 15px; border-radius: 6px; margin: 25px 0;">
-            <p style="color: #d46b08; margin: 0; font-weight: bold;">
-              💡 <strong>Важно!</strong> Без подтверждения email заявка не будет обработана.
-            </p>
-            <p style="color: #d46b08; margin: 10px 0 0 0;">
-              Ссылка действительна 24 часа. После подтверждения с вами свяжется специалист поддержки.
-            </p>
-          </div>
-          
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-          
-          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-            Это автоматическое письмо системы техподдержки QuickDiagnosis.<br>
-            Пожалуйста, не отвечайте на него.
-          </p>
-        </div>
-      </div>
-    `,
+      html: this._getEmailTemplate(content, "Подтверждение заявки"),
     };
   }
 
@@ -330,98 +576,80 @@ class EmailService {
       other: "Другая проблема",
     };
 
-    // Ссылка для проверки статуса
     const statusCheckUrl = `${
       process.env.CLIENT_URL || "http://localhost:5000"
     }/support/status/${requestId}`;
+
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        ✅ Заявка подтверждена
+      </h2>
+      
+      <div style="text-align: center; margin: 20px 0;">
+        ${this._createBadge(`Заявка №${requestId}`, this.COLORS.success)}
+      </div>
+      
+      <p style="font-size: 16px; color: ${
+        this.COLORS.gray700
+      }; text-align: center;">
+        Здравствуйте, <strong>${login}</strong>!<br>
+        Ваша заявка <strong>"${
+          typeNames[requestType] || requestType
+        }"</strong> успешно подтверждена и принята в работу.
+      </p>
+      
+      ${this._createAlertBox(
+        "Что дальше?<br>1. Специалист поддержки рассмотрит вашу заявку<br>2. Вы получите уведомление о начале работы<br>3. Решение будет отправлено на этот email",
+        "success",
+        { title: "📝 Процесс обработки:" }
+      )}
+      
+      <div style="text-align: center; margin: 30px 0;">
+        ${this._createButton(statusCheckUrl, "Проверить статус заявки", {
+          color: this.COLORS.primary,
+        })}
+        <p style="color: ${
+          this.COLORS.gray600
+        }; font-size: 12px; margin-top: 10px;">
+          <strong>ID заявки:</strong> ${requestId}<br>
+          Сохраните этот номер для быстрого доступа
+        </p>
+      </div>
+      
+      <div style="background-color: ${
+        this.COLORS.infoLight
+      }; padding: 15px; border-radius: 6px; 
+            margin: 20px 0; text-align: center;">
+        <p style="margin: 0; color: ${
+          this.COLORS.primaryDark
+        }; font-weight: bold;">
+          🕒 Среднее время обработки: 1-24 часа
+        </p>
+        <p style="margin: 10px 0 0 0; color: ${this.COLORS.gray700};">
+          Вы можете проверить статус заявки в любое время по ссылке выше
+        </p>
+      </div>
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <p style="color: ${this.COLORS.gray600}; font-size: 14px;">
+          Если кнопка не работает, скопируйте ссылку в браузер:
+        </p>
+        <div style="color: ${
+          this.COLORS.gray700
+        }; font-size: 12px; background-color: ${this.COLORS.gray100}; 
+             padding: 10px; border-radius: 4px; word-break: break-all; font-family: monospace;">
+          ${statusCheckUrl}
+        </div>
+      </div>
+    `;
 
     return {
       from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: `✅ Заявка #${requestId} принята в работу`,
-      html: `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-      <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-          ✅ Заявка подтверждена
-        </h2>
-        
-        <div style="text-align: center; margin: 20px 0;">
-          <div style="display: inline-block; background-color: #52c41a; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">
-            Заявка №${requestId}
-          </div>
-        </div>
-        
-        <p style="font-size: 16px; color: #4a5568; text-align: center;">
-          Здравствуйте, <strong>${login}</strong>!<br>
-          Ваша заявка <strong>"${
-            typeNames[requestType] || requestType
-          }"</strong> успешно подтверждена и принята в работу.
-        </p>
-        
-        <div style="background-color: #f6ffed; border: 1px solid #b7eb8f; padding: 20px; border-radius: 6px; margin: 25px 0;">
-          <h3 style="color: #389e0d; margin-top: 0;">📝 Что дальше?</h3>
-          <ol style="color: #4a5568; padding-left: 20px;">
-            <li style="margin-bottom: 10px;">Специалист поддержки рассмотрит вашу заявку</li>
-            <li style="margin-bottom: 10px;">Вы получите уведомление о начале работы</li>
-            <li>Решение будет отправлено на этот email</li>
-          </ol>
-        </div>
-        
-        <!-- КНОПКА ДЛЯ ПРОВЕРКИ СТАТУСА -->
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${statusCheckUrl}" 
-             style="background-color: #4299e1; color: white; padding: 14px 30px; 
-                    text-decoration: none; border-radius: 6px; font-weight: bold;
-                    font-size: 16px; display: inline-block; margin-bottom: 15px;">
-            <i class="fas fa-search" style="margin-right: 8px;"></i> Проверить статус заявки
-          </a>
-          <p style="color: #718096; font-size: 12px; margin-top: 10px;">
-            <strong>ID заявки:</strong> ${requestId}<br>
-            <small>Сохраните этот номер для быстрого доступа</small>
-          </p>
-        </div>
-        
-        <div style="background-color: #e6f7ff; padding: 15px; border-radius: 6px; margin: 20px 0; text-align: center;">
-          <p style="margin: 0; color: #0050b3; font-weight: bold;">
-            🕒 Среднее время обработки: 1-24 часа
-          </p>
-          <p style="margin: 10px 0 0 0; color: #4a5568;">
-            Вы можете проверить статус заявки в любое время по ссылке выше
-          </p>
-        </div>
-        
-        <div style="background-color: #f0f5ff; border-left: 4px solid #4299e1; padding: 15px; margin: 20px 0;">
-          <p style="margin: 0; color: #2d3748; font-weight: bold;">
-            📋 Что можно сделать на странице статуса:
-          </p>
-          <ul style="color: #4a5568; margin: 10px 0 0 0; padding-left: 20px;">
-            <li>Посмотреть текущий этап обработки</li>
-            <li>Увидеть таймлайн всех этапов заявки</li>
-            <li>Узнать примерное время завершения</li>
-            <li>Получить советы по дальнейшим действиям</li>
-          </ul>
-        </div>
-        
-        <div style="text-align: center; margin: 30px 0;">
-          <p style="color: #718096; font-size: 14px;">
-            Если кнопка не работает, скопируйте ссылку в браузер:
-          </p>
-          <p style="color: #4a5568; font-size: 12px; background-color: #f7fafc; 
-             padding: 10px; border-radius: 4px; word-break: break-all;">
-            ${statusCheckUrl}
-          </p>
-        </div>
-        
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-        
-        <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-          Это автоматическое уведомление от техподдержки QuickDiagnosis<br>
-          Номер заявки: ${requestId} • ${new Date().toLocaleDateString("ru-RU")}
-        </p>
-      </div>
-    </div>
-    `,
+      html: this._getEmailTemplate(content, "Заявка подтверждена"),
     };
   }
 
@@ -442,104 +670,91 @@ class EmailService {
       cancelled: "Отменена",
     };
 
-    const statusColors = {
-      in_progress: "#fa8c16",
-      resolved: "#52c41a",
-      rejected: "#f5222d",
-      cancelled: "#d9d9d9",
-    };
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        🔄 Обновление статуса заявки
+      </h2>
+      
+      <div style="text-align: center; margin: 20px 0;">
+        ${this._createBadge(
+          `Заявка №${requestId}`,
+          this.STATUS_COLORS[newStatus] || this.COLORS.primary
+        )}
+      </div>
+      
+      <div style="background-color: ${
+        this.COLORS.infoLight
+      }; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: ${
+          this.COLORS.gray800
+        };">
+          Статус изменен
+        </p>
+        <div class="flex-mobile" style="display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="color: ${this.COLORS.gray600};">${
+      statusNames[oldStatus] || oldStatus
+    }</span>
+          <span style="font-size: 20px; color: ${this.COLORS.gray600};">→</span>
+          <span style="color: ${
+            this.STATUS_COLORS[newStatus] || this.COLORS.primary
+          }; font-weight: bold;">
+            ${statusNames[newStatus] || newStatus}
+          </span>
+        </div>
+      </div>
+      
+      ${
+        adminNotes
+          ? `
+      <div style="background-color: ${this.COLORS.successLight}; border-left: 4px solid ${this.COLORS.success}; padding: 15px; margin: 20px 0;">
+        <h3 style="color: ${this.COLORS.successDark}; margin-top: 0; font-size: 16px;">💬 Комментарий специалиста:</h3>
+        <p style="color: ${this.COLORS.gray700}; margin: 10px 0 0 0;">${adminNotes}</p>
+      </div>
+      `
+          : ""
+      }
+      
+      ${
+        newStatus === "resolved"
+          ? `
+      ${this._createAlertBox(
+        "Ваша заявка была успешно обработана и закрыта. Если проблема осталась, создайте новую заявку.",
+        "success",
+        { title: "✅ Проблема решена!" }
+      )}
+      `
+          : ""
+      }
+      
+      ${
+        newStatus === "rejected"
+          ? `
+      ${this._createAlertBox(
+        "Ваша заявка была отклонена специалистом поддержки.",
+        "danger",
+        { title: "❌ Заявка отклонена" }
+      )}
+      `
+          : ""
+      }
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <p style="color: ${this.COLORS.gray600}; font-size: 14px;">
+          Это автоматическое уведомление об изменении статуса вашей заявки.
+        </p>
+      </div>
+    `;
 
     return {
       from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: `🔄 Статус заявки #${requestId} изменен`,
-      html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-            🔄 Обновление статуса заявки
-          </h2>
-          
-          <div style="text-align: center; margin: 20px 0;">
-            <div style="display: inline-block; background-color: ${
-              statusColors[newStatus] || "#1890ff"
-            }; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">
-              Заявка №${requestId}
-            </div>
-          </div>
-          
-          <div style="background-color: #f0f5ff; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center;">
-            <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #2d3748;">
-              Статус изменен
-            </p>
-            <div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
-              <span style="color: #8c8c8c;">${
-                statusNames[oldStatus] || oldStatus
-              }</span>
-              <span style="font-size: 20px;">→</span>
-              <span style="color: #1890ff; font-weight: bold;">${
-                statusNames[newStatus] || newStatus
-              }</span>
-            </div>
-          </div>
-          
-          ${
-            adminNotes
-              ? `
-          <div style="background-color: #f6ffed; border-left: 4px solid #52c41a; padding: 15px; margin: 20px 0;">
-            <h3 style="color: #389e0d; margin-top: 0;">💬 Комментарий специалиста:</h3>
-            <p style="color: #4a5568; white-space: pre-line;">${adminNotes}</p>
-          </div>
-          `
-              : ""
-          }
-          
-          ${
-            newStatus === "resolved"
-              ? `
-          <div style="background-color: #f6ffed; border: 1px solid #b7eb8f; padding: 20px; border-radius: 6px; margin: 25px 0; text-align: center;">
-            <h3 style="color: #389e0d; margin-top: 0;">✅ Проблема решена!</h3>
-            <p style="color: #4a5568;">
-              Ваша заявка была успешно обработана и закрыта.<br>
-              Если проблема осталась, создайте новую заявку.
-            </p>
-          </div>
-          `
-              : ""
-          }
-          
-          ${
-            newStatus === "rejected"
-              ? `
-          <div style="background-color: #fff2f0; border: 1px solid #ffccc7; padding: 20px; border-radius: 6px; margin: 25px 0;">
-            <h3 style="color: #cf1322; margin-top: 0;">❌ Заявка отклонена</h3>
-            <p style="color: #4a5568;">
-              Ваша заявка была отклонена специалистом поддержки.
-            </p>
-          </div>
-          `
-              : ""
-          }
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <p style="color: #718096; font-size: 14px;">
-              Это автоматическое уведомление об изменении статуса вашей заявки.
-            </p>
-          </div>
-          
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-          
-          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-            Техподдержка QuickDiagnosis • Заявка №${requestId}<br>
-            ${new Date().toLocaleDateString("ru-RU")}
-          </p>
-        </div>
-      </div>
-    `,
+      html: this._getEmailTemplate(content, "Статус изменен"),
     };
   }
 
-  // В класс EmailService (после _supportStatusChangedTemplate):
   _supportRequestProcessedTemplate({
     login,
     email,
@@ -565,9 +780,95 @@ class EmailService {
     };
 
     const actionColors = {
-      approve: "#52c41a",
-      reject: "#f5222d",
+      approve: this.COLORS.success,
+      reject: this.COLORS.danger,
     };
+
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        📋 Результат обработки заявки
+      </h2>
+      
+      <div style="text-align: center; margin: 20px 0;">
+        ${this._createBadge(`Заявка №${requestId}`, actionColors[action])}
+      </div>
+      
+      ${this._createAlertBox(
+        `Ваша заявка <strong>"${
+          typeNames[requestType] || requestType
+        }"</strong> была <strong>${
+          actionNames[action]
+        }</strong> администратором поддержки.`,
+        action === "approve" ? "success" : "danger",
+        { title: action === "approve" ? "✅ Одобрено" : "❌ Отклонено" }
+      )}
+      
+      ${
+        reason
+          ? `
+      <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed ${this.COLORS.gray300};">
+        <p style="margin: 0; font-weight: bold; color: ${this.COLORS.gray700};">Комментарий администратора:</p>
+        <p style="margin: 10px 0 0 0; color: ${this.COLORS.gray700};">${reason}</p>
+      </div>
+      `
+          : ""
+      }
+      
+      ${this._createInfoBox([
+        { label: "Номер:", value: requestId },
+        { label: "Тип:", value: typeNames[requestType] || requestType },
+        { label: "Логин:", value: login },
+        { label: "Обработал:", value: adminName },
+        {
+          label: "Дата обработки:",
+          value: new Date().toLocaleDateString("ru-RU"),
+        },
+      ])}
+      
+      ${
+        password
+          ? `
+      <div style="background-color: ${this.COLORS.purpleLight}; border: 1px solid ${this.COLORS.purple}; padding: 15px; border-radius: 6px; margin: 20px 0;">
+        <p style="margin: 0; font-weight: bold; color: ${this.COLORS.purple};">
+          🔑 Новый пароль:
+        </p>
+        <p style="margin: 10px 0; font-size: 18px; font-family: monospace; background-color: ${this.COLORS.purpleLight}; padding: 10px; border-radius: 4px;">
+          ${password}
+        </p>
+        <p style="margin: 0; color: ${this.COLORS.purple}; font-size: 14px;">
+          ⚠️ Сохраните этот пароль в безопасном месте и измените его при первом входе.
+        </p>
+      </div>
+      `
+          : ""
+      }
+      
+      ${
+        newEmail
+          ? `
+      <div style="background-color: ${this.COLORS.cyanLight}; border: 1px solid ${this.COLORS.cyan}; padding: 15px; border-radius: 6px; margin: 20px 0;">
+        <p style="margin: 0; font-weight: bold; color: ${this.COLORS.cyan};">
+          📧 Email изменен:
+        </p>
+        <p style="margin: 10px 0; color: ${this.COLORS.gray700};">
+          <strong>Старый email:</strong> ${email}<br>
+          <strong>Новый email:</strong> ${newEmail}
+        </p>
+      </div>
+      `
+          : ""
+      }
+      
+      <div style="text-align: center; margin: 30px 0;">
+        ${this._createButton(
+          `${process.env.CLIENT_URL || "http://localhost:5000"}/login`,
+          "Перейти на страницу входа",
+          { color: this.COLORS.primary }
+        )}
+      </div>
+    `;
 
     return {
       from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
@@ -575,128 +876,10 @@ class EmailService {
       subject: `📋 Результат обработки заявки #${requestId} - ${
         typeNames[requestType] || requestType
       }`,
-      html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-            📋 Результат обработки заявки
-          </h2>
-          
-          <div style="text-align: center; margin: 20px 0;">
-            <div style="display: inline-block; background-color: ${
-              actionColors[action]
-            }; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">
-              Заявка №${requestId}
-            </div>
-          </div>
-          
-          <div style="background-color: ${
-            action === "approve" ? "#f6ffed" : "#fff2f0"
-          }; border: 1px solid ${
-        action === "approve" ? "#b7eb8f" : "#ffccc7"
-      }; padding: 20px; border-radius: 6px; margin: 20px 0;">
-            <h3 style="color: ${
-              action === "approve" ? "#389e0d" : "#cf1322"
-            }; margin-top: 0;">
-              ${action === "approve" ? "✅ Одобрено" : "❌ Отклонено"}
-            </h3>
-            <p style="color: #4a5568;">
-              Ваша заявка <strong>"${
-                typeNames[requestType] || requestType
-              }"</strong> была <strong>${
-        actionNames[action]
-      }</strong> администратором поддержки.
-            </p>
-            
-            ${
-              reason
-                ? `
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #d9d9d9;">
-              <p style="margin: 0; font-weight: bold; color: #595959;">Комментарий администратора:</p>
-              <p style="margin: 10px 0 0 0; color: #4a5568; white-space: pre-line;">${reason}</p>
-            </div>
-            `
-                : ""
-            }
-          </div>
-          
-          <div style="background-color: #f0f5ff; border-left: 4px solid #1890ff; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; color: #2d3748; font-weight: bold;">
-              📝 Детали заявки:
-            </p>
-            <ul style="color: #4a5568; margin: 10px 0 0 0; padding-left: 20px;">
-              <li><strong>Номер:</strong> ${requestId}</li>
-              <li><strong>Тип:</strong> ${
-                typeNames[requestType] || requestType
-              }</li>
-              <li><strong>Логин:</strong> ${login}</li>
-              <li><strong>Обработал:</strong> ${adminName}</li>
-              <li><strong>Дата обработки:</strong> ${new Date().toLocaleDateString(
-                "ru-RU"
-              )}</li>
-            </ul>
-          </div>
-          
-          ${
-            password
-              ? `
-          <div style="background-color: #f9f0ff; border: 1px solid #d3adf7; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; font-weight: bold; color: #722ed1;">
-              🔑 Новый пароль:
-            </p>
-            <p style="margin: 10px 0; font-size: 18px; font-family: monospace; background-color: #f9f0ff; padding: 10px; border-radius: 4px;">
-              ${password}
-            </p>
-            <p style="margin: 0; color: #722ed1; font-size: 14px;">
-              ⚠️ Сохраните этот пароль в безопасном месте и измените его при первом входе.
-            </p>
-          </div>
-          `
-              : ""
-          }
-          
-          ${
-            newEmail
-              ? `
-          <div style="background-color: #f0fffe; border: 1px solid #87e8de; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; font-weight: bold; color: #006d75;">
-              📧 Email изменен:
-            </p>
-            <p style="margin: 10px 0; color: #4a5568;">
-              <strong>Старый email:</strong> ${email}<br>
-              <strong>Новый email:</strong> ${newEmail}
-            </p>
-          </div>
-          `
-              : ""
-          }
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${
-              process.env.CLIENT_URL || "http://localhost:5000"
-            }/login" 
-               style="background-color: #1890ff; color: white; padding: 12px 24px; 
-                      text-decoration: none; border-radius: 6px; font-weight: bold;
-                      font-size: 16px; display: inline-block;">
-              Перейти на страницу входа
-            </a>
-          </div>
-          
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-          
-          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-            Это автоматическое уведомление от техподдержки QuickDiagnosis<br>
-            Номер заявки: ${requestId} • ${new Date().toLocaleDateString(
-        "ru-RU"
-      )}
-          </p>
-        </div>
-      </div>
-    `,
+      html: this._getEmailTemplate(content, "Результат обработки"),
     };
   }
 
-  // Для email_change - отдельный шаблон для старого и нового email
   _supportEmailChangeNotificationTemplate({
     login,
     email,
@@ -706,114 +889,92 @@ class EmailService {
     newEmail,
     isNewEmail = false,
   }) {
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        📧 ${isNewEmail ? "Ваш email был изменен" : "Смена email подтверждена"}
+      </h2>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        ${
+          isNewEmail
+            ? `Здравствуйте! Ваш email для аккаунта <strong>${login}</strong> был успешно изменен.`
+            : `Здравствуйте! Мы уведомляем вас об изменении email для вашего аккаунта <strong>${login}</strong>.`
+        }
+      </p>
+      
+      <div style="background-color: ${
+        this.COLORS.cyanLight
+      }; border: 1px solid ${
+      this.COLORS.cyan
+    }; padding: 20px; border-radius: 6px; margin: 20px 0;">
+        <p style="margin: 0; font-weight: bold; color: ${
+          this.COLORS.cyan
+        }; text-align: center;">
+          📝 Детали изменения:
+        </p>
+        <div class="flex-mobile" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px 0; flex-wrap: wrap;">
+          <div style="text-align: right;">
+            <p style="margin: 5px 0; color: ${
+              this.COLORS.gray600
+            };">Старый email:</p>
+            <p style="margin: 5px 0; color: ${
+              this.COLORS.gray600
+            };">Новый email:</p>
+          </div>
+          <div style="text-align: left;">
+            <p style="margin: 5px 0; color: ${
+              this.COLORS.gray700
+            };"><strong>${oldEmail}</strong></p>
+            <p style="margin: 5px 0; color: ${
+              this.COLORS.success
+            };"><strong>${newEmail}</strong></p>
+          </div>
+        </div>
+      </div>
+      
+      ${
+        isNewEmail
+          ? this._createAlertBox(
+              "Ваш email успешно обновлен. Все дальнейшие уведомления будут приходить на этот адрес.",
+              "success"
+            )
+          : this._createAlertBox(
+              "Это был ваш старый email. Данный email больше не привязан к аккаунту.",
+              "info"
+            )
+      }
+      
+      ${this._createInfoBox([
+        { label: "Номер заявки:", value: requestId },
+        { label: "Обработал:", value: adminName },
+        {
+          label: "Дата обработки:",
+          value: new Date().toLocaleDateString("ru-RU"),
+        },
+      ])}
+      
+      ${
+        !isNewEmail
+          ? `
+      ${this._createAlertBox(
+        "Если вы не запрашивали изменение email, немедленно обратитесь в техподдержку!",
+        "danger"
+      )}
+      `
+          : ""
+      }
+    `;
+
     return {
       from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: `📧 Email аккаунта изменен ${isNewEmail ? "(новый email)" : ""}`,
-      html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-            📧 ${
-              isNewEmail ? "Ваш email был изменен" : "Смена email подтверждена"
-            }
-          </h2>
-          
-          ${
-            isNewEmail
-              ? `
-          <p style="font-size: 16px; color: #4a5568;">
-            Здравствуйте! Ваш email для аккаунта <strong>${login}</strong> был успешно изменен.
-          </p>
-          `
-              : `
-          <p style="font-size: 16px; color: #4a5568;">
-            Здравствуйте! Мы уведомляем вас об изменении email для вашего аккаунта <strong>${login}</strong>.
-          </p>
-          `
-          }
-          
-          <div style="background-color: #f0fffe; border: 1px solid #87e8de; padding: 20px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; font-weight: bold; color: #006d75; text-align: center;">
-              📝 Детали изменения:
-            </p>
-            <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 15px 0;">
-              <div style="text-align: right;">
-                <p style="margin: 5px 0; color: #595959;">Старый email:</p>
-                <p style="margin: 5px 0; color: #595959;">Новый email:</p>
-              </div>
-              <div style="text-align: left;">
-                <p style="margin: 5px 0; color: #4a5568;"><strong>${oldEmail}</strong></p>
-                <p style="margin: 5px 0; color: #52c41a;"><strong>${newEmail}</strong></p>
-              </div>
-            </div>
-          </div>
-          
-          ${
-            isNewEmail
-              ? `
-          <div style="background-color: #f6ffed; border-left: 4px solid #52c41a; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; color: #389e0d; font-weight: bold;">
-              ✅ Ваш email успешно обновлен
-            </p>
-            <p style="margin: 10px 0 0 0; color: #4a5568;">
-              Все дальнейшие уведомления будут приходить на этот адрес.
-            </p>
-          </div>
-          `
-              : `
-          <div style="background-color: #e6f7ff; border-left: 4px solid #1890ff; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; color: #0050b3; font-weight: bold;">
-              ℹ️ Это был ваш старый email
-            </p>
-            <p style="margin: 10px 0 0 0; color: #4a5568;">
-              Данный email больше не привязан к аккаунту ${login}.
-            </p>
-          </div>
-          `
-          }
-          
-          <div style="background-color: #f9f0ff; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; color: #722ed1; font-weight: bold;">
-              📋 Информация о заявке:
-            </p>
-            <p style="margin: 10px 0 0 0; color: #4a5568;">
-              <strong>Номер заявки:</strong> ${requestId}<br>
-              <strong>Обработал:</strong> ${adminName}<br>
-              <strong>Дата обработки:</strong> ${new Date().toLocaleDateString(
-                "ru-RU"
-              )}
-            </p>
-          </div>
-          
-          ${
-            !isNewEmail
-              ? `
-          <div style="background-color: #fff7e6; border: 1px solid #ffd591; padding: 15px; border-radius: 6px; margin: 25px 0;">
-            <p style="color: #d46b08; margin: 0; font-weight: bold;">
-              ⚠️ <strong>Важно!</strong> Это был ваш старый email
-            </p>
-            <p style="color: #d46b08; margin: 10px 0 0 0;">
-              Если вы не запрашивали изменение email, немедленно обратитесь в техподдержку!
-            </p>
-          </div>
-          `
-              : ""
-          }
-          
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-          
-          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-            Техподдержка QuickDiagnosis • Заявка №${requestId}<br>
-            ${new Date().toLocaleDateString("ru-RU")}
-          </p>
-        </div>
-      </div>
-    `,
+      html: this._getEmailTemplate(content, "Изменение email"),
     };
   }
 
-  // В класс EmailService добавляем метод:
   _supportAdminResponseTemplate({
     login,
     email,
@@ -822,62 +983,65 @@ class EmailService {
     adminResponse,
     reason,
   }) {
+    const content = `
+      <h2 style="color: ${
+        this.COLORS.gray800
+      }; text-align: center; margin-top: 0; font-size: 24px;">
+        📨 Ответ от техподдержки QuickDiagnosis
+      </h2>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Здравствуйте, <strong>${login}</strong>!
+      </p>
+      
+      <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+        Специалист техподдержки рассмотрел вашу заявку <strong>#${requestId}</strong> и подготовил ответ.
+      </p>
+      
+      <div style="background-color: ${
+        this.COLORS.infoLight
+      }; border-left: 4px solid ${
+      this.COLORS.primary
+    }; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0; color: ${
+          this.COLORS.primaryDark
+        }; font-weight: bold;">
+          💬 Ответ администратора:
+        </p>
+        <div style="margin: 10px 0 0 0; padding: 15px; background-color: ${
+          this.COLORS.white
+        }; border-radius: 4px;">
+          <p style="margin: 0; color: ${
+            this.COLORS.gray700
+          };">${adminResponse}</p>
+        </div>
+      </div>
+      
+      ${
+        reason
+          ? `
+      <div style="background-color: ${this.COLORS.successLight}; padding: 15px; border-radius: 6px; margin: 20px 0;">
+        <p style="margin: 0; color: ${this.COLORS.successDark}; font-weight: bold;">
+          📝 Комментарий:
+        </p>
+        <p style="margin: 10px 0 0 0; color: ${this.COLORS.gray700};">${reason}</p>
+      </div>
+      `
+          : ""
+      }
+      
+      <div style="text-align: center; margin: 30px 0;">
+        <p style="color: ${this.COLORS.gray600}; font-size: 14px;">
+          Если у вас остались вопросы, вы можете ответить на это письмо или создать новую заявку.
+        </p>
+      </div>
+    `;
+
     return {
       from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: `📨 Ответ от техподдержки на заявку #${requestId}`,
-      html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-        <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-            📨 Ответ от техподдержки QuickDiagnosis
-          </h2>
-          
-          <p style="font-size: 16px; color: #4a5568;">
-            Здравствуйте, <strong>${login}</strong>!
-          </p>
-          
-          <p style="font-size: 16px; color: #4a5568;">
-            Специалист техподдержки рассмотрел вашу заявку <strong>#${requestId}</strong> и подготовил ответ.
-          </p>
-          
-          <div style="background-color: #e6f7ff; border-left: 4px solid #1890ff; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; color: #0050b3; font-weight: bold;">
-              💬 Ответ администратора:
-            </p>
-            <div style="margin: 10px 0 0 0; padding: 15px; background-color: #f0f5ff; border-radius: 4px;">
-              <p style="margin: 0; color: #4a5568; white-space: pre-line;">${adminResponse}</p>
-            </div>
-          </div>
-          
-          ${
-            reason
-              ? `
-          <div style="background-color: #f6ffed; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; color: #389e0d; font-weight: bold;">
-              📝 Комментарий:
-            </p>
-            <p style="margin: 10px 0 0 0; color: #4a5568;">${reason}</p>
-          </div>
-          `
-              : ""
-          }
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <p style="color: #718096; font-size: 14px;">
-              Если у вас остались вопросы, вы можете ответить на это письмо или создать новую заявку.
-            </p>
-          </div>
-          
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-          
-          <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-            Техподдержка QuickDiagnosis • Заявка №${requestId}<br>
-            Обработал: ${adminName} • ${new Date().toLocaleDateString("ru-RU")}
-          </p>
-        </div>
-      </div>
-    `,
+      html: this._getEmailTemplate(content, "Ответ поддержки"),
     };
   }
 
@@ -1018,79 +1182,58 @@ class EmailService {
     attemptCount,
   }) {
     try {
+      const content = `
+        <h2 style="color: ${
+          this.COLORS.gray800
+        }; text-align: center; margin-top: 0; font-size: 24px;">
+          🚨 Ваш аккаунт в QuickDiagnosis заблокирован
+        </h2>
+        
+        <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+          Уважаемый(ая) <strong>${login}</strong>,
+        </p>
+        
+        ${this._createAlertBox(
+          `Ваш аккаунт был заблокирован. Причина: <strong>${reason}</strong>`,
+          "danger",
+          { title: "⚠️ Блокировка аккаунта" }
+        )}
+        
+        <p style="font-size: 16px; color: ${this.COLORS.gray700};">
+          Для разблокировки аккаунта обратитесь в техническую поддержку:
+        </p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          ${this._createButton(supportUrl, "📞 Перейти в техподдержку", {
+            color: this.COLORS.danger,
+          })}
+        </div>
+        
+        ${this._createInfoBox(
+          [
+            { label: "Email:", value: email },
+            { label: "Логин:", value: login },
+            attemptCount
+              ? { label: "Неудачных попыток:", value: attemptCount }
+              : null,
+            {
+              label: "Дата блокировки:",
+              value: new Date().toLocaleString("ru-RU"),
+            },
+            ipAddress ? { label: "IP адрес:", value: ipAddress } : null,
+          ].filter(Boolean)
+        )}
+        
+        <p style="color: ${this.COLORS.gray700}; font-size: 16px;">
+          Если вы не предпринимали этих действий, немедленно обратитесь в техподдержку.
+        </p>
+      `;
+
       const mailOptions = {
-        from: `"QuickDiagnosis" <${this.senderEmail}>`,
+        from: `"QuickDiagnosis - Безопасность" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: "🚨 Ваш аккаунт в QuickDiagnosis заблокирован",
-        html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #f8f9fa; padding: 20px; border-radius: 5px; }
-            .content { padding: 20px; }
-            .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            .support-btn { 
-              display: inline-block; 
-              background: #dc3545; 
-              color: white; 
-              padding: 12px 24px; 
-              text-decoration: none; 
-              border-radius: 5px; 
-              font-weight: bold;
-              margin: 20px 0;
-            }
-            .details { background: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h2>🚨 QuickDiagnosis - Блокировка аккаунта</h2>
-            </div>
-            
-            <div class="content">
-              <p>Уважаемый(ая) <strong>${login}</strong>,</p>
-              
-              <div class="warning">
-                <h3>⚠️ Ваш аккаунт был заблокирован</h3>
-                <p>Причина: <strong>${reason}</strong></p>
-              </div>
-              
-              <p>Для разблокировки аккаунта обратитесь в техническую поддержку:</p>
-              
-              <a href="${supportUrl}" class="support-btn">
-                📞 Перейти в техподдержку
-              </a>
-              
-              <div class="details">
-                <p><strong>Детали блокировки:</strong></p>
-                <ul>
-                  <li>Email: ${email}</li>
-                  <li>Логин: ${login}</li>
-                  ${
-                    attemptCount
-                      ? `<li>Неудачных попыток: ${attemptCount}</li>`
-                      : ""
-                  }
-                  <li>Дата блокировки: ${new Date().toLocaleString(
-                    "ru-RU"
-                  )}</li>
-                  ${ipAddress ? `<li>IP адрес: ${ipAddress}</li>` : ""}
-                </ul>
-              </div>
-              
-              <p>Если вы не предпринимали этих действий, немедленно обратитесь в техподдержку.</p>
-              
-              <p>С уважением,<br>Команда QuickDiagnosis</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+        html: this._getEmailTemplate(content, "Блокировка аккаунта"),
       };
 
       await this.transporter.sendMail(mailOptions);
@@ -1100,8 +1243,6 @@ class EmailService {
       throw error;
     }
   }
-
-  // В классе EmailService (после sendAccountBlocked):
 
   async sendSupportRequestCreated({
     login,
@@ -1193,7 +1334,6 @@ class EmailService {
     }
   }
 
-  // В классе EmailService (после существующих методов sendSupport...):
   async sendSupportRequestProcessed({
     login,
     email,
@@ -1279,75 +1419,63 @@ class EmailService {
     try {
       await this._ensureInitialized();
 
+      const content = `
+        <h2 style="color: ${
+          this.COLORS.gray800
+        }; text-align: center; margin-top: 0; font-size: 24px;">
+          🗑️ Ваш аккаунт будет удален
+        </h2>
+        
+        ${this._createAlertBox(
+          `Запрос на удаление аккаунта <strong>${login}</strong> был одобрен администратором поддержки.`,
+          "danger",
+          { title: "⚠️ Внимание! Ваш аккаунт будет удален" }
+        )}
+        
+        ${
+          reason
+            ? `
+        <div style="margin-top: 15px;">
+          <p style="margin: 0; font-weight: bold; color: ${this.COLORS.gray700};">Причина:</p>
+          <p style="margin: 10px 0 0 0; color: ${this.COLORS.gray700};">${reason}</p>
+        </div>
+        `
+            : ""
+        }
+        
+        <div style="background-color: ${
+          this.COLORS.infoLight
+        }; padding: 20px; border-radius: 6px; margin: 20px 0;">
+          <p style="margin: 0; color: ${
+            this.COLORS.gray800
+          }; font-weight: bold; text-align: center;">
+            🗓️ Дата удаления:
+          </p>
+          <p style="margin: 10px 0; font-size: 24px; color: ${
+            this.COLORS.danger
+          }; text-align: center; font-weight: bold;">
+            ${new Date(deletionDate).toLocaleDateString("ru-RU")}
+          </p>
+        </div>
+        
+        ${this._createAlertBox(
+          "Что будет удалено:<br>• Все ваши диагностические данные<br>• Загруженные изображения и файлы<br>• История активности<br>• Настройки аккаунта",
+          "warning",
+          { title: "📋 Последствия удаления:" }
+        )}
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <p style="color: ${this.COLORS.gray600}; font-size: 14px;">
+            Если вы хотите отменить удаление, немедленно обратитесь в техподдержку!
+          </p>
+        </div>
+      `;
+
       const mailOptions = {
         from: `"QuickDiagnosis - Техподдержка" <${process.env.EMAIL_USER}>`,
         to: email,
         subject: `🗑️ Запрос на удаление аккаунта #${requestId}`,
-        html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 20px;">
-          <div style="background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <h2 style="color: #2d3748; text-align: center; margin-top: 0;">
-              🗑️ Ваш аккаунт будет удален
-            </h2>
-            
-            <div style="background-color: #fff2f0; border: 1px solid #ffccc7; padding: 20px; border-radius: 6px; margin: 20px 0;">
-              <h3 style="color: #cf1322; margin-top: 0;">
-                ⚠️ Внимание! Ваш аккаунт будет удален
-              </h3>
-              <p style="color: #4a5568;">
-                Запрос на удаление аккаунта <strong>${login}</strong> был одобрен администратором поддержки.
-              </p>
-              
-              ${
-                reason
-                  ? `
-              <div style="margin-top: 15px;">
-                <p style="margin: 0; font-weight: bold; color: #595959;">Причина:</p>
-                <p style="margin: 10px 0 0 0; color: #4a5568;">${reason}</p>
-              </div>
-              `
-                  : ""
-              }
-            </div>
-            
-            <div style="background-color: #f0f5ff; padding: 20px; border-radius: 6px; margin: 20px 0;">
-              <p style="margin: 0; color: #2d3748; font-weight: bold; text-align: center;">
-                🗓️ Дата удаления:
-              </p>
-              <p style="margin: 10px 0; font-size: 24px; color: #cf1322; text-align: center; font-weight: bold;">
-                ${new Date(deletionDate).toLocaleDateString("ru-RU")}
-              </p>
-            </div>
-            
-            <div style="background-color: #f6ffed; border-left: 4px solid #52c41a; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0; color: #389e0d; font-weight: bold;">
-                📋 Что будет удалено:
-              </p>
-              <ul style="color: #4a5568; margin: 10px 0 0 0; padding-left: 20px;">
-                <li>Все ваши диагностические данные</li>
-                <li>Загруженные изображения и файлы</li>
-                <li>История активности</li>
-                <li>Настройки аккаунта</li>
-              </ul>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <p style="color: #718096; font-size: 14px;">
-                Если вы хотите отменить удаление, немедленно обратитесь в техподдержку!
-              </p>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-            
-            <p style="color: #718096; font-size: 12px; text-align: center; margin: 0;">
-              Техподдержка QuickDiagnosis • Заявка №${requestId}<br>
-              Обработал: ${adminName} • ${new Date().toLocaleDateString(
-          "ru-RU"
-        )}
-            </p>
-          </div>
-        </div>
-      `,
+        html: this._getEmailTemplate(content, "Удаление аккаунта"),
       };
 
       const info = await this.transporter.sendMail(mailOptions);
@@ -1361,7 +1489,6 @@ class EmailService {
     }
   }
 
-  // В класс EmailService добавляем метод отправки:
   async sendSupportAdminResponse({
     login,
     email,
