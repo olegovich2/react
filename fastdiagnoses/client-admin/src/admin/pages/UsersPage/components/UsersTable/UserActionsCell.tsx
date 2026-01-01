@@ -4,8 +4,6 @@ import { User } from '../../../../types';
 interface UserActionsCellProps {
   user: User;
   isLoading: boolean;
-  onBlockUser: (user: User) => void;
-  onUnblockUser: (user: User) => Promise<void>;
   onRequestAction: (user: User, requestType: string) => Promise<User | null>;
   onResetPassword: (user: User) => Promise<void>;
 }
@@ -46,15 +44,15 @@ const getButtonTitle = (user: User, requestType: string): string => {
     case 'unblock':
       return count > 0 
         ? `Разблокировка (${count} запросов)`
-        : (user.isBlocked ? 'Разблокировать' : 'Заблокировать');
+        : (user.isBlocked ? 'Запрос на разблокировку' : 'Заблокировать');
     case 'account_deletion':
       return count > 0 
         ? `Удаление аккаунта (${count} запросов)`
-        : 'Удалить аккаунт';
+        : 'Запрос на удаление аккаунта';
     case 'other':
       return count > 0 
         ? `Другие запросы (${count} запросов)`
-        : 'Другие действия';
+        : 'Другие запросы';
     default:
       return 'Действие';
   }
@@ -63,8 +61,6 @@ const getButtonTitle = (user: User, requestType: string): string => {
 const UserActionsCell: React.FC<UserActionsCellProps> = ({
   user,
   isLoading,
-  onBlockUser,
-  onUnblockUser,
   onRequestAction,
   onResetPassword
 }) => {
@@ -103,10 +99,8 @@ const UserActionsCell: React.FC<UserActionsCellProps> = ({
   };
 
   const handleActionClick = async (requestType: string) => {
-    const result = await onRequestAction(user, requestType);
-    if (result && requestType === 'unblock' && !user.isBlocked) {
-      onBlockUser(result);
-    }
+    await onRequestAction(user, requestType);
+    // Убрана старая логика с onBlockUser - теперь все через модалку техподдержки
   };
 
   const renderButtonWithBadge = (

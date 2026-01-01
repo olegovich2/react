@@ -8,16 +8,10 @@ interface UserMobileCardProps {
   isLoading: boolean;
   formatDate: (date: string) => string;
   formatBlockInfo: (user: User) => string | null;
-  onBlockUser: (user: User) => void;
-  onUnblockUser: (user: User) => Promise<void>;
   onRequestAction: (user: User, requestType: string) => Promise<User | null>;
   onResetPassword: (user: User) => Promise<void>;
 }
 
-// Вспомогательная функция для проверки просроченных запросов
-const hasOverdueRequests = (user: User): boolean => {
-  return user.supportRequests?.overdue || false;
-};
 
 // Функция для получения иконки статуса
 const getStatusIcon = (user: User): string => {
@@ -94,8 +88,6 @@ const UserMobileCard: React.FC<UserMobileCardProps> = ({
   user,
   isLoading,
   formatDate,
-  onBlockUser,
-  onUnblockUser,
   onRequestAction,
   onResetPassword
 }) => {
@@ -285,8 +277,6 @@ const UserMobileCard: React.FC<UserMobileCardProps> = ({
         <UserActionsCell
           user={user}
           isLoading={isLoading}
-          onBlockUser={onBlockUser}
-          onUnblockUser={onUnblockUser}
           onRequestAction={onRequestAction}
           onResetPassword={onResetPassword}
         />

@@ -257,21 +257,22 @@ class SupportController {
           );
 
           if (user) {
-            // ✅ Логин верный - берем реальный email из базы
-            userEmailForSending = user.email;
+            // ✅ Логин верный - используем email из формы
+            userEmailForSending = email; // ИЗМЕНЕНИЕ: email из формы
+            shouldSendEmail = true;
+            autoResolve = false;
             console.log(
-              "✅ [submitRequest] Логин найден, используем email из базы:",
+              "✅ [submitRequest] Логин найден, используем email из формы:",
               {
                 login: login,
                 formEmail: email,
-                realEmail: user.email,
               }
             );
           } else {
             // ❌ Логин НЕверный - не отправляем письмо, сразу резолвим
             shouldSendEmail = false;
             autoResolve = true;
-            adminNotes = "Обработано вебсервером: пользователь не найден";
+            adminNotes = "Автоматически разрешено: пользователь не найден"; // ИЗМЕНЕНИЕ: текст
 
             console.log(
               "⚠️ [submitRequest] Логин не найден, заявка будет автоматически разрешена:",
@@ -286,7 +287,10 @@ class SupportController {
             "❌ [submitRequest] Ошибка проверки пользователя:",
             dbError.message
           );
-          // В случае ошибки БД все равно продолжаем, но отмечаем
+          // В случае ошибки БД продолжаем как обычно
+          userEmailForSending = email;
+          shouldSendEmail = true;
+          autoResolve = false;
           adminNotes = "Ошибка проверки пользователя в БД";
         }
       } else {
@@ -312,10 +316,9 @@ class SupportController {
       }
 
       // ШИФРОВАНИЕ ДАННЫХ
+      // ИЗМЕНЕНИЕ: для "other" не шифруем кодовое слово, оставляем null
       const encryptedSecretWord =
-        type !== "other"
-          ? SupportController.encryptText(secretWord)
-          : SupportController.encryptText("N/A_OTHER_REQUEST");
+        type !== "other" ? SupportController.encryptText(secretWord) : "";
 
       let encryptedPassword = null;
 
@@ -330,15 +333,18 @@ class SupportController {
       const initialStatus = autoResolve ? "resolved" : "pending";
       const finalEmailForDb = email; // Сохраняем email из формы
 
-      const confirmToken = jwt.sign(
-        {
-          requestId,
-          email: userEmailForSending, // Токен для реального email
-          purpose: "support_confirm",
-        },
-        process.env.JWT_SECRET || "your-secret-key",
-        { expiresIn: "24h" }
-      );
+      let confirmToken = null;
+      if (shouldSendEmail) {
+        confirmToken = jwt.sign(
+          {
+            requestId,
+            email: userEmailForSending,
+            purpose: "support_confirm",
+          },
+          process.env.JWT_SECRET || "your-secret-key",
+          { expiresIn: "24h" }
+        );
+      }
 
       // СОХРАНЕНИЕ ЗАЯВКИ В БД
       await query(
@@ -361,32 +367,31 @@ class SupportController {
       );
 
       // СОХРАНЕНИЕ ТОКЕНА ПОДТВЕРЖДЕНИЯ (только если нужно отправлять письмо)
-      if (shouldSendEmail) {
+      if (shouldSendEmail && confirmToken) {
         await query(
           `INSERT INTO support_confirmation_tokens 
              (token, request_id, email, expires_at) 
              VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
-          [confirmToken, requestId, userEmailForSending] // Сохраняем реальный email для токена
+          [confirmToken, requestId, userEmailForSending]
         );
       }
 
       // ОТПРАВКА EMAIL ПОДТВЕРЖДЕНИЯ (только если нужно)
-      if (shouldSendEmail && !autoResolve) {
+      if (shouldSendEmail && !autoResolve && confirmToken) {
         try {
           await emailService.sendSupportRequestCreated({
             login,
-            email: userEmailForSending, // ← Отправляем на реальный email из базы!
+            email: userEmailForSending, // ← Отправляем на email из формы
             requestId: publicId,
             confirmToken,
             requestType: type,
           });
 
           console.log(
-            "📧 [submitRequest] Письмо подтверждения отправлено на реальный email:",
+            "📧 [submitRequest] Письмо подтверждения отправлено на email из формы:",
             {
               login: login,
-              realEmail: userEmailForSending,
-              formEmail: email,
+              email: userEmailForSending,
             }
           );
         } catch (emailError) {
@@ -652,7 +657,7 @@ class SupportController {
         {
           value: "account_deletion",
           label: "Удаление аккаунта",
-          description: "Хочу удалить свой аккаунт",
+          description: "Хочу удалить свой аккаунта",
         },
         {
           value: "other",
@@ -702,7 +707,9 @@ class SupportController {
       // РАСШИФРОВКА данных для админа
       const decryptedData = {
         ...requestData,
-        secretWord: this.decryptText(requestData.secret_word_hash),
+        secretWord: requestData.secret_word_hash
+          ? this.decryptText(requestData.secret_word_hash)
+          : null,
         password: this.decryptText(requestData.password),
         // Скрываем оригинальные зашифрованные данные
         secret_word_hash: undefined,

@@ -7,8 +7,6 @@ import './UsersTable.css';
 interface UsersTableProps {
   users: User[];
   isLoading: boolean;
-  onBlockUser: (user: User) => void;
-  onUnblockUser: (user: User) => Promise<void>;
   onRequestAction: (user: User, requestType: string) => Promise<User | null>;
   onResetPassword: (user: User) => Promise<void>;
 }
@@ -16,8 +14,6 @@ interface UsersTableProps {
 const UsersTable: React.FC<UsersTableProps> = ({
   users,
   isLoading,
-  onBlockUser,
-  onUnblockUser,
   onRequestAction,
   onResetPassword
 }) => {
@@ -68,8 +64,6 @@ const UsersTable: React.FC<UsersTableProps> = ({
               isLoading={isLoading}
               formatDate={formatDate}
               formatBlockInfo={formatBlockInfo}
-              onBlockUser={onBlockUser}
-              onUnblockUser={onUnblockUser}
               onRequestAction={onRequestAction}
               onResetPassword={onResetPassword}
             />
@@ -86,8 +80,6 @@ const UsersTable: React.FC<UsersTableProps> = ({
             isLoading={isLoading}
             formatDate={formatDate}
             formatBlockInfo={formatBlockInfo}
-            onBlockUser={onBlockUser}
-            onUnblockUser={onUnblockUser}
             onRequestAction={onRequestAction}
             onResetPassword={onResetPassword}
           />

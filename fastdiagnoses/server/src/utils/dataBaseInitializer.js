@@ -268,7 +268,7 @@ class DatabaseInitializer {
         CREATE TABLE IF NOT EXISTS \`support_request_logs\` (
           \`id\` bigint NOT NULL AUTO_INCREMENT,
           \`request_id\` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
-          \`action\` enum('created','email_confirmed','status_changed','admin_note_added','admin_note_updated','email_sent','secret_verified','viewed') COLLATE utf8mb4_unicode_ci NOT NULL,
+          \`action\` VARCHAR(30) COLLATE utf8mb4_unicode_ci NOT NULL,
           \`old_value\` text COLLATE utf8mb4_unicode_ci,
           \`new_value\` text COLLATE utf8mb4_unicode_ci,
           \`actor_type\` enum('system','user','admin') COLLATE utf8mb4_unicode_ci DEFAULT 'system',

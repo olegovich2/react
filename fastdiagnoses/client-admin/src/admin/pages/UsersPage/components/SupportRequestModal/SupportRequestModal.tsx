@@ -31,7 +31,7 @@ interface ValidationResponse {
   errors?: string[];
   checkedFields: {
     login: boolean;
-    email?: boolean; // Сделаем опциональным для обратной совместимости
+    email?: boolean;
     secretWord: boolean;
     password: boolean | null;
   };
@@ -100,7 +100,7 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
         const response = await supportService.getUserSupportRequests(
           user.login,
           requestType,
-          "all" // все статусы
+          "all"
         );
 
         if (response.success && response.data?.requests) {
@@ -115,7 +115,6 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
             const firstRequest = activeRequests[0];
             setSelectedRequest(firstRequest);
 
-            // АВТОМАТИЧЕСКАЯ ПРОВЕРКА ПРИ ОТКРЫТИИ
             console.log(
               "🔍 [SupportRequestModal] Автоматическая проверка запроса:",
               firstRequest.id
@@ -152,7 +151,7 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
 
       if (response.success) {
         setValidationResult(response);
-        setState("encrypted"); // Всегда переходим в режим отображения данных
+        setState("encrypted");
 
         console.log("✅ [SupportRequestModal] Результат проверки:", {
           isValid: response.isValid,
@@ -175,7 +174,6 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
   const handleApprove = async () => {
     if (!selectedRequest) return;
 
-    // Для типа "other" проверяем наличие ответа
     if (selectedRequest.type === "other" && !emailResponse.trim()) {
       setError('Для типа "other" необходимо написать ответ пользователю');
       return;
@@ -270,6 +268,7 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
     const hasErrors =
       validationResult?.errors && validationResult.errors.length > 0;
     const checkedFields = validationResult?.checkedFields;
+    const isOtherType = selectedRequest.type === "other";
 
     return (
       <div className="support-modal-encrypted">
@@ -364,55 +363,66 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
                 </span>
               </div>
 
-              <div className="validation-item">
-                <span className="validation-label">Email (совпадение):</span>
-                <span
-                  className={`validation-status ${
-                    getCheckedField("email") === true
-                      ? "success"
+              {/* Для типа "other" email проверяем по особой логике */}
+              {!isOtherType && (
+                <div className="validation-item">
+                  <span className="validation-label">Email (совпадение):</span>
+                  <span
+                    className={`validation-status ${
+                      getCheckedField("email") === true
+                        ? "success"
+                        : getCheckedField("email") === false
+                        ? "error"
+                        : "neutral"
+                    }`}
+                  >
+                    {getCheckedField("email") === true
+                      ? "✓ Совпадает"
                       : getCheckedField("email") === false
-                      ? "error"
-                      : "neutral"
-                  }`}
-                >
-                  {getCheckedField("email") === true
-                    ? "✓ Совпадает"
-                    : getCheckedField("email") === false
-                    ? "✗ Не совпадает"
-                    : "— Не проверялось"}
-                </span>
-              </div>
+                      ? "✗ Не совпадает"
+                      : "— Не проверялось"}
+                  </span>
+                </div>
+              )}
 
-              <div className="validation-item">
-                <span className="validation-label">Секретное слово:</span>
-                <span
-                  className={`validation-status ${
-                    getCheckedField("secretWord") === true
-                      ? "success"
+              {/* Для типа "other" НЕ показываем проверку секретного слова */}
+              {!isOtherType && (
+                <div className="validation-item">
+                  <span className="validation-label">Секретное слово:</span>
+                  <span
+                    className={`validation-status ${
+                      getCheckedField("secretWord") === true
+                        ? "success"
+                        : getCheckedField("secretWord") === false
+                        ? "error"
+                        : "neutral"
+                    }`}
+                  >
+                    {getCheckedField("secretWord") === true
+                      ? "✓ Совпадает"
                       : getCheckedField("secretWord") === false
-                      ? "error"
-                      : "neutral"
-                  }`}
-                >
-                  {getCheckedField("secretWord") === true
-                    ? "✓ Совпадает"
-                    : getCheckedField("secretWord") === false
-                    ? "✗ Не совпадает"
-                    : requestType === "other"
-                    ? "— Не проверялось"
-                    : "⚠️ Не проверено"}
-                </span>
-              </div>
+                      ? "✗ Не совпадает"
+                      : "⚠️ Не проверено"}
+                  </span>
+                </div>
+              )}
 
+              {/* Для типа "other" показываем специальное сообщение вместо пароля */}
               {checkedFields && checkedFields.password !== null && (
                 <div className="validation-item">
-                  <span className="validation-label">Пароль:</span>
+                  <span className="validation-label">
+                    {isOtherType ? "Проверка данных" : "Пароль"}:
+                  </span>
                   <span
                     className={`validation-status ${
                       checkedFields.password === true ? "success" : "error"
                     }`}
                   >
-                    {checkedFields.password === true
+                    {isOtherType
+                      ? checkedFields.password === true
+                        ? "✓ Данные проверены"
+                        : "✗ Ошибка проверки"
+                      : checkedFields.password === true
                       ? "✓ Совпадает"
                       : "✗ Не совпадает"}
                   </span>
@@ -436,7 +446,9 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
                 <div className="validation-success">
                   <div className="success-icon">✅</div>
                   <div className="success-message">
-                    Все данные подтверждены. Можете выполнить действие.
+                    {isOtherType
+                      ? "Данные проверены. Можете ответить пользователю."
+                      : "Все данные подтверждены. Можете выполнить действие."}
                   </div>
                 </div>
               )}
@@ -444,8 +456,8 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
           </div>
         )}
 
-        {/* Поле для ответа (только для типа "other") */}
-        {selectedRequest.type === "other" && (
+        {/* Поле для ответа пользователю (только для типа "other" И если проверка успешна) */}
+        {isOtherType && isValid && !hasErrors && (
           <div className="support-modal-section">
             <h4>✍️ Ответ пользователю</h4>
             <textarea
@@ -454,6 +466,7 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
               placeholder="Напишите ответ пользователю..."
               className="rejection-textarea"
               rows={4}
+              required
             />
             <div className="rejection-hint">
               Этот ответ будет отправлен пользователю на email
@@ -461,16 +474,25 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
           </div>
         )}
 
-        {/* Поле для причины отказа (если есть ошибки) */}
+        {/* Поле для причины отказа (если есть ошибки в проверке) */}
         {hasErrors && !isValid && (
           <div className="support-modal-section">
-            <h5>📝 Причина отказа:</h5>
+            <h4>
+              {isOtherType
+                ? "📝 Причина отказа / ответ пользователю"
+                : "📝 Причина отказа"}
+            </h4>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Опишите причину отказа пользователю..."
+              placeholder={
+                isOtherType
+                  ? "Опишите причину отказа или напишите ответ пользователю..."
+                  : "Опишите причину отказа пользователю..."
+              }
               className="rejection-textarea"
-              rows={3}
+              rows={isOtherType ? 4 : 3}
+              required
             />
             <div className="rejection-hint">
               Это сообщение будет отправлено пользователю на email
@@ -482,15 +504,21 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
         <div className="support-modal-section">
           <h4>🔐 Системная информация</h4>
           <p className="system-info">
-            {isValid
+            {isOtherType
+              ? isValid
+                ? "✅ Данные проверены. Напишите ответ пользователю."
+                : "❌ Обнаружены ошибки при проверке данных. Укажите причину отказа."
+              : isValid
               ? "✅ Все проверки пройдены успешно. Вы можете выполнить действие."
               : hasErrors
-              ? "❌ Обнаружены ошибки при проверке данных. Вы можете отклонить запрос."
+              ? "❌ Обнаружены ошибки при проверке данных. Укажите причину отказа."
               : "Данные пользователя зашифрованы. Проверка выполнена автоматически."}
           </p>
           <p className="system-warning">
-            ⚠️ При выполнении действия система отправит письмо на email
-            пользователя из базы данных.
+            {isOtherType
+              ? "⚠️ Ваш ответ будет отправлен на email из запроса: " +
+                selectedRequest.email
+              : "⚠️ При выполнении действия система отправит письмо на email пользователя из базы данных."}
           </p>
         </div>
       </div>
@@ -646,19 +674,27 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
           {state === "encrypted" && validationResult && (
             <>
               {validationResult.isValid ? (
-                // Все проверки пройдены - можно выполнить
+                // Все проверки пройдены
                 <>
-                  <button
-                    onClick={() => setState("confirm")}
-                    className="support-modal-button approve-button"
-                    disabled={
-                      isProcessing ||
-                      (selectedRequest?.type === "other" &&
-                        !emailResponse.trim())
-                    }
-                  >
-                    ✅ Выполнить
-                  </button>
+                  {selectedRequest?.type === "other" ? (
+                    // Для "other" - проверяем, заполнен ли ответ
+                    <button
+                      onClick={() => setState("confirm")}
+                      className="support-modal-button approve-button"
+                      disabled={isProcessing || !emailResponse.trim()}
+                    >
+                      ✅ Далее (отправить ответ)
+                    </button>
+                  ) : (
+                    // Для остальных типов
+                    <button
+                      onClick={() => setState("confirm")}
+                      className="support-modal-button approve-button"
+                      disabled={isProcessing}
+                    >
+                      ✅ Выполнить
+                    </button>
+                  )}
                   <button
                     onClick={onClose}
                     className="support-modal-button cancel-button"
@@ -668,7 +704,7 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
                   </button>
                 </>
               ) : (
-                // Есть ошибки - можно только отклонить
+                // Есть ошибки - можно отклонить (для всех типов, включая "other")
                 <>
                   <button
                     onClick={handleReject}

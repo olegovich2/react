@@ -9,8 +9,6 @@ interface UserTableRowProps {
   isLoading: boolean;
   formatDate: (date: string) => string;
   formatBlockInfo: (user: User) => string | null;
-  onBlockUser: (user: User) => void;
-  onUnblockUser: (user: User) => Promise<void>;
   onRequestAction: (user: User, requestType: string) => Promise<User | null>;
   onResetPassword: (user: User) => Promise<void>;
 }
@@ -107,8 +105,6 @@ const UserTableRow: React.FC<UserTableRowProps> = ({
   user,
   isLoading,
   formatDate,
-  onBlockUser,
-  onUnblockUser,
   onRequestAction,
   onResetPassword,
 }) => {
@@ -242,8 +238,6 @@ const UserTableRow: React.FC<UserTableRowProps> = ({
         <UserActionsCell
           user={user}
           isLoading={isLoading}
-          onBlockUser={onBlockUser}
-          onUnblockUser={onUnblockUser}
           onRequestAction={onRequestAction}
           onResetPassword={onResetPassword}
         />

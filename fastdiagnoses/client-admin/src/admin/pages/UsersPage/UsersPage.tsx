@@ -8,7 +8,6 @@ import UsersFilters from './components/UsersFilters/UsersFilters';
 import UsersTable from './components/UsersTable/UsersTable';
 import UsersPagination from './components/UsersPagination/UsersPagination';
 import UsersNotification from './components/UsersNotification/UsersNotification';
-import BlockUserModal from './components/BlockUserModal';
 import SupportRequestModal from './components/SupportRequestModal/SupportRequestModal';
 
 // Кастомные хуки
@@ -69,15 +68,10 @@ const UsersPage: React.FC = () => {
   const {
     notification,
     showNotification,
-    handleUnblockUser,
     handleResetPassword,
   } = useUsersActions(fetchUsers, pagination.currentPage);
 
-  // Состояние для модального окна блокировки
-  const [showBlockModal, setShowBlockModal] = useState(false);
-  const [userToBlock, setUserToBlock] = useState<User | null>(null);
-
-  // НОВЫЕ СОСТОЯНИЯ ДЛЯ МОДАЛКИ ТЕХПОДДЕРЖКИ
+  // СОСТОЯНИЯ ДЛЯ МОДАЛКИ ТЕХПОДДЕРЖКИ
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [selectedUserForRequest, setSelectedUserForRequest] = useState<User | null>(null);
   const [selectedRequestType, setSelectedRequestType] = useState<SupportRequestType | null>(null);
@@ -121,67 +115,28 @@ const UsersPage: React.FC = () => {
     fetchUsers(1);
   };
 
-  const handleBlockUser = (user: User) => {
-    setUserToBlock(user);
-    setShowBlockModal(true);
-  };
-
-  // ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАПРОСОВ
-  const handleRequestAction = async (user: User, requestType: string): Promise<User | null> => {
-    console.log(`📩 Обработка запроса ${requestType} для пользователя ${user.login}`);
-    
-    const requestCount = getRequestCount(user, requestType);
-    
-    if (requestCount > 0) {
-      // ЕСТЬ АКТИВНЫЕ ЗАПРОСЫ - ОТКРЫВАЕМ МОДАЛКУ
-      setSelectedUserForRequest(user);
-      setSelectedRequestType(requestType as SupportRequestType);
-      setShowSupportModal(true);
-      
-      showNotification('info', 
-        `Открываю ${requestCount} активных запросов типа "${getRequestTypeName(requestType)}" для пользователя ${user.login}`
-      );
-      return null;
-    } else {
-      // НЕТ активных запросов - обычное действие
-      switch (requestType) {
-        case 'password_reset':
-          await handleResetPassword(user);
-          return null;
-        case 'email_change':
-          // Открываем модалку техподдержки даже без активных запросов для смены email
-          setSelectedUserForRequest(user);
-          setSelectedRequestType('email_change' as SupportRequestType);
-          setShowSupportModal(true);
-          return null;
-        case 'unblock':
-          if (user.isBlocked) {
-            await handleUnblockUser(user);
-            return null;
-          } else {
-            // Пользователь не заблокирован - предлагаем блокировку
-            handleBlockUser(user);
-            return null;
-          }
-        case 'account_deletion':
-          // Открываем модалку техподдержки для удаления аккаунта
-          setSelectedUserForRequest(user);
-          setSelectedRequestType('account_deletion' as SupportRequestType);
-          setShowSupportModal(true);
-          return null;
-        case 'other':
-          // Открываем модалку для "other" запросов
-          setSelectedUserForRequest(user);
-          setSelectedRequestType('other' as SupportRequestType);
-          setShowSupportModal(true);
-          showNotification('info', `Открываю форму для запроса типа "другое"`);
-          return null;
-        default:
-          console.warn(`⚠️ Неизвестный тип запроса: ${requestType}`);
-          return null;
-      }
-    }
-  };
+  // ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАПРОСОВ (всегда открывает модалку)
+const handleRequestAction = async (user: User, requestType: string): Promise<User | null> => {
+  console.log(`📩 Обработка запроса ${requestType} для пользователя ${user.login}`);
+  
+  // ВСЕГДА открываем модалку техподдержки
+  setSelectedUserForRequest(user);
+  setSelectedRequestType(requestType as SupportRequestType);
+  setShowSupportModal(true);
+  
+  const requestCount = getRequestCount(user, requestType);
+  if (requestCount > 0) {
+    showNotification('info', 
+      `Открываю ${requestCount} активных запросов типа "${getRequestTypeName(requestType)}" для пользователя ${user.login}`
+    );
+  } else {
+    showNotification('info', 
+      `Открываю форму для запроса "${getRequestTypeName(requestType)}" пользователя ${user.login}`
+    );
+  }
+  
+  return null;
+};
 
   // Функция обработки запроса из модалки техподдержки
   const handleProcessSupportRequest = async (
@@ -222,36 +177,6 @@ const UsersPage: React.FC = () => {
     } catch (error: any) {
       console.error('❌ Ошибка обработки запроса:', error);
       showNotification('error', error.message || 'Ошибка сервера');
-    }
-  };
-
-  // Функция блокировки пользователя
-  const handleBlockConfirm = async (
-    duration: '7d' | '30d' | 'forever', 
-    reason?: string, 
-    deleteSessions?: boolean
-  ) => {
-    if (!userToBlock) return;
-
-    try {
-      const response = await usersService.blockUser(
-        userToBlock.login,
-        duration,
-        reason,
-        deleteSessions
-      );
-      
-      if (response.success) {
-        showNotification('success', response.message || `Пользователь ${userToBlock.login} заблокирован`);
-        setShowBlockModal(false);
-        setUserToBlock(null);
-        await fetchUsers(pagination.currentPage);
-      } else {
-        showNotification('error', response.message || 'Ошибка блокировки');
-      }
-    } catch (error: any) {
-      console.error('❌ Ошибка блокировки:', error);
-      showNotification('error', error.message || 'Ошибка блокировки');
     }
   };
 
@@ -383,8 +308,6 @@ const UsersPage: React.FC = () => {
           <UsersTable
             users={filteredUsers}
             isLoading={isLoading}
-            onBlockUser={handleBlockUser}
-            onUnblockUser={handleUnblockUser}
             onRequestAction={handleRequestAction}
             onResetPassword={handleResetPassword}
           />
@@ -405,18 +328,6 @@ const UsersPage: React.FC = () => {
           requestType={selectedRequestType}
           onClose={handleCloseSupportModal}
           onProcess={handleProcessSupportRequest}
-        />
-      )}
-
-      {/* Модальное окно блокировки */}
-      {showBlockModal && userToBlock && (
-        <BlockUserModal
-          user={userToBlock}
-          onConfirm={handleBlockConfirm}
-          onCancel={() => {
-            setShowBlockModal(false);
-            setUserToBlock(null);
-          }}
         />
       )}
     </div>
