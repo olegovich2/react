@@ -3,14 +3,10 @@ import { useAdminAuth } from '../../../../hooks/useAdminAuth';
 import './Header.css';
 
 const Header: React.FC = () => {
-  const { user } = useAdminAuth();
+  const { state: { user } } = useAdminAuth();
   
   useEffect(() => {
-    console.log('👤 [Header] Пользователь в Header:', {
-      username: user?.username,
-      role: user?.role,
-      hasUser: !!user
-    });
+    console.log('render Header');
   }, [user]);
   
   const currentTime = new Date().toLocaleTimeString('ru-RU', {

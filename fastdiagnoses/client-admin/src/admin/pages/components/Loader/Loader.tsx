@@ -2,6 +2,7 @@ import React from 'react';
 import './Loader.css';
 
 const Loader: React.FC = () => {
+  console.log('render Loader');
   return (
     <div className="admin-loader">
       <div className="admin-loader-content">

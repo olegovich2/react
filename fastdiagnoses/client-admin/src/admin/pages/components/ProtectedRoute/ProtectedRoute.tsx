@@ -1,7 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAdminAuth } from '../../../../hooks/useAdminAuth';
-import Loader from '../Loader/Loader';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -16,42 +15,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requireAuth = true,
   redirectTo = '/admin/login'
 }) => {
-  const { isAuthenticated, isLoading, user } = useAdminAuth();
+  const { state: { isAuthenticated, user } } = useAdminAuth();
   
-  console.log('🛡️ [ProtectedRoute] Проверка доступа:', {
-    isAuthenticated,
-    isLoading,
-    requireAuth,
-    requireAdmin,
-    userRole: user?.role,
-    userUsername: user?.username
-  });
-  
-  // Если идет загрузка
-  if (isLoading) {
-    console.log('⏳ [ProtectedRoute] Загрузка состояния авторизации...');
-    return <Loader />;
-  }
-  
-  // Если требуется авторизация и пользователь не авторизован
+ // ЕСЛИ требуется авторизация И пользователь НЕ авторизован → редирект
   if (requireAuth && !isAuthenticated) {
-    console.log('🚫 [ProtectedRoute] Пользователь не авторизован, редирект на', redirectTo);
     return <Navigate to={redirectTo} replace />;
   }
-  
-  // Если требуется админская роль и пользователь не админ
+
+  // ЕСЛИ требуется админ И пользователь НЕ админ → редирект
   if (requireAdmin && user?.role !== 'admin') {
-    console.log('⛔ [ProtectedRoute] Недостаточно прав, роль:', user?.role, 'требуется: admin');
     return <Navigate to="/admin" replace />;
   }
-  
-  // Если авторизация не требуется и пользователь авторизован - редирект на главную
+
+  // ЕСЛИ авторизация НЕ требуется И пользователь авторизован → редирект с логина
   if (!requireAuth && isAuthenticated) {
-    console.log('↪️ [ProtectedRoute] Авторизованный пользователь на странице входа, редирект на /admin');
     return <Navigate to="/admin" replace />;
   }
-  
-  console.log('✅ [ProtectedRoute] Доступ разрешен');
+
+  // ВСЕ проверки пройдены → просто пробрасываем детей
+  console.log('✅ [ProtectedRoute] Пробрасываем children');
   return <>{children}</>;
 };
 

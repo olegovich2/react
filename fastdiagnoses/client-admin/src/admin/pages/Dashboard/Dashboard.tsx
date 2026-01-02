@@ -9,7 +9,7 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("📊 [Dashboard] Компонент смонтирован");
+    console.log('render Dashboard');
     fetchDashboardStats();
   }, []);
 
@@ -19,32 +19,22 @@ const Dashboard: React.FC = () => {
     setError(null);
 
     try {
-      console.log("📡 [Dashboard] Отправляю запрос к API...");
       const response = await dashboardService.getStats();
-      console.log("✅ [Dashboard] Ответ от API:", {
-        success: response.success,
-        hasData: !!response.data,
-        data: response.data,
-      });
+      
 
       if (response.success && response.data) {
-        console.log("📊 [Dashboard] Данные получены:", response.data);
         setStats(response.data as DashboardStats);
-      } else {
-        console.error("❌ [Dashboard] Ошибка в ответе:", response.message);
+      } else {        
         setError(response.message || "Не удалось загрузить статистику");
       }
     } catch (error: any) {
-      console.error("💥 [Dashboard] Ошибка при обновлении:", error.message);
       setError(error.message || "Ошибка при загрузке данных");
     } finally {
-      console.log("🏁 [Dashboard] Завершено обновление");
       setIsLoading(false);
     }
   };
 
   if (isLoading) {
-    console.log("⏳ [Dashboard] Показываем загрузку");
     return (
       <div className="admin-dashboard">
         <div className="admin-dashboard-loading">
@@ -56,7 +46,6 @@ const Dashboard: React.FC = () => {
   }
 
   if (error) {
-    console.log("❌ [Dashboard] Показываем ошибку:", error);
     return (
       <div className="admin-dashboard">
         <div className="admin-dashboard-error">
@@ -76,7 +65,6 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  console.log("✅ [Dashboard] Показываем данные статистики");
   return (
     <div className="admin-dashboard">
       <div className="admin-dashboard-header">

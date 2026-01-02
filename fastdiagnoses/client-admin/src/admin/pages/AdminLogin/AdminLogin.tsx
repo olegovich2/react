@@ -1,29 +1,54 @@
-import React, { useState, FormEvent } from 'react';
+import React, { FormEvent, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../../../hooks/useAdminAuth';
+import Loader from '../components/Loader/Loader';
 import './AdminLogin.css';
 
 const AdminLogin: React.FC = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login, error } = useAdminAuth();
+  const { state: { isAuthenticated, isLoading, error }, login } = useAdminAuth();
   const navigate = useNavigate();
+  const hasRedirected = useRef(false);
+  
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
+  console.log('🔁 [AdminLogin] Рендер компонента');
+
+  const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) return;
     
-    setIsLoading(true);
-    const result = await login(username, password);
+    const username = usernameRef.current?.value || '';
+    const password = passwordRef.current?.value || '';
     
-    if (result.success) {
-      navigate('/admin');
+    if (!username.trim() || !password.trim()) {
+      return;
     }
     
-    setIsLoading(false);
-  };
+    const result = await login(username, password);
+    
+    if (usernameRef.current) usernameRef.current.value = '';
+    if (passwordRef.current) passwordRef.current.value = '';
+  }, [login]);
 
+  useEffect(() => {
+    if (isAuthenticated && !hasRedirected.current) {
+      hasRedirected.current = true;
+      navigate('/admin', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  if (isLoading) {
+    console.log('⏳ [AdminLogin] Рендер: показываем лоадер');
+    return <Loader />;
+  }
+
+  if (isAuthenticated) {
+    console.log('🔄 [AdminLogin] Рендер: ожидаем редирект');
+    return <Loader />;
+  }
+
+  console.log('📝 [AdminLogin] Рендер: показываем форму входа');
+  
   return (
     <div className="admin-login-container">
       <div className="admin-login-card">
@@ -41,13 +66,13 @@ const AdminLogin: React.FC = () => {
               <input
                 type="text"
                 id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                ref={usernameRef}
                 className="admin-login-input"
                 placeholder="Введите логин"
                 required
                 disabled={isLoading}
                 autoComplete="username"
+                defaultValue=""
               />
             </div>
             
@@ -58,13 +83,13 @@ const AdminLogin: React.FC = () => {
               <input
                 type="password"
                 id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                ref={passwordRef}
                 className="admin-login-input"
                 placeholder="Введите пароль"
                 required
                 disabled={isLoading}
                 autoComplete="current-password"
+                defaultValue=""
               />
             </div>
             
@@ -82,25 +107,8 @@ const AdminLogin: React.FC = () => {
               className={`admin-login-button ${isLoading ? 'admin-login-button-disabled' : ''}`}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <div className="admin-login-loading">
-                  <span>Вход...</span>
-                  <div className="admin-login-spinner"></div>
-                </div>
-              ) : (
-                'Войти в панель управления'
-              )}
+              {isLoading ? 'Вход...' : 'Войти в панель управления'}
             </button>
-          </div>
-          
-          <div className="admin-login-info">
-            <p className="admin-login-info-text">Тестовые данные:</p>
-            <p className="admin-login-info-text">
-              Логин: <strong>admin</strong>
-            </p>
-            <p className="admin-login-info-text">
-              Пароль: <strong>admin123</strong>
-            </p>
           </div>
         </form>
       </div>

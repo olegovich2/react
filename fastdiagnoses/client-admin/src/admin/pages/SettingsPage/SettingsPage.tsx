@@ -2,6 +2,7 @@ import React from 'react';
 import './SettingsPage.css';
 
 const SettingsPage: React.FC = () => {
+  console.log('render SettingsPage');
   return (
     <div className="admin-settings-page">
       <div className="admin-settings-page-header">

@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { AdminAuthProvider } from './contexts/AdminAuthContext';
 
 // Импорт админских компонентов
@@ -13,14 +13,34 @@ import ProtectedRoute from './admin/pages/components/ProtectedRoute/ProtectedRou
 
 import './App.css';
 
+// Компонент для отслеживания навигации
+const RedirectHandler: React.FC = () => {
+  return null;
+};
+
+// Компонент для обработки корневого редиректа
+const RootRedirect: React.FC = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    navigate('/admin/login', { replace: true });
+  }, [navigate]);
+
+  return null;
+};
+
 function App() {
-  console.log('🚀 [App] Приложение запущено');
+  console.log('🚀 [App] Компонент App смонтирован');
   
   return (
     <AdminAuthProvider>
       <Router>
         <div className="App">
+          <RedirectHandler />
           <Routes>
+            {/* Корневой путь - редирект на логин */}
+            <Route path="/" element={<RootRedirect />} />
+            
             {/* Страница входа (не требует авторизации) */}
             <Route path="/admin/login" element={
               <ProtectedRoute requireAuth={false}>
@@ -76,13 +96,6 @@ function App() {
                     <p>Страница в разработке</p>
                   </div>
                 </AdminLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* Редирект корня на логин */}
-            <Route path="/" element={
-              <ProtectedRoute requireAuth={false}>
-                <AdminLogin />
               </ProtectedRoute>
             } />
             

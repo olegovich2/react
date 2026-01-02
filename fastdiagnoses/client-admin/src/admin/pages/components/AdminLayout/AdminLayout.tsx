@@ -8,7 +8,7 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({children}) => {
-  console.log(children, '-----------');
+  console.log('render AdminLayout');
   
   return (
     <div className="admin-layout">

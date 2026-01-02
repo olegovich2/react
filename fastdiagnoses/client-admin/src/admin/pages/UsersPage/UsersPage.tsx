@@ -82,7 +82,7 @@ const UsersPage: React.FC = () => {
       await fetchUsers(1);
       await fetchStats();
     };
-    
+    console.log('render UsersPage');
     loadData();
   }, []);
 
@@ -116,9 +116,7 @@ const UsersPage: React.FC = () => {
   };
 
   // ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАПРОСОВ (всегда открывает модалку)
-const handleRequestAction = async (user: User, requestType: string): Promise<User | null> => {
-  console.log(`📩 Обработка запроса ${requestType} для пользователя ${user.login}`);
-  
+const handleRequestAction = async (user: User, requestType: string): Promise<User | null> => {  
   // ВСЕГДА открываем модалку техподдержки
   setSelectedUserForRequest(user);
   setSelectedRequestType(requestType as SupportRequestType);
@@ -145,12 +143,7 @@ const handleRequestAction = async (user: User, requestType: string): Promise<Use
     reason?: string,
     emailResponse?: string // для типа "other"
   ) => {
-    try {
-      console.log(`⚡ Обработка запроса ${requestId}: ${action}`, { 
-        reason, 
-        hasEmailResponse: !!emailResponse 
-      });
-      
+    try {      
       // Используем supportService для обработки запроса
       const response = await usersService.processSupportRequest(
         requestId, 

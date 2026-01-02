@@ -19,7 +19,7 @@ const Sidebar: React.FC = () => {
     { path: '/admin/settings', label: 'Настройки', icon: '⚙️' },
     { path: '/admin/backups', label: 'Бэкапы', icon: '💾' },
   ];
-
+console.log('render Sidebar');
   return (
     <aside className="admin-sidebar">
       <div className="admin-sidebar-logo">

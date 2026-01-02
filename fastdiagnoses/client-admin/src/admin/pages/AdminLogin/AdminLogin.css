@@ -168,51 +168,6 @@
     cursor: not-allowed !important;
 }
 
-/* Лоадер в кнопке */
-.admin-login-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.admin-login-spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(183, 222, 234, 0.3);
-    border-top: 2px solid rgb(183, 222, 234);
-    border-radius: 50%;
-    animation: admin-login-spin 1s linear infinite;
-}
-
-/* ==================== ИНФОРМАЦИОННЫЙ БЛОК ==================== */
-.admin-login-info {
-    margin-top: 25px;
-    padding: 16px;
-    background: rgba(183, 222, 234, 0.5);
-    border-radius: 8px;
-    border-left: 4px solid rgb(88, 96, 98);
-    text-align: center;
-}
-
-.admin-login-info-text {
-    margin: 6px 0;
-    color: rgb(88, 96, 98);
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.4;
-}
-
-.admin-login-info-text strong {
-    color: rgb(66, 73, 75);
-}
-
-/* ==================== АНИМАЦИЯ СПИННЕРА ==================== */
-@keyframes admin-login-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
 /* ==================== АДАПТИВНОСТЬ ==================== */
 @media (max-width: 768px) {
     .admin-login-container {
@@ -274,17 +229,5 @@
     .admin-login-button {
         padding: 14px;
         font-size: 14px;
-    }
-    
-    .admin-login-actions {
-        gap: 10px;
-    }
-    
-    .admin-login-info {
-        padding: 14px;
-    }
-    
-    .admin-login-info-text {
-        font-size: 12px;
     }
 }

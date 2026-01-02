@@ -4,7 +4,7 @@ import './NotFound.css';
 
 const NotFound: React.FC = () => {
   const navigate = useNavigate();
-
+console.log('render NotFound');
   return (
     <div className="admin-not-found">
       <div className="admin-not-found-content">
