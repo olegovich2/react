@@ -2,45 +2,46 @@ const { query } = require("../../services/databaseService");
 const SupportController = require("../../support/controllers/SupportController");
 const bcrypt = require("bcryptjs");
 const emailService = require("../../utils/emailService");
+const logger = require("../../services/LoggerService");
 
 class AdminSupportController {
   // 1. ПОЛУЧИТЬ ВСЕ АКТИВНЫЕ ЗАПРОСЫ ПОЛЬЗОВАТЕЛЯ
   static async getUserRequests(req, res) {
-    console.log("📩 [AdminSupportController.getUserRequests] Запрос:", {
+    logger.info("Запрос всех активных запросов пользователя", {
       adminId: req.admin.id,
-      params: req.params,
+      login: req.params.login,
       query: req.query,
+      endpoint: req.path,
+      method: req.method,
     });
 
     try {
       const { login } = req.params;
       const { type, status, limit = 50 } = req.query;
 
-      // === 1. ПРОСТАЯ ВАЛИДАЦИЯ ===
       if (!login || login.trim() === "") {
+        logger.warn("Не указан логин пользователя", {
+          adminId: req.admin.id,
+          endpoint: req.path,
+        });
+
         return res.status(400).json({
           success: false,
           message: "Логин пользователя обязателен",
         });
       }
 
-      // === 2. ФОРМИРОВАНИЕ SQL БЕЗ ПАРАМЕТРОВ ===
       const whereConditions = [];
-
-      // 2.1 Логин (прямая подстановка - работает и безопасно в нашем случае)
       whereConditions.push(`login = '${login}'`);
 
-      // 2.2 Тип запроса
       if (type && type !== "all") {
         whereConditions.push(`type = '${type}'`);
       }
 
-      // 2.3 Статус запроса
       if (status && status !== "all") {
         if (status === "resolved") {
           whereConditions.push(`status = 'resolved'`);
         } else if (status === "active") {
-          // Активные запросы (не закрытые)
           whereConditions.push(
             `status IN ('pending', 'confirmed', 'in_progress')`
           );
@@ -49,16 +50,11 @@ class AdminSupportController {
         }
       }
 
-      // 2.4 Всегда только активные запросы
-      // whereConditions.push(`status IN ('pending', 'confirmed', 'in_progress')`);
-
-      // 2.5 Формируем WHERE
       const whereClause =
         whereConditions.length > 0
           ? `WHERE ${whereConditions.join(" AND ")}`
           : "";
 
-      // 2.6 SQL запрос
       const sql = `
       SELECT 
         id,
@@ -82,23 +78,22 @@ class AdminSupportController {
       LIMIT ${parseInt(limit)}
     `;
 
-      console.log("🔍 [AdminSupportController.getUserRequests] SQL:", {
-        sql: sql.substring(0, 300) + "...",
+      logger.debug("SQL запрос для получения запросов пользователя", {
+        login,
+        sql_preview: sql.substring(0, 200),
         whereConditions,
+        limit,
       });
 
-      // === 3. ВЫПОЛНЯЕМ ЗАПРОС ===
       const requests = await query(sql);
 
-      console.log(
-        "✅ [AdminSupportController.getUserRequests] Найдено запросов:",
-        {
-          count: requests.length,
-          login: login,
-        }
-      );
+      logger.info("Найдено запросов пользователя", {
+        login,
+        count: requests.length,
+        hasOverdue: requests.some((r) => r.is_overdue === 1),
+        request_types: [...new Set(requests.map((r) => r.type))],
+      });
 
-      // === 4. ФОРМАТИРУЕМ ОТВЕТ ===
       const formattedRequests = requests.map((request) => ({
         id: request.id,
         publicId: request.public_id,
@@ -114,7 +109,6 @@ class AdminSupportController {
         adminNotes: request.admin_notes,
       }));
 
-      // === 5. СТАТИСТИКА ===
       const statsSql = `
       SELECT 
         type,
@@ -138,7 +132,13 @@ class AdminSupportController {
           (stats.byStatus[row.status] || 0) + row.count;
       });
 
-      // === 6. ВОЗВРАЩАЕМ ОТВЕТ ===
+      logger.debug("Статистика запросов пользователя", {
+        login,
+        total: stats.total,
+        byType: stats.byType,
+        byStatus: stats.byStatus,
+      });
+
       res.json({
         success: true,
         data: {
@@ -149,21 +149,15 @@ class AdminSupportController {
         },
       });
     } catch (error) {
-      console.error("❌ [AdminSupportController.getUserRequests] Ошибка:", {
-        error: error.message,
-        stack: error.stack,
+      logger.error("Ошибка получения запросов пользователя", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
+        adminId: req.admin.id,
+        endpoint: req.path,
       });
 
       let errorMessage = "Ошибка получения запросов пользователя";
-
-      if (error.message.includes("Incorrect arguments")) {
-        errorMessage = "Ошибка в SQL запросе: неверные параметры";
-      } else if (error.message.includes("syntax")) {
-        errorMessage = "Ошибка синтаксиса SQL";
-      } else if (error.message.includes("ER_NO_SUCH_TABLE")) {
-        errorMessage = "Таблица support_requests не найдена";
-      }
 
       res.status(500).json({
         success: false,
@@ -178,31 +172,32 @@ class AdminSupportController {
     }
   }
 
-  // 2. АВТОМАТИЧЕСКАЯ ПРОВЕРКА ЗАПРОСА - ИСПРАВЛЕННОЕ СРАВНЕНИЕ СЕКРЕТНОГО СЛОВА И ДОБАВЛЕНА ПРОВЕРКА EMAIL
+  // 2. АВТОМАТИЧЕСКАЯ ПРОВЕРКА ЗАПРОСА
   static async validateRequest(req, res) {
-    console.log(
-      "🔍 [AdminSupportController.validateRequest] Начало проверки:",
-      {
-        adminId: req.admin.id,
-        adminName: req.admin.username,
-        requestId: req.params.id,
-      }
-    );
+    const startTime = Date.now();
+
+    logger.info("Начало автоматической проверки запроса", {
+      adminId: req.admin.id,
+      adminName: req.admin.username,
+      requestId: req.params.id,
+      endpoint: req.path,
+      method: req.method,
+    });
 
     try {
       const { id } = req.params;
 
-      // 1. ПОЛУЧАЕМ ЗАПРОС
       const [request] = await query(
         `SELECT * FROM support_requests WHERE id = ? OR public_id = ?`,
         [id, id]
       );
 
       if (!request) {
-        console.warn(
-          "⚠️ [AdminSupportController.validateRequest] Запрос не найден:",
-          id
-        );
+        logger.warn("Запрос не найден при валидации", {
+          requestId: id,
+          adminId: req.admin.id,
+        });
+
         return res.status(404).json({
           success: false,
           isValid: false,
@@ -210,21 +205,14 @@ class AdminSupportController {
         });
       }
 
-      console.log(
-        "🔍 [AdminSupportController.validateRequest] Запрос найден:",
-        {
-          id: request.id,
-          type: request.type,
-          login: request.login,
-          email: request.email,
-          new_email: request.new_email,
-          status: request.status,
-          hasSecretWordHash: !!request.secret_word_hash,
-          hasPassword: !!request.password,
-        }
-      );
+      logger.debug("Запрос найден для валидации", {
+        requestId: request.id,
+        type: request.type,
+        login: request.login,
+        status: request.status,
+        email: request.email,
+      });
 
-      // 2. ПОЛУЧАЕМ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ
       const [user] = await query(
         `SELECT login, email, secret_word, password FROM usersdata WHERE login = ?`,
         [request.login]
@@ -241,29 +229,27 @@ class AdminSupportController {
         messageLength: request.message?.length || 0,
       };
 
-      // 3. ОБРАБОТКА ДЛЯ ТИПА "other"
       if (request.type === "other") {
-        console.log(
-          "ℹ️ [AdminSupportController.validateRequest] Обработка типа 'other'"
-        );
+        logger.info("Обработка запроса типа 'other'", {
+          requestId: request.id,
+          login: request.login,
+        });
 
         const checkedFields = {
           login: false,
-          email: false, // ИСПРАВЛЕНО: Добавлено поле email
+          email: false,
           secretWord: false,
           password: null,
         };
 
-        // Проверяем существование пользователя
         if (user) {
           checkedFields.login = true;
           validationDetails.userExists = true;
 
-          // Проверяем email
           if (user.email && request.email) {
             const emailMatches =
               user.email.toLowerCase() === request.email.toLowerCase();
-            checkedFields.email = emailMatches; // ИСПРАВЛЕНО: реальное значение
+            checkedFields.email = emailMatches;
             validationDetails.emailMatches = emailMatches;
 
             if (!emailMatches) {
@@ -271,10 +257,9 @@ class AdminSupportController {
             }
           } else {
             errors.push("Email отсутствует в запросе или у пользователя");
-            checkedFields.email = false; // ИСПРАВЛЕНО: явно false
+            checkedFields.email = false;
           }
 
-          // Проверяем сообщение
           if (!request.message || request.message.trim() === "") {
             errors.push("Сообщение обязательно для типа 'other'");
           } else if (request.message.length < 10) {
@@ -289,15 +274,13 @@ class AdminSupportController {
 
         const isValid = errors.length === 0;
 
-        console.log(
-          "📊 [AdminSupportController.validateRequest] Результат проверки для 'other':",
-          {
-            isValid,
-            errors: errors.length > 0 ? errors : "Нет ошибок",
-            checkedFields,
-            validationDetails,
-          }
-        );
+        logger.info("Результат проверки для типа 'other'", {
+          requestId: request.id,
+          isValid,
+          errors_count: errors.length,
+          checkedFields,
+          userExists: validationDetails.userExists,
+        });
 
         return res.json({
           success: true,
@@ -321,7 +304,6 @@ class AdminSupportController {
         });
       }
 
-      // 4. ДЛЯ ВСЕХ ДРУГИХ ТИПОВ: ПОЛНАЯ ПРОВЕРКА
       const checkedFields = {
         login: false,
         email: false,
@@ -329,12 +311,12 @@ class AdminSupportController {
         password: null,
       };
 
-      // 4.1 Проверяем существование пользователя
       if (!user) {
-        console.warn(
-          "⚠️ [AdminSupportController.validateRequest] Пользователь не найден:",
-          request.login
-        );
+        logger.warn("Пользователь не найден при валидации запроса", {
+          login: request.login,
+          requestId: request.id,
+        });
+
         return res.json({
           success: true,
           isValid: false,
@@ -354,24 +336,20 @@ class AdminSupportController {
         });
       }
 
-      console.log(
-        "✅ [AdminSupportController.validateRequest] Пользователь найден:",
-        {
-          login: user.login,
-          email: user.email,
-          hasSecretWord: !!user.secret_word,
-          hasPassword: !!user.password,
-        }
-      );
+      logger.debug("Пользователь найден для проверки", {
+        login: user.login,
+        hasEmail: !!user.email,
+        hasSecretWord: !!user.secret_word,
+        hasPassword: !!user.password,
+      });
 
       checkedFields.login = true;
       validationDetails.userExists = true;
 
-      // 4.2 ПРОВЕРКА EMAIL (ИСПРАВЛЕННАЯ - без хардкода)
       if (user.email && request.email) {
         const emailMatches =
           user.email.toLowerCase() === request.email.toLowerCase();
-        checkedFields.email = emailMatches; // ИСПРАВЛЕНО: реальное значение, а не false
+        checkedFields.email = emailMatches;
         validationDetails.emailMatches = emailMatches;
 
         if (!emailMatches) {
@@ -383,11 +361,9 @@ class AdminSupportController {
         validationDetails.emailMatches = false;
       }
 
-      // 4.3 РАСШИФРОВЫВАЕМ ДАННЫЕ
       let decryptedSecretWord = null;
       let decryptedPassword = null;
 
-      // Расшифровка секретного слова
       try {
         if (request.secret_word_hash) {
           decryptedSecretWord = SupportController.decryptText(
@@ -400,14 +376,13 @@ class AdminSupportController {
           errors.push("Секретное слово отсутствует в запросе");
         }
       } catch (decryptError) {
-        console.error(
-          "❌ [AdminSupportController.validateRequest] Ошибка расшифровки секретного слова:",
-          decryptError.message
-        );
+        logger.error("Ошибка расшифровки секретного слова", {
+          error_message: decryptError.message,
+          requestId: request.id,
+        });
         errors.push("Ошибка расшифровки секретного слова");
       }
 
-      // Расшифровка пароля (если требуется для типа запроса)
       const requiresPassword = [
         "email_change",
         "unblock",
@@ -428,20 +403,14 @@ class AdminSupportController {
             errors.push("Пароль отсутствует в запросе");
           }
         } catch (decryptError) {
-          console.error(
-            "❌ [AdminSupportController.validateRequest] Ошибка расшифровки пароля:",
-            decryptError.message
-          );
+          logger.error("Ошибка расшифровки пароля", {
+            error_message: decryptError.message,
+            requestId: request.id,
+          });
           errors.push("Ошибка расшифровки пароля");
         }
       }
 
-      // Если ошибки расшифровки - проверяем дальше но с ошибками
-      // (не прерываем сразу, собираем все ошибки)
-
-      // 5. ПРОВЕРЯЕМ ДАННЫЕ С ИСПРАВЛЕННЫМ СРАВНЕНИЕМ
-
-      // ИСПРАВЛЕННАЯ ПРОВЕРКА СЕКРЕТНОГО СЛОВА
       if (
         decryptedSecretWord &&
         user.secret_word &&
@@ -456,27 +425,27 @@ class AdminSupportController {
           if (secretWordMatch) {
             checkedFields.secretWord = true;
             validationDetails.secretWordMatches = true;
-            console.log(
-              "✅ [AdminSupportController.validateRequest] Секретное слово совпадает"
-            );
+            logger.debug("Секретное слово совпадает", {
+              requestId: request.id,
+            });
           } else {
             errors.push("Секретное слово не совпадает");
             validationDetails.secretWordMatches = false;
-            console.warn(
-              "⚠️ [AdminSupportController.validateRequest] Секретное слово НЕ совпадает"
-            );
+            logger.warn("Секретное слово не совпадает", {
+              requestId: request.id,
+              login: request.login,
+            });
           }
         } catch (bcryptError) {
-          console.error(
-            "❌ [AdminSupportController.validateRequest] Ошибка проверки секретного слова:",
-            bcryptError.message
-          );
+          logger.error("Ошибка проверки секретного слова", {
+            error_message: bcryptError.message,
+            requestId: request.id,
+          });
           errors.push("Ошибка проверки секретного слова");
           validationDetails.secretWordMatches = false;
         }
       }
 
-      // ПРОВЕРКА ПАРОЛЯ (если требуется)
       if (
         requiresPassword &&
         decryptedPassword &&
@@ -491,59 +460,54 @@ class AdminSupportController {
           if (passwordMatch) {
             checkedFields.password = true;
             validationDetails.passwordMatches = true;
-            console.log(
-              "✅ [AdminSupportController.validateRequest] Пароль совпадает"
-            );
+            logger.debug("Пароль совпадает", { requestId: request.id });
           } else {
             errors.push("Пароль не совпадает");
             validationDetails.passwordMatches = false;
-            console.warn(
-              "⚠️ [AdminSupportController.validateRequest] Пароль НЕ совпадает"
-            );
+            logger.warn("Пароль не совпадает", {
+              requestId: request.id,
+              login: request.login,
+            });
           }
         } catch (bcryptError) {
-          console.error(
-            "❌ [AdminSupportController.validateRequest] Ошибка проверки пароля:",
-            bcryptError.message
-          );
+          logger.error("Ошибка проверки пароля", {
+            error_message: bcryptError.message,
+            requestId: request.id,
+          });
           errors.push("Ошибка проверки пароля");
           validationDetails.passwordMatches = false;
         }
       }
 
-      // 6. ФОРМИРУЕМ РЕЗУЛЬТАТ
       const isValid = errors.length === 0;
+      const responseTime = Date.now() - startTime;
 
-      console.log(
-        "📊 [AdminSupportController.validateRequest] Результат проверки:",
-        {
-          isValid,
-          errors: errors.length > 0 ? errors : "Нет ошибок",
-          checkedFields,
-          validationDetails,
-          requestType: request.type,
-        }
-      );
+      logger.info("Валидация запроса завершена", {
+        requestId: request.id,
+        type: request.type,
+        isValid,
+        errors_count: errors.length,
+        response_time_ms: responseTime,
+        adminId: req.admin.id,
+      });
 
-      // Обновляем статус запроса если проверка успешна
       if (isValid && request.status === "confirmed") {
         try {
           await query(
             `UPDATE support_requests SET status = 'in_progress' WHERE id = ?`,
             [request.id]
           );
-          console.log(
-            "🔄 [AdminSupportController.validateRequest] Статус обновлен на 'in_progress'"
-          );
+          logger.debug("Статус запроса обновлен на 'in_progress'", {
+            requestId: request.id,
+          });
         } catch (updateError) {
-          console.warn(
-            "⚠️ [AdminSupportController.validateRequest] Не удалось обновить статус:",
-            updateError.message
-          );
+          logger.warn("Не удалось обновить статус запроса", {
+            error_message: updateError.message,
+            requestId: request.id,
+          });
         }
       }
 
-      // 7. ВОЗВРАЩАЕМ РЕЗУЛЬТАТ
       res.json({
         success: true,
         isValid,
@@ -556,7 +520,7 @@ class AdminSupportController {
           type: request.type,
           login: request.login,
           email: request.email,
-          newEmail: request.new_email, // Добавляем для email_change
+          newEmail: request.new_email,
           status: isValid ? "in_progress" : request.status,
           createdAt: request.created_at,
           isOverdue:
@@ -565,14 +529,13 @@ class AdminSupportController {
         },
       });
     } catch (error) {
-      console.error(
-        "❌ [AdminSupportController.validateRequest] Критическая ошибка:",
-        {
-          error: error.message,
-          stack: error.stack,
-          requestId: req.params.id,
-        }
-      );
+      logger.error("Критическая ошибка при валидации запроса", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        requestId: req.params.id,
+        adminId: req.admin?.id,
+        response_time_ms: Date.now() - startTime,
+      });
 
       res.status(500).json({
         success: false,
@@ -584,16 +547,15 @@ class AdminSupportController {
 
   // 3. ПОЛУЧИТЬ ИНФОРМАЦИЮ О ЗАПРОСЕ (БЕЗ РАСШИФРОВКИ)
   static async getRequestInfo(req, res) {
+    logger.info("Запрос информации о заявке поддержки", {
+      requestId: req.params.id,
+      adminId: req.admin.id,
+      endpoint: req.path,
+      method: req.method,
+    });
+
     try {
       const { id } = req.params;
-
-      console.log(
-        "🔍 [AdminSupportController.getRequestInfo] Запрос информации:",
-        {
-          requestId: id,
-          adminId: req.admin.id,
-        }
-      );
 
       const [request] = await query(
         `SELECT 
@@ -620,24 +582,25 @@ class AdminSupportController {
       );
 
       if (!request) {
-        console.warn(
-          "⚠️ [AdminSupportController.getRequestInfo] Запрос не найден:",
-          id
-        );
+        logger.warn("Заявка поддержки не найдена", {
+          requestId: id,
+          adminId: req.admin.id,
+        });
+
         return res.status(404).json({
           success: false,
           message: "Запрос не найден",
         });
       }
 
-      console.log("✅ [AdminSupportController.getRequestInfo] Запрос найден:", {
-        id: request.id,
+      logger.debug("Заявка поддержки найдена", {
+        requestId: request.id,
         type: request.type,
         status: request.status,
+        login: request.login,
         isOverdue: request.is_overdue === 1,
       });
 
-      // Получаем логи по запросу
       const logs = await query(
         `SELECT 
           action,
@@ -653,14 +616,11 @@ class AdminSupportController {
         [request.id]
       );
 
-      console.log(
-        "📋 [AdminSupportController.getRequestInfo] Логи загружены:",
-        {
-          count: logs.length,
-        }
-      );
+      logger.debug("Логи заявки загружены", {
+        requestId: request.id,
+        logs_count: logs.length,
+      });
 
-      // Форматируем ответ
       const responseData = {
         request: {
           id: request.id,
@@ -688,11 +648,11 @@ class AdminSupportController {
         })),
       };
 
-      // Дополнительная информация для типа "other"
       if (request.type === "other") {
-        console.log(
-          "ℹ️ [AdminSupportController.getRequestInfo] Добавляем детали для типа 'other'"
-        );
+        logger.debug("Добавление дополнительной информации для типа 'other'", {
+          requestId: request.id,
+        });
+
         responseData.additionalInfo = {
           hasMessage: !!request.message,
           messageLength: request.message?.length || 0,
@@ -702,17 +662,25 @@ class AdminSupportController {
         };
       }
 
+      logger.info("Информация о заявке успешно получена", {
+        requestId: request.id,
+        type: request.type,
+        logs_count: logs.length,
+      });
+
       res.json({
         success: true,
         data: responseData,
       });
     } catch (error) {
-      console.error("❌ [AdminSupportController.getRequestInfo] Ошибка:", {
-        error: error.message,
-        stack: error.stack,
+      logger.error("Ошибка получения информации о заявке", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
         requestId: req.params.id,
         adminId: req.admin?.id,
+        endpoint: req.path,
       });
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения информации о запросе",
@@ -722,36 +690,46 @@ class AdminSupportController {
 
   // 4. ОБРАБОТАТЬ ЗАПРОС (ОДОБРИТЬ/ОТКЛОНИТЬ) С ОТПРАВКОЙ ПИСЕМ
   static async processRequest(req, res) {
-    console.log(
-      "⚡ [AdminSupportController.processRequest] Обработка запроса:",
-      {
-        adminId: req.admin.id,
-        adminName: req.admin.username,
-        requestId: req.params.id,
-        body: req.body,
-      }
-    );
+    const startTime = Date.now();
+
+    logger.info("Начало обработки запроса поддержки", {
+      adminId: req.admin.id,
+      adminName: req.admin.username,
+      requestId: req.params.id,
+      action: req.body.action,
+      endpoint: req.path,
+      method: req.method,
+    });
 
     const connection = await getConnection();
     try {
       const { id } = req.params;
       const { action, reason, emailResponse } = req.body;
 
-      // ВАЛИДАЦИЯ ДЕЙСТВИЯ
       if (!action || !["approve", "reject"].includes(action)) {
+        logger.warn("Неверное действие при обработке запроса", {
+          action,
+          allowed: ["approve", "reject"],
+          requestId: id,
+        });
+
         return res.status(400).json({
           success: false,
           message: "Неверное действие. Допустимые значения: approve, reject",
         });
       }
 
-      // 1. ПОЛУЧАЕМ ЗАПРОС
       const [request] = await connection.execute(
         `SELECT * FROM support_requests WHERE id = ? OR public_id = ?`,
         [id, id]
       );
 
       if (!request || request.length === 0) {
+        logger.warn("Запрос поддержки не найден при обработке", {
+          requestId: id,
+          adminId: req.admin.id,
+        });
+
         return res.status(404).json({
           success: false,
           message: "Запрос не найден",
@@ -760,17 +738,17 @@ class AdminSupportController {
 
       const supportRequest = request[0];
 
-      console.log("🔍 [AdminSupportController.processRequest] Запрос найден:", {
-        id: supportRequest.id,
+      logger.debug("Запрос поддержки найден для обработки", {
+        requestId: supportRequest.id,
         type: supportRequest.type,
         login: supportRequest.login,
         email: supportRequest.email,
         status: supportRequest.status,
+        action: action,
       });
 
       await connection.beginTransaction();
 
-      // 2. ОБНОВЛЯЕМ СТАТУС ЗАПРОСА
       const newStatus = action === "approve" ? "resolved" : "rejected";
 
       await connection.execute(
@@ -789,24 +767,21 @@ class AdminSupportController {
         ]
       );
 
-      console.log(
-        "✅ [AdminSupportController.processRequest] Статус обновлен:",
-        {
-          requestId: supportRequest.id,
-          oldStatus: supportRequest.status,
-          newStatus,
-          action,
-        }
-      );
+      logger.info("Статус запроса обновлен", {
+        requestId: supportRequest.id,
+        oldStatus: supportRequest.status,
+        newStatus,
+        action,
+        adminId: req.admin.id,
+      });
 
-      // 3. ЛОГИРУЕМ ДЕЙСТВИЕ КАК ИЗМЕНЕНИЕ СТАТУСА (status_changed)
       await connection.execute(
         `INSERT INTO support_request_logs 
        (request_id, action, old_value, new_value, actor_type, actor_id) 
        VALUES (?, ?, ?, ?, ?, ?)`,
         [
           supportRequest.id,
-          "status_changed", // ← ИСПРАВЛЕНО: используем существующий ENUM
+          "status_changed",
           supportRequest.status,
           newStatus,
           "admin",
@@ -814,47 +789,48 @@ class AdminSupportController {
         ]
       );
 
-      // 4. ЛОГИРУЕМ В admin_logs С КОРРЕКТНЫМИ ДЛИНАМИ
+      // ИСПРАВЛЕНО: action_type → action
       const logDetails = {
         requestType: supportRequest.type,
-        action: action, // 'approve' или 'reject' - короткие значения
+        action: action,
         reason: reason || null,
         processedBy: req.admin.username,
         timestamp: new Date().toISOString(),
       };
 
-      // ИСПРАВЛЕНО: Длины полей соответствуют БД
       await connection.execute(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+        `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
        VALUES (?, ?, ?, ?, ?)`,
         [
           req.admin.id,
-          action === "approve" ? "approve" : "reject", // ← Короткие значения
-          "support", // ← Короткое, вместо 'support_request'
+          action === "approve" ? "approve" : "reject",
+          "support",
           supportRequest.id,
           JSON.stringify(logDetails),
         ]
       );
 
-      // 5. ВЫПОЛНЯЕМ ДЕЙСТВИЯ И ОТПРАВЛЯЕМ ПИСЬМА
+      logger.debug("Действие залогировано в admin_logs", {
+        adminId: req.admin.id,
+        action: action,
+        requestId: supportRequest.id,
+      });
+
       let actionResult = {};
       let emailResults = [];
 
       switch (supportRequest.type) {
         case "password_reset":
           if (action === "approve") {
-            // Генерируем новый пароль
             const newPassword = Math.random().toString(36).slice(-8) + "A1!";
             const salt = await bcrypt.genSalt(12);
             const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-            // Обновляем пароль
             await connection.execute(
               "UPDATE usersdata SET password = ? WHERE login = ?",
               [hashedPassword, supportRequest.login]
             );
 
-            // Удаляем сессии
             await connection.execute(
               "DELETE FROM sessionsdata WHERE login = ?",
               [supportRequest.login]
@@ -867,15 +843,12 @@ class AdminSupportController {
               newPassword: newPassword,
             };
 
-            console.log(
-              "✅ [AdminSupportController.processRequest] Пароль сброшен:",
-              {
-                login: supportRequest.login,
-                passwordLength: newPassword.length,
-              }
-            );
+            logger.info("Пароль пользователя сброшен", {
+              login: supportRequest.login,
+              requestId: supportRequest.id,
+              passwordGenerated: !!newPassword,
+            });
 
-            // ОТПРАВЛЯЕМ ПИСЬМО С НОВЫМ ПАРОЛЕМ
             try {
               await emailService.sendSupportRequestProcessed({
                 login: supportRequest.login,
@@ -894,15 +867,16 @@ class AdminSupportController {
                 passwordSent: true,
               });
 
-              console.log(
-                "📧 [AdminSupportController.processRequest] Письмо с новым паролем отправлено на:",
-                supportRequest.email
-              );
+              logger.info("Письмо с новым паролем отправлено", {
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
             } catch (emailError) {
-              console.error(
-                "❌ [AdminSupportController.processRequest] Ошибка отправки письма:",
-                emailError.message
-              );
+              logger.error("Ошибка отправки письма с паролем", {
+                error_message: emailError.message,
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
               emailResults.push({
                 type: "password_reset",
                 success: false,
@@ -910,7 +884,6 @@ class AdminSupportController {
               });
             }
           } else if (action === "reject") {
-            // ОТПРАВЛЯЕМ ПИСЬМО ОБ ОТКАЗЕ
             try {
               await emailService.sendSupportRequestProcessed({
                 login: supportRequest.login,
@@ -927,15 +900,16 @@ class AdminSupportController {
                 success: true,
               });
 
-              console.log(
-                "📧 [AdminSupportController.processRequest] Письмо об отказе отправлено на:",
-                supportRequest.email
-              );
+              logger.info("Письмо об отказе в сбросе пароля отправлено", {
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
             } catch (emailError) {
-              console.error(
-                "❌ [AdminSupportController.processRequest] Ошибка отправки письма об отказе:",
-                emailError.message
-              );
+              logger.error("Ошибка отправки письма об отказе", {
+                error_message: emailError.message,
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
               emailResults.push({
                 type: "password_reset_rejected",
                 success: false,
@@ -946,82 +920,76 @@ class AdminSupportController {
           break;
 
         case "email_change":
-          if (action === "approve") {
-            if (supportRequest.new_email) {
-              // Обновляем email
-              await connection.execute(
-                "UPDATE usersdata SET email = ? WHERE login = ?",
-                [supportRequest.new_email, supportRequest.login]
-              );
+          if (action === "approve" && supportRequest.new_email) {
+            await connection.execute(
+              "UPDATE usersdata SET email = ? WHERE login = ?",
+              [supportRequest.new_email, supportRequest.login]
+            );
 
-              actionResult = {
-                emailChanged: true,
+            actionResult = {
+              emailChanged: true,
+              oldEmail: supportRequest.email,
+              newEmail: supportRequest.new_email,
+            };
+
+            logger.info("Email пользователя изменен", {
+              login: supportRequest.login,
+              oldEmail: supportRequest.email,
+              newEmail: supportRequest.new_email,
+              requestId: supportRequest.id,
+            });
+
+            try {
+              await emailService.sendSupportEmailChangeNotification({
+                login: supportRequest.login,
+                email: supportRequest.email,
+                requestId: supportRequest.public_id || supportRequest.id,
+                adminName: req.admin.username,
                 oldEmail: supportRequest.email,
                 newEmail: supportRequest.new_email,
-              };
+                isNewEmail: false,
+              });
 
-              console.log(
-                "✅ [AdminSupportController.processRequest] Email изменен:",
-                {
-                  login: supportRequest.login,
-                  from: supportRequest.email,
-                  to: supportRequest.new_email,
-                }
-              );
+              emailResults.push({
+                type: "email_change_old",
+                email: supportRequest.email,
+                success: true,
+              });
 
-              // ОТПРАВЛЯЕМ ПИСЬМА
-              try {
-                // 1. На старый email
-                await emailService.sendSupportEmailChangeNotification({
-                  login: supportRequest.login,
-                  email: supportRequest.email,
-                  requestId: supportRequest.public_id || supportRequest.id,
-                  adminName: req.admin.username,
-                  oldEmail: supportRequest.email,
-                  newEmail: supportRequest.new_email,
-                  isNewEmail: false,
-                });
+              await emailService.sendSupportEmailChangeNotification({
+                login: supportRequest.login,
+                email: supportRequest.new_email,
+                requestId: supportRequest.public_id || supportRequest.id,
+                adminName: req.admin.username,
+                oldEmail: supportRequest.email,
+                newEmail: supportRequest.new_email,
+                isNewEmail: true,
+              });
 
-                emailResults.push({
-                  type: "email_change_old",
-                  email: supportRequest.email,
-                  success: true,
-                });
+              emailResults.push({
+                type: "email_change_new",
+                email: supportRequest.new_email,
+                success: true,
+              });
 
-                // 2. На новый email
-                await emailService.sendSupportEmailChangeNotification({
-                  login: supportRequest.login,
-                  email: supportRequest.new_email,
-                  requestId: supportRequest.public_id || supportRequest.id,
-                  adminName: req.admin.username,
-                  oldEmail: supportRequest.email,
-                  newEmail: supportRequest.new_email,
-                  isNewEmail: true,
-                });
-
-                emailResults.push({
-                  type: "email_change_new",
-                  email: supportRequest.new_email,
-                  success: true,
-                });
-
-                console.log(
-                  "📧 [AdminSupportController.processRequest] Уведомления отправлены"
-                );
-              } catch (emailError) {
-                console.error(
-                  "❌ [AdminSupportController.processRequest] Ошибка отправки email:",
-                  emailError.message
-                );
-                emailResults.push({
-                  type: "email_change",
-                  success: false,
-                  error: emailError.message,
-                });
-              }
+              logger.info("Уведомления об изменении email отправлены", {
+                login: supportRequest.login,
+                oldEmail: supportRequest.email,
+                newEmail: supportRequest.new_email,
+              });
+            } catch (emailError) {
+              logger.error("Ошибка отправки уведомлений об изменении email", {
+                error_message: emailError.message,
+                login: supportRequest.login,
+                emails: [supportRequest.email, supportRequest.new_email],
+              });
+              emailResults.push({
+                type: "email_change",
+                success: false,
+                error: emailError.message,
+              });
             }
           } else if (action === "reject") {
-            // ОТПРАВЛЯЕМ ПИСЬМО ОБ ОТКАЗЕ
             try {
               await emailService.sendSupportRequestProcessed({
                 login: supportRequest.login,
@@ -1038,14 +1006,16 @@ class AdminSupportController {
                 success: true,
               });
 
-              console.log(
-                "📧 [AdminSupportController.processRequest] Письмо об отказе отправлено"
-              );
+              logger.info("Письмо об отказе в изменении email отправлено", {
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
             } catch (emailError) {
-              console.error(
-                "❌ [AdminSupportController.processRequest] Ошибка отправки письма:",
-                emailError.message
-              );
+              logger.error("Ошибка отправки письма об отказе", {
+                error_message: emailError.message,
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
               emailResults.push({
                 type: "email_change_rejected",
                 success: false,
@@ -1057,7 +1027,6 @@ class AdminSupportController {
 
         case "unblock":
           if (action === "approve") {
-            // Разблокируем пользователя
             await connection.execute(
               `UPDATE usersdata 
              SET blocked = 0, blocked_until = NULL 
@@ -1070,14 +1039,12 @@ class AdminSupportController {
               login: supportRequest.login,
             };
 
-            console.log(
-              "✅ [AdminSupportController.processRequest] Пользователь разблокирован:",
-              {
-                login: supportRequest.login,
-              }
-            );
+            logger.info("Пользователь разблокирован", {
+              login: supportRequest.login,
+              requestId: supportRequest.id,
+              adminId: req.admin.id,
+            });
 
-            // ОТПРАВЛЯЕМ ПИСЬМО
             try {
               await emailService.sendSupportRequestProcessed({
                 login: supportRequest.login,
@@ -1094,14 +1061,16 @@ class AdminSupportController {
                 success: true,
               });
 
-              console.log(
-                "📧 [AdminSupportController.processRequest] Письмо о разблокировке отправлено"
-              );
+              logger.info("Письмо о разблокировке отправлено", {
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
             } catch (emailError) {
-              console.error(
-                "❌ [AdminSupportController.processRequest] Ошибка отправки письма:",
-                emailError.message
-              );
+              logger.error("Ошибка отправки письма о разблокировке", {
+                error_message: emailError.message,
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
               emailResults.push({
                 type: "unblock",
                 success: false,
@@ -1109,7 +1078,6 @@ class AdminSupportController {
               });
             }
           } else if (action === "reject") {
-            // ОТПРАВЛЯЕМ ПИСЬМО ОБ ОТКАЗЕ
             try {
               await emailService.sendSupportRequestProcessed({
                 login: supportRequest.login,
@@ -1126,14 +1094,16 @@ class AdminSupportController {
                 success: true,
               });
 
-              console.log(
-                "📧 [AdminSupportController.processRequest] Письмо об отказе отправлено"
-              );
+              logger.info("Письмо об отказе в разблокировке отправлено", {
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
             } catch (emailError) {
-              console.error(
-                "❌ [AdminSupportController.processRequest] Ошибка отправки письма:",
-                emailError.message
-              );
+              logger.error("Ошибка отправки письма об отказе", {
+                error_message: emailError.message,
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
               emailResults.push({
                 type: "unblock_rejected",
                 success: false,
@@ -1145,13 +1115,9 @@ class AdminSupportController {
 
         case "account_deletion":
           if (action === "approve") {
-            // Импортируем сервис для отложенного удаления
             const FileDeletionService = require("../../services/FileDeletionService");
-
-            // ВРЕМЯ УДАЛЕНИЯ (24 часа)
             const deletionDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-            // ОТПРАВЛЯЕМ ПРЕДУПРЕЖДЕНИЕ ОБ УДАЛЕНИИ
             try {
               await emailService.sendSupportAccountDeletionWarning({
                 login: supportRequest.login,
@@ -1168,14 +1134,17 @@ class AdminSupportController {
                 deletionDate: deletionDate,
               });
 
-              console.log(
-                "📧 [AdminSupportController.processRequest] Предупреждение об удалении отправлено"
-              );
+              logger.info("Предупреждение об удалении аккаунта отправлено", {
+                email: supportRequest.email,
+                login: supportRequest.login,
+                deletionDate: deletionDate.toISOString(),
+              });
             } catch (emailError) {
-              console.error(
-                "❌ [AdminSupportController.processRequest] Ошибка отправки предупреждения:",
-                emailError.message
-              );
+              logger.error("Ошибка отправки предупреждения об удалении", {
+                error_message: emailError.message,
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
               emailResults.push({
                 type: "deletion_warning",
                 success: false,
@@ -1183,15 +1152,13 @@ class AdminSupportController {
               });
             }
 
-            // ОТЛОЖЕННОЕ УДАЛЕНИЕ
             try {
               const deletionResult =
                 await FileDeletionService.scheduleUserFilesDeletion(
                   supportRequest.login,
-                  24 // Через 24 часа
+                  24
                 );
 
-              // УДАЛЯЕМ ПОЛЬЗОВАТЕЛЯ ИЗ СИСТЕМНЫХ ТАБЛИЦ
               await connection.execute(
                 "DELETE FROM sessionsdata WHERE login = ?",
                 [supportRequest.login]
@@ -1214,16 +1181,17 @@ class AdminSupportController {
                 note: `Аккаунт помечен на удаление. Файлы (${deletionResult.count}) будут удалены через 24 часа.`,
               };
 
-              console.log(
-                "🗑️ [AdminSupportController.processRequest] Аккаунт помечен на удаление"
-              );
+              logger.info("Аккаунт помечен на удаление", {
+                login: supportRequest.login,
+                files_count: deletionResult.count,
+                deletion_date: deletionDate.toISOString(),
+              });
             } catch (deletionError) {
-              console.error(
-                "❌ [AdminSupportController.processRequest] Ошибка планирования удаления:",
-                deletionError.message
-              );
+              logger.error("Ошибка планирования удаления файлов", {
+                error_message: deletionError.message,
+                login: supportRequest.login,
+              });
 
-              // Запасной вариант - прямое удаление
               await connection.execute(
                 `DROP TABLE IF EXISTS \`${supportRequest.login}\``
               );
@@ -1246,9 +1214,13 @@ class AdminSupportController {
                 fallbackMode: true,
                 error: deletionError.message,
               };
+
+              logger.warn("Аккаунт удален в режиме fallback", {
+                login: supportRequest.login,
+                error: deletionError.message,
+              });
             }
           } else if (action === "reject") {
-            // ОТПРАВЛЯЕМ ПИСЬМО ОБ ОТКАЗЕ
             try {
               await emailService.sendSupportRequestProcessed({
                 login: supportRequest.login,
@@ -1265,14 +1237,16 @@ class AdminSupportController {
                 success: true,
               });
 
-              console.log(
-                "📧 [AdminSupportController.processRequest] Письмо об отказе отправлено"
-              );
+              logger.info("Письмо об отказе в удалении аккаунта отправлено", {
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
             } catch (emailError) {
-              console.error(
-                "❌ [AdminSupportController.processRequest] Ошибка отправки письма:",
-                emailError.message
-              );
+              logger.error("Ошибка отправки письма об отказе", {
+                error_message: emailError.message,
+                email: supportRequest.email,
+                login: supportRequest.login,
+              });
               emailResults.push({
                 type: "deletion_rejected",
                 success: false,
@@ -1284,7 +1258,6 @@ class AdminSupportController {
 
         case "other":
           if (action === "approve") {
-            // 1. ПОЛУЧАЕМ РЕАЛЬНЫЙ EMAIL ПОЛЬЗОВАТЕЛЯ ИЗ БАЗЫ
             let realEmail = null;
             try {
               const [userData] = await connection.execute(
@@ -1294,37 +1267,30 @@ class AdminSupportController {
 
               if (userData && userData.length > 0 && userData[0].email) {
                 realEmail = userData[0].email;
-                console.log(
-                  "✅ [processRequest] Найден реальный email пользователя:",
-                  {
-                    login: supportRequest.login,
-                    realEmail: realEmail,
-                    requestEmail: supportRequest.email,
-                  }
-                );
+                logger.debug("Найден реальный email пользователя", {
+                  login: supportRequest.login,
+                  realEmail: realEmail,
+                  requestEmail: supportRequest.email,
+                });
               } else {
-                console.warn(
-                  "⚠️ [processRequest] Пользователь не найден или нет email:",
-                  {
-                    login: supportRequest.login,
-                    foundInDB: userData ? userData.length : 0,
-                  }
-                );
+                logger.warn("Пользователь не найден или нет email", {
+                  login: supportRequest.login,
+                  foundInDB: userData ? userData.length : 0,
+                });
               }
             } catch (dbError) {
-              console.error(
-                "❌ [processRequest] Ошибка получения данных пользователя:",
-                dbError.message
-              );
+              logger.error("Ошибка получения данных пользователя", {
+                error_message: dbError.message,
+                login: supportRequest.login,
+              });
             }
 
-            // 2. ОТПРАВЛЯЕМ ОТВЕТ АДМИНИСТРАТОРА (только если есть реальный email)
             if (emailResponse) {
               if (realEmail) {
                 try {
                   await emailService.sendSupportAdminResponse({
                     login: supportRequest.login,
-                    email: realEmail, // ← ИСПРАВЛЕНО: используем реальный email из базы
+                    email: realEmail,
                     requestId: supportRequest.public_id || supportRequest.id,
                     adminName: req.admin.username,
                     adminResponse: emailResponse,
@@ -1348,18 +1314,17 @@ class AdminSupportController {
                     note: `Ответ отправлен на email пользователя: ${realEmail}`,
                   };
 
-                  console.log(
-                    "📧 [processRequest] Ответ для типа 'other' отправлен на реальный email:",
-                    {
-                      login: supportRequest.login,
-                      email: realEmail,
-                    }
-                  );
+                  logger.info("Ответ для типа 'other' отправлен", {
+                    login: supportRequest.login,
+                    email: realEmail,
+                    response_length: emailResponse.length,
+                  });
                 } catch (emailError) {
-                  console.error(
-                    "❌ [processRequest] Ошибка отправки ответа:",
-                    emailError.message
-                  );
+                  logger.error("Ошибка отправки ответа", {
+                    error_message: emailError.message,
+                    login: supportRequest.login,
+                    email: realEmail,
+                  });
                   emailResults.push({
                     type: "other_response",
                     success: false,
@@ -1373,7 +1338,6 @@ class AdminSupportController {
                   };
                 }
               } else {
-                // Нет реального email - не отправляем письмо, но все равно завершаем обработку
                 actionResult = {
                   emailResponseSkipped: true,
                   reason:
@@ -1389,16 +1353,12 @@ class AdminSupportController {
                   note: "Пользователь не найден или нет email в системе",
                 });
 
-                console.warn(
-                  "⚠️ [processRequest] Не удалось отправить ответ для типа 'other':",
-                  {
-                    login: supportRequest.login,
-                    reason: "Пользователь не найден или нет email",
-                  }
-                );
+                logger.warn("Не удалось отправить ответ для типа 'other'", {
+                  login: supportRequest.login,
+                  reason: "Пользователь не найден или нет email",
+                });
               }
             } else {
-              // Нет ответа администратора
               actionResult = {
                 emailResponseSkipped: true,
                 reason: "Администратор не предоставил текст ответа",
@@ -1406,7 +1366,6 @@ class AdminSupportController {
               };
             }
           } else if (action === "reject") {
-            // 3. ОТКЛОНЕНИЕ ЗАПРОСА - тоже используем реальный email
             let realEmail = null;
             try {
               const [userData] = await connection.execute(
@@ -1418,18 +1377,17 @@ class AdminSupportController {
                 realEmail = userData[0].email;
               }
             } catch (dbError) {
-              console.error(
-                "❌ [processRequest] Ошибка получения email при отклонении:",
-                dbError.message
-              );
+              logger.error("Ошибка получения email при отклонении", {
+                error_message: dbError.message,
+                login: supportRequest.login,
+              });
             }
 
-            // ОТПРАВЛЯЕМ ПИСЬМО ОБ ОТКАЗЕ (только если есть реальный email)
             if (realEmail) {
               try {
                 await emailService.sendSupportRequestProcessed({
                   login: supportRequest.login,
-                  email: realEmail, // ← ИСПРАВЛЕНО: используем реальный email
+                  email: realEmail,
                   requestId: supportRequest.public_id || supportRequest.id,
                   requestType: supportRequest.type,
                   action: action,
@@ -1444,18 +1402,16 @@ class AdminSupportController {
                   source: "database",
                 });
 
-                console.log(
-                  "📧 [processRequest] Письмо об отказе отправлено на реальный email:",
-                  {
-                    login: supportRequest.login,
-                    email: realEmail,
-                  }
-                );
+                logger.info("Письмо об отказе для типа 'other' отправлено", {
+                  login: supportRequest.login,
+                  email: realEmail,
+                });
               } catch (emailError) {
-                console.error(
-                  "❌ [processRequest] Ошибка отправки письма об отказе:",
-                  emailError.message
-                );
+                logger.error("Ошибка отправки письма об отказе", {
+                  error_message: emailError.message,
+                  login: supportRequest.login,
+                  email: realEmail,
+                });
                 emailResults.push({
                   type: "other_rejected",
                   success: false,
@@ -1464,7 +1420,6 @@ class AdminSupportController {
                 });
               }
             } else {
-              // Нет реального email - не отправляем письмо об отказе
               emailResults.push({
                 type: "other_rejected",
                 success: false,
@@ -1473,28 +1428,24 @@ class AdminSupportController {
                 note: "Пользователь не найден или нет email в системе",
               });
 
-              console.warn(
-                "⚠️ [processRequest] Не удалось отправить письмо об отказе:",
-                {
-                  login: supportRequest.login,
-                  reason: "Пользователь не найден или нет email",
-                }
-              );
+              logger.warn("Не удалось отправить письмо об отказе", {
+                login: supportRequest.login,
+                reason: "Пользователь не найден или нет email",
+              });
             }
           }
           break;
       }
 
-      // 6. ЛОГИРУЕМ ОТПРАВКУ EMAIL (ЕСЛИ БЫЛИ)
       if (emailResults.length > 0) {
         try {
           await connection.execute(
-            `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+            `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
            VALUES (?, ?, ?, ?, ?)`,
             [
               req.admin.id,
-              "email_sent", // ← Короткое значение
-              "support", // ← Короткое
+              "email_sent",
+              "support",
               supportRequest.id,
               JSON.stringify({
                 requestId: supportRequest.public_id || supportRequest.id,
@@ -1504,20 +1455,33 @@ class AdminSupportController {
               }),
             ]
           );
-          console.log(
-            "📝 [AdminSupportController.processRequest] Логи email отправлены"
-          );
+          logger.debug("Логи email отправлены", {
+            requestId: supportRequest.id,
+            emailResultsCount: emailResults.length,
+          });
         } catch (logError) {
-          console.warn(
-            "⚠️ [AdminSupportController.processRequest] Не удалось залогировать email:",
-            logError.message
-          );
+          logger.warn("Не удалось залогировать email", {
+            error_message: logError.message,
+            requestId: supportRequest.id,
+          });
         }
       }
 
       await connection.commit();
 
-      // 7. ПОДГОТОВКА ОТВЕТА
+      const responseTime = Date.now() - startTime;
+      const successfulEmails = emailResults.filter((e) => e.success).length;
+
+      logger.info("Обработка запроса завершена", {
+        requestId: supportRequest.id,
+        type: supportRequest.type,
+        action: action,
+        response_time_ms: responseTime,
+        emails_sent: successfulEmails,
+        emails_total: emailResults.length,
+        adminId: req.admin.id,
+      });
+
       const response = {
         success: true,
         message:
@@ -1531,35 +1495,24 @@ class AdminSupportController {
           processedBy: req.admin.username,
           result: actionResult,
           reason: reason || null,
-          emailsSent: emailResults.filter((e) => e.success).length,
+          emailsSent: successfulEmails,
           emailsTotal: emailResults.length,
           emailResults: emailResults,
         },
       };
 
-      console.log(
-        "✅ [AdminSupportController.processRequest] Запрос обработан:",
-        {
-          requestId: supportRequest.id,
-          action,
-          type: supportRequest.type,
-          emailsSent: emailResults.filter((e) => e.success).length,
-          emailsTotal: emailResults.length,
-        }
-      );
-
       res.json(response);
     } catch (error) {
       await connection.rollback();
-      console.error(
-        "❌ [AdminSupportController.processRequest] Ошибка обработки:",
-        {
-          error: error.message,
-          stack: error.stack,
-          requestId: req.params.id,
-          adminId: req.admin?.id,
-        }
-      );
+
+      logger.error("Критическая ошибка обработки запроса поддержки", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        requestId: req.params.id,
+        adminId: req.admin?.id,
+        response_time_ms: Date.now() - startTime,
+        endpoint: req.path,
+      });
 
       res.status(500).json({
         success: false,
@@ -1569,6 +1522,10 @@ class AdminSupportController {
       });
     } finally {
       connection.release();
+      logger.debug("Соединение с БД освобождено", {
+        requestId: req.params.id,
+        adminId: req.admin.id,
+      });
     }
   }
 }
@@ -1581,10 +1538,10 @@ const getConnection = async () => {
     } = require("../../services/databaseService");
     return await getDbConnection();
   } catch (error) {
-    console.error(
-      "❌ [AdminSupportController] Ошибка получения соединения:",
-      error
-    );
+    logger.error("Ошибка получения соединения с БД", {
+      error_message: error.message,
+      stack_trace: error.stack?.substring(0, 500),
+    });
     throw error;
   }
 };

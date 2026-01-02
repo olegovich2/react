@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const constants = require("./constants");
 const database = require("./database");
+const loggerConfig = require("./logger");
 
 module.exports = {
   // Сервер
@@ -27,6 +28,9 @@ module.exports = {
 
   // База данных
   database: database.poolConfig,
+
+  // Логгер конфигурация
+  logger: loggerConfig,
 
   // Убедитесь, что поддержка тоже доступна напрямую
   getSupportUrl: constants.getSupportUrl,

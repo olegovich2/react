@@ -2,18 +2,19 @@ const bcrypt = require("bcryptjs");
 const { query, getConnection } = require("../../services/databaseService");
 const emailService = require("../../utils/emailService");
 const validator = require("validator");
+const logger = require("../../services/LoggerService");
 
 class AdminUsersController {
   // Получение списка пользователей
   static async getUsers(req, res) {
-    console.log(
-      "👥 [AdminUsersController.getUsers] Запрос пользователей с фильтрами:",
-      {
-        query: req.query,
-        adminId: req.admin.id,
-        timestamp: new Date().toISOString(),
-      }
-    );
+    const startTime = Date.now();
+
+    logger.info("Запрос списка пользователей с фильтрами", {
+      admin_id: req.admin.id,
+      query: req.query,
+      endpoint: req.path,
+      method: req.method,
+    });
 
     const {
       search = "",
@@ -21,14 +22,12 @@ class AdminUsersController {
       limit = 20,
       sortBy = "created_at",
       sortOrder = "DESC",
-      isActive, // фильтр по статусу активации
-      isBlocked, // фильтр по статусу блокировки
-
-      // НОВЫЕ ФИЛЬТРЫ ДЛЯ ЗАПРОСОВ ТЕХПОДДЕРЖКИ
-      hasRequests, // 'all', 'true', 'false' - есть активные запросы
-      requestType, // 'all', 'password_reset', 'email_change', 'unblock', 'account_deletion', 'other'
-      isOverdue, // 'all', 'true', 'false' - есть просроченные запросы (>24ч)
-      requestStatus, // 'all', 'confirmed', 'in_progress' - статус запроса
+      isActive,
+      isBlocked,
+      hasRequests,
+      requestType,
+      isOverdue,
+      requestStatus,
     } = req.query;
 
     const pageNum = parseInt(page);
@@ -36,7 +35,7 @@ class AdminUsersController {
     const offsetNum = (pageNum - 1) * limitNum;
 
     try {
-      console.log("🔍 [AdminUsersController.getUsers] Параметры запроса:", {
+      logger.debug("Параметры запроса пользователей", {
         search,
         page: pageNum,
         limit: limitNum,
@@ -50,10 +49,8 @@ class AdminUsersController {
         sortOrder,
       });
 
-      // 1. Формируем условия WHERE для основной таблицы usersdata
       const whereConditions = [];
 
-      // Поиск по логину или email
       if (search.trim() !== "") {
         const searchTerm = `%${search.trim()}%`;
         whereConditions.push(
@@ -61,7 +58,6 @@ class AdminUsersController {
         );
       }
 
-      // Фильтрация по статусу активности
       if (isActive !== undefined) {
         if (isActive === "true") {
           whereConditions.push('u.logic = "true"');
@@ -70,7 +66,6 @@ class AdminUsersController {
         }
       }
 
-      // Фильтрация по статусу блокировки
       if (isBlocked !== undefined) {
         if (isBlocked === "true") {
           whereConditions.push("u.blocked = 1");
@@ -79,9 +74,7 @@ class AdminUsersController {
         }
       }
 
-      // 2. ФОРМИРУЕМ ПОДЗАПРОСЫ ДЛЯ СЧЕТЧИКОВ ЗАПРОСОВ (БЕЗ COLLATE)
       const supportRequestSubqueries = `
-      -- Количество активных запросов по типам
       (SELECT COUNT(*) FROM support_requests sr 
        WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
@@ -107,25 +100,21 @@ class AdminUsersController {
          AND sr.status IN ('confirmed', 'in_progress')
          AND sr.type = 'other') as other_count,
       
-      -- Общее количество активных запросов
       (SELECT COUNT(*) FROM support_requests sr 
        WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')) as total_active_requests,
       
-      -- Количество просроченных запросов (>24 часов)
       (SELECT COUNT(*) FROM support_requests sr 
        WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
          AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)) as overdue_count,
       
-      -- ID самого старого активного запроса (для ссылки)
       (SELECT sr.id FROM support_requests sr 
        WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
        ORDER BY sr.created_at ASC 
        LIMIT 1) as oldest_request_id,
       
-      -- Тип самого старого активного запроса
       (SELECT sr.type FROM support_requests sr 
        WHERE sr.login = u.login 
          AND sr.status IN ('confirmed', 'in_progress')
@@ -133,16 +122,13 @@ class AdminUsersController {
        LIMIT 1) as oldest_request_type
     `;
 
-      // 3. ДОБАВЛЯЕМ УСЛОВИЯ ДЛЯ ФИЛЬТРАЦИИ ПО ЗАПРОСАМ (БЕЗ COLLATE)
       if (hasRequests === "true") {
-        // Только пользователи с активными запросами
         whereConditions.push(`EXISTS (
         SELECT 1 FROM support_requests sr 
         WHERE sr.login = u.login 
           AND sr.status IN ('confirmed', 'in_progress')
       )`);
       } else if (hasRequests === "false") {
-        // Только пользователи БЕЗ активных запросов
         whereConditions.push(`NOT EXISTS (
         SELECT 1 FROM support_requests sr 
         WHERE sr.login = u.login 
@@ -150,7 +136,6 @@ class AdminUsersController {
       )`);
       }
 
-      // Фильтр по типу запроса
       if (requestType && requestType !== "all") {
         whereConditions.push(`EXISTS (
         SELECT 1 FROM support_requests sr 
@@ -160,7 +145,6 @@ class AdminUsersController {
       )`);
       }
 
-      // Фильтр по просроченным запросам
       if (isOverdue === "true") {
         whereConditions.push(`EXISTS (
         SELECT 1 FROM support_requests sr 
@@ -169,7 +153,6 @@ class AdminUsersController {
           AND sr.created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)
       )`);
       } else if (isOverdue === "false") {
-        // Только непросроченные (или нет запросов)
         whereConditions.push(`(
         NOT EXISTS (
           SELECT 1 FROM support_requests sr 
@@ -184,7 +167,6 @@ class AdminUsersController {
       )`);
       }
 
-      // Фильтр по статусу запроса
       if (requestStatus && requestStatus !== "all") {
         whereConditions.push(`EXISTS (
         SELECT 1 FROM support_requests sr 
@@ -198,7 +180,6 @@ class AdminUsersController {
           ? `WHERE ${whereConditions.join(" AND ")}`
           : "";
 
-      // 4. ОСНОВНОЙ SQL ЗАПРОС
       const sql = `
       SELECT 
         u.login, 
@@ -216,15 +197,15 @@ class AdminUsersController {
       LIMIT ${limitNum} OFFSET ${offsetNum}
     `;
 
-      console.log("🔍 [AdminUsersController.getUsers] SQL запрос:", {
-        sqlPreview: sql.substring(0, 300) + "...",
-        whereConditions,
-        parameters: { limit: limitNum, offset: offsetNum },
+      logger.debug("SQL запрос для получения пользователей", {
+        sql_preview: sql.substring(0, 300) + "...",
+        where_conditions_count: whereConditions.length,
+        limit: limitNum,
+        offset: offsetNum,
       });
 
       const users = await query(sql);
 
-      // 5. ОБЩЕЕ КОЛИЧЕСТВО С УЧЕТОМ ФИЛЬТРОВ
       const countSql = `
       SELECT COUNT(*) as total 
       FROM usersdata u 
@@ -234,15 +215,6 @@ class AdminUsersController {
       const [totalResult] = await query(countSql);
       const totalUsers = totalResult.total || 0;
 
-      console.log("📊 [AdminUsersController.getUsers] Найдено пользователей:", {
-        total: totalUsers,
-        onPage: users.length,
-        withActiveRequests: users.filter((u) => u.total_active_requests > 0)
-          .length,
-        withOverdueRequests: users.filter((u) => u.overdue_count > 0).length,
-      });
-
-      // 6. СТАТИСТИКА С УЧЕТОМ ФИЛЬТРОВ
       const statsSql = `
       SELECT 
         COUNT(*) as total_users,
@@ -251,7 +223,6 @@ class AdminUsersController {
         SUM(CASE WHEN u.blocked = 1 THEN 1 ELSE 0 END) as blocked_users,
         SUM(CASE WHEN u.blocked = 0 OR u.blocked IS NULL THEN 1 ELSE 0 END) as not_blocked_users,
         
-        -- Статистика по запросам
         SUM(CASE WHEN EXISTS (
           SELECT 1 FROM support_requests sr 
           WHERE sr.login = u.login 
@@ -271,19 +242,11 @@ class AdminUsersController {
 
       const [statsResult] = await query(statsSql);
 
-      console.log("📈 [AdminUsersController.getUsers] Статистика:", {
-        totalUsers: statsResult.total_users,
-        withRequests: statsResult.users_with_requests,
-        withOverdue: statsResult.users_with_overdue_requests,
-      });
-
-      // 7. ПОЛУЧАЕМ СТАТИСТИКУ ДЛЯ КАЖДОГО ПОЛЬЗОВАТЕЛЯ
       const usersWithStats = await Promise.all(
         users.map(async (user) => {
           let surveyCount = 0;
           let imageCount = 0;
 
-          // Получаем статистику из таблицы пользователя
           try {
             const [tableExists] = await query(
               `SELECT COUNT(*) as exists_flag 
@@ -309,13 +272,12 @@ class AdminUsersController {
               }
             }
           } catch (statsError) {
-            console.warn(
-              `⚠️ [AdminUsersController.getUsers] Не удалось получить статистику для ${user.login}:`,
-              statsError.message
-            );
+            logger.warn("Не удалось получить статистику для пользователя", {
+              login: user.login,
+              error_message: statsError.message,
+            });
           }
 
-          // РАСЧЕТ ДОПОЛНИТЕЛЬНЫХ ПОЛЕЙ ДЛЯ БЛОКИРОВКИ
           const isBlocked = user.blocked === 1;
           let isPermanentlyBlocked = false;
           let blockedUntilFormatted = null;
@@ -340,7 +302,6 @@ class AdminUsersController {
             }
           }
 
-          // Формируем объект пользователя
           return {
             id: user.login,
             login: user.login,
@@ -354,14 +315,10 @@ class AdminUsersController {
             createdAt: user.created_at,
             activeSessions: user.active_sessions || 0,
             hasUserTable: surveyCount > 0 || imageCount > 0,
-
-            // Статистика пользователя
             stats: {
               surveys: surveyCount,
               images: imageCount,
             },
-
-            // НОВЫЕ ПОЛЯ: ЗАПРОСЫ ТЕХПОДДЕРЖКИ
             supportRequests: {
               password_reset: user.password_reset_count || 0,
               email_change: user.email_change_count || 0,
@@ -378,14 +335,20 @@ class AdminUsersController {
         })
       );
 
-      console.log("✅ [AdminUsersController.getUsers] Обработка завершена:", {
-        processedUsers: usersWithStats.length,
-        usersWithRequests: usersWithStats.filter(
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Список пользователей получен", {
+        total_users: totalUsers,
+        on_page: usersWithStats.length,
+        with_active_requests: usersWithStats.filter(
           (u) => u.supportRequests.total > 0
         ).length,
+        with_overdue_requests: usersWithStats.filter(
+          (u) => u.supportRequests.overdue
+        ).length,
+        response_time_ms: responseTime,
       });
 
-      // 8. ФОРМИРУЕМ ОТВЕТ
       const response = {
         success: true,
         users: usersWithStats,
@@ -396,14 +359,11 @@ class AdminUsersController {
           itemsPerPage: limitNum,
         },
         stats: {
-          // Основная статистика
           totalUsers: statsResult.total_users,
           activeUsers: statsResult.active_users,
           pendingUsers: statsResult.pending_users,
           blockedUsers: statsResult.blocked_users,
           notBlockedUsers: statsResult.not_blocked_users,
-
-          // Статистика по запросам
           usersWithRequests: statsResult.users_with_requests,
           usersWithOverdueRequests: statsResult.users_with_overdue_requests,
         },
@@ -421,23 +381,15 @@ class AdminUsersController {
         timestamp: new Date().toISOString(),
       };
 
-      console.log("📤 [AdminUsersController.getUsers] Отправка ответа:", {
-        usersCount: response.users.length,
-        hasRequestsFilter: response.filters.hasRequests,
-        totalWithRequests: response.stats.usersWithRequests,
-      });
-
       res.json(response);
     } catch (error) {
-      console.error(
-        "❌ [AdminUsersController.getUsers] Ошибка получения списка пользователей:",
-        {
-          error: error.message,
-          stack: error.stack,
-          adminId: req.admin.id,
-          query: req.query,
-        }
-      );
+      logger.error("Ошибка получения списка пользователей", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        admin_id: req.admin.id,
+        query: req.query,
+        response_time_ms: Date.now() - startTime,
+      });
 
       res.status(500).json({
         success: false,
@@ -451,18 +403,18 @@ class AdminUsersController {
 
   // Получение детальной информации о пользователе
   static async getUserDetails(req, res) {
-    console.log(
-      "👤 [AdminUsersController.getUserDetails] Запрос деталей пользователя:",
-      {
-        params: req.params,
-        adminId: req.admin.id,
-      }
-    );
+    const startTime = Date.now();
+
+    logger.info("Запрос детальной информации о пользователе", {
+      params: req.params,
+      admin_id: req.admin.id,
+      endpoint: req.path,
+      method: req.method,
+    });
 
     try {
       const { login } = req.params;
 
-      // Основная информация - ДОБАВЛЯЕМ ПОЛЯ БЛОКИРОВКИ
       const [user] = await query(
         `SELECT 
            login, 
@@ -479,21 +431,11 @@ class AdminUsersController {
         [login, login, login]
       );
 
-      console.log(
-        "🔍 [AdminUsersController.getUserDetails] Пользователь найден:",
-        {
-          exists: user.length > 0,
-          login: user[0]?.login,
-          isBlocked: user[0]?.blocked,
-          blockedUntil: user[0]?.blocked_until,
-        }
-      );
-
       if (!user || user.length === 0) {
-        console.warn(
-          "⚠️ [AdminUsersController.getUserDetails] Пользователь не найден:",
-          login
-        );
+        logger.warn("Пользователь не найден", {
+          login,
+          admin_id: req.admin.id,
+        });
 
         return res.status(404).json({
           success: false,
@@ -503,7 +445,13 @@ class AdminUsersController {
 
       const userData = user[0];
 
-      // РАСЧЕТ ДОПОЛНИТЕЛЬНЫХ ПОЛЕЙ ДЛЯ БЛОКИРОВКИ
+      logger.debug("Пользователь найден", {
+        login: userData.login,
+        is_blocked: userData.blocked === 1,
+        blocked_until: userData.blocked_until,
+        is_active: userData.is_active === "true",
+      });
+
       const isBlocked = userData.blocked === 1;
       let isPermanentlyBlocked = false;
       let blockedUntilFormatted = null;
@@ -514,7 +462,6 @@ class AdminUsersController {
         const blockedUntil = new Date(userData.blocked_until);
         const now = new Date();
 
-        // Проверяем бессрочную блокировку (2099 год)
         isPermanentlyBlocked = blockedUntil.getFullYear() >= 2099;
 
         if (isPermanentlyBlocked) {
@@ -523,34 +470,19 @@ class AdminUsersController {
         } else if (blockedUntil > now) {
           blockStatus = "temporarily_blocked";
 
-          // Рассчитываем оставшиеся дни
           const diffTime = blockedUntil - now;
           daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          // Форматируем дату
           const day = blockedUntil.getDate();
           const month = blockedUntil.toLocaleString("ru-RU", { month: "long" });
           const year = blockedUntil.getFullYear();
           blockedUntilFormatted = `${day} ${month} ${year} года`;
         } else {
-          // Срок блокировки истёк, но статус ещё не обновлён
           blockStatus = "expired_block";
           blockedUntilFormatted = "срок истёк";
         }
       }
 
-      console.log(
-        "📊 [AdminUsersController.getUserDetails] Статус блокировки:",
-        {
-          isBlocked,
-          blockStatus,
-          isPermanentlyBlocked,
-          daysRemaining,
-          blockedUntilFormatted,
-        }
-      );
-
-      // Проверяем существование таблицы пользователя
       const [tableExists] = await query(
         `SELECT COUNT(*) as exists_flag 
          FROM information_schema.tables 
@@ -561,7 +493,6 @@ class AdminUsersController {
 
       let userStats = {};
       if (tableExists.exists_flag > 0) {
-        // Получаем статистику из таблицы пользователя
         const [stats] = await query(
           `SELECT 
              COUNT(CASE WHEN type = 'survey' THEN 1 END) as survey_count,
@@ -582,7 +513,6 @@ class AdminUsersController {
         };
       }
 
-      // Получаем последние сессии
       const sessions = await query(
         `SELECT id, date as login_time, jwt_access as token_prefix
          FROM sessionsdata 
@@ -592,7 +522,6 @@ class AdminUsersController {
         [login]
       );
 
-      // Получаем последние действия (логи входа) - ИЗМЕНЯЕМ: только администраторов
       const recentAdminLogins = await query(
         `SELECT ip_address, success, created_at 
          FROM login_attempts 
@@ -603,7 +532,6 @@ class AdminUsersController {
         [login]
       );
 
-      // Получаем историю блокировок из blocked_login_attempts
       const blockHistory = await query(
         `SELECT 
            id,
@@ -620,17 +548,9 @@ class AdminUsersController {
         [login]
       );
 
-      console.log(
-        "📋 [AdminUsersController.getUserDetails] История блокировок:",
-        {
-          count: blockHistory.length,
-        }
-      );
-
-      // Получаем историю админских действий с этим пользователем
       const adminActions = await query(
         `SELECT 
-           al.action_type,
+           al.action,
            al.details,
            al.created_at,
            au.username as admin_name
@@ -643,11 +563,15 @@ class AdminUsersController {
         [login]
       );
 
-      console.log("✅ [AdminUsersController.getUserDetails] Данные собраны:", {
-        userStats: Object.keys(userStats).length > 0,
-        sessions: sessions.length,
-        adminActions: adminActions.length,
-        blockHistory: blockHistory.length,
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Детальная информация о пользователе получена", {
+        login,
+        block_status: blockStatus,
+        sessions_count: sessions.length,
+        admin_actions_count: adminActions.length,
+        block_history_count: blockHistory.length,
+        response_time_ms: responseTime,
       });
 
       res.json({
@@ -700,22 +624,20 @@ class AdminUsersController {
               : "active_block",
         })),
         adminActions: adminActions.map((action) => ({
-          action: action.action_type,
+          action: action.action,
           admin: action.admin_name || "System",
           details: action.details ? JSON.parse(action.details) : null,
           timestamp: action.created_at,
         })),
       });
     } catch (error) {
-      console.error(
-        "❌ [AdminUsersController.getUserDetails] Ошибка получения деталей пользователя:",
-        {
-          error: error.message,
-          stack: error.stack,
-          login: req.params.login,
-          adminId: req.admin?.id,
-        }
-      );
+      logger.error("Ошибка получения деталей пользователя", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        login: req.params.login,
+        admin_id: req.admin?.id,
+        response_time_ms: Date.now() - startTime,
+      });
 
       res.status(500).json({
         success: false,
@@ -726,19 +648,35 @@ class AdminUsersController {
 
   // Сброс пароля пользователя
   static async resetUserPassword(req, res) {
+    const startTime = Date.now();
+
+    logger.info("Сброс пароля пользователя", {
+      admin_id: req.admin.id,
+      username: req.admin.username,
+      login: req.params.login,
+      notify_user: req.body.notifyUser,
+      has_new_password: !!req.body.newPassword,
+      endpoint: req.path,
+      method: req.method,
+    });
+
     const connection = await getConnection();
     try {
       const { login } = req.params;
       const { notifyUser = true, newPassword } = req.body;
       const adminId = req.admin.id;
 
-      // Проверяем существование пользователя
       const [user] = await query(
         'SELECT login, email FROM usersdata WHERE login = ? AND logic = "true"',
         [login]
       );
 
       if (!user) {
+        logger.warn("Пользователь не найден для сброса пароля", {
+          login,
+          admin_id: adminId,
+        });
+
         return res.status(404).json({
           success: false,
           message: "Пользователь не найден или не активирован",
@@ -747,26 +685,22 @@ class AdminUsersController {
 
       await connection.beginTransaction();
 
-      // Генерируем новый пароль
       const generatedPassword =
         newPassword || Math.random().toString(36).slice(-8) + "A1!";
       const salt = await bcrypt.genSalt(12);
       const hashedPassword = await bcrypt.hash(generatedPassword, salt);
 
-      // Обновляем пароль
       await connection.execute(
         "UPDATE usersdata SET password = ? WHERE login = ?",
         [hashedPassword, login]
       );
 
-      // Удаляем все сессии пользователя
       await connection.execute("DELETE FROM sessionsdata WHERE login = ?", [
         login,
       ]);
 
-      // Логируем действие
       await connection.execute(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+        `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
          VALUES (?, ?, ?, ?, ?)`,
         [
           adminId,
@@ -783,7 +717,6 @@ class AdminUsersController {
 
       await connection.commit();
 
-      // Отправляем email уведомление если нужно
       if (notifyUser) {
         try {
           await emailService.sendPasswordResetByAdmin({
@@ -793,13 +726,29 @@ class AdminUsersController {
             newPassword: generatedPassword,
             resetByAdmin: true,
           });
+
+          logger.info("Email уведомление о сбросе пароля отправлено", {
+            login,
+            email: user.email,
+          });
         } catch (emailError) {
-          console.warn(
-            "⚠️ Не удалось отправить email уведомление:",
-            emailError.message
-          );
+          logger.warn("Не удалось отправить email уведомление", {
+            error_message: emailError.message,
+            login,
+            email: user.email,
+          });
         }
       }
+
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Пароль пользователя сброшен", {
+        login,
+        admin_id: adminId,
+        user_notified: notifyUser,
+        sessions_cleared: true,
+        response_time_ms: responseTime,
+      });
 
       res.json({
         success: true,
@@ -816,18 +765,40 @@ class AdminUsersController {
       });
     } catch (error) {
       await connection.rollback();
-      console.error("❌ Ошибка сброса пароля пользователя:", error);
+
+      logger.error("Ошибка сброса пароля пользователя", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        login: req.params.login,
+        admin_id: req.admin.id,
+        response_time_ms: Date.now() - startTime,
+      });
+
       res.status(500).json({
         success: false,
         message: "Ошибка сброса пароля",
       });
     } finally {
       connection.release();
+      logger.debug("Соединение с БД освобождено", {
+        endpoint: req.path,
+      });
     }
   }
 
   // Смена email пользователя
   static async changeUserEmail(req, res) {
+    const startTime = Date.now();
+
+    logger.info("Смена email пользователя", {
+      admin_id: req.admin.id,
+      username: req.admin.username,
+      login: req.params.login,
+      new_email: req.body.newEmail,
+      endpoint: req.path,
+      method: req.method,
+    });
+
     const connection = await getConnection();
     try {
       const { login } = req.params;
@@ -835,32 +806,47 @@ class AdminUsersController {
       const adminId = req.admin.id;
 
       if (!newEmail || !validator.isEmail(newEmail)) {
+        logger.warn("Некорректный email для смены", {
+          login,
+          new_email: newEmail,
+          admin_id: adminId,
+        });
+
         return res.status(400).json({
           success: false,
           message: "Некорректный email адрес",
         });
       }
 
-      // Проверяем существование пользователя
       const [user] = await query(
         'SELECT login, email FROM usersdata WHERE login = ? AND logic = "true"',
         [login]
       );
 
       if (!user) {
+        logger.warn("Пользователь не найден для смены email", {
+          login,
+          admin_id: adminId,
+        });
+
         return res.status(404).json({
           success: false,
           message: "Пользователь не найден или не активирован",
         });
       }
 
-      // Проверяем не занят ли email
       const [emailCheck] = await query(
         "SELECT COUNT(*) as count FROM usersdata WHERE email = ? AND login != ?",
         [newEmail, login]
       );
 
       if (emailCheck.count > 0) {
+        logger.warn("Email уже используется другим пользователем", {
+          login,
+          new_email: newEmail,
+          admin_id: adminId,
+        });
+
         return res.status(400).json({
           success: false,
           message: "Этот email уже используется другим пользователем",
@@ -871,15 +857,13 @@ class AdminUsersController {
 
       const oldEmail = user.email;
 
-      // Обновляем email
       await connection.execute(
         "UPDATE usersdata SET email = ? WHERE login = ?",
         [newEmail, login]
       );
 
-      // Логируем действие
       await connection.execute(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+        `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
          VALUES (?, ?, ?, ?, ?)`,
         [
           adminId,
@@ -897,9 +881,7 @@ class AdminUsersController {
 
       await connection.commit();
 
-      // Отправляем уведомления
       try {
-        // Пользователю на новый email
         await emailService.sendEmailChangedNotification({
           login: user.login,
           oldEmail: oldEmail,
@@ -908,7 +890,6 @@ class AdminUsersController {
           adminName: req.admin.username,
         });
 
-        // На старый email (если он валидный)
         if (validator.isEmail(oldEmail)) {
           await emailService.sendEmailChangeAlert({
             login: user.login,
@@ -917,12 +898,29 @@ class AdminUsersController {
             changedBy: "administrator",
           });
         }
+
+        logger.info("Уведомления об изменении email отправлены", {
+          login,
+          old_email: oldEmail,
+          new_email: newEmail,
+        });
       } catch (emailError) {
-        console.warn(
-          "⚠️ Не удалось отправить email уведомления:",
-          emailError.message
-        );
+        logger.warn("Не удалось отправить email уведомления", {
+          error_message: emailError.message,
+          login,
+          emails: [oldEmail, newEmail],
+        });
       }
+
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Email пользователя изменен", {
+        login,
+        admin_id: adminId,
+        old_email: oldEmail,
+        new_email: newEmail,
+        response_time_ms: responseTime,
+      });
 
       res.json({
         success: true,
@@ -936,31 +934,58 @@ class AdminUsersController {
       });
     } catch (error) {
       await connection.rollback();
-      console.error("❌ Ошибка смены email пользователя:", error);
+
+      logger.error("Ошибка смены email пользователя", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        login: req.params.login,
+        admin_id: req.admin.id,
+        response_time_ms: Date.now() - startTime,
+      });
+
       res.status(500).json({
         success: false,
         message: "Ошибка смены email",
       });
     } finally {
       connection.release();
+      logger.debug("Соединение с БД освобождено", {
+        endpoint: req.path,
+      });
     }
   }
 
   // Удаление пользователя
   static async deleteUser(req, res) {
+    const startTime = Date.now();
+
+    logger.info("Удаление пользователя", {
+      admin_id: req.admin.id,
+      username: req.admin.username,
+      login: req.params.login,
+      delete_files: req.body.deleteFiles,
+      backup_user_data: req.body.backupUserData,
+      endpoint: req.path,
+      method: req.method,
+    });
+
     const connection = await getConnection();
     try {
       const { login } = req.params;
       const { deleteFiles = true, backupUserData = true } = req.body;
       const adminId = req.admin.id;
 
-      // Проверяем существование пользователя
       const [user] = await query(
         "SELECT login, email FROM usersdata WHERE login = ?",
         [login]
       );
 
       if (!user) {
+        logger.warn("Пользователь не найден для удаления", {
+          login,
+          admin_id: adminId,
+        });
+
         return res.status(404).json({
           success: false,
           message: "Пользователь не найден",
@@ -969,46 +994,39 @@ class AdminUsersController {
 
       await connection.beginTransaction();
 
-      // 1. Делаем бэкап данных пользователя (опционально)
       let backupCreated = false;
       if (backupUserData) {
         backupCreated = true;
       }
 
-      // 2. Удаляем таблицу пользователя если существует
       try {
         await connection.execute(`DROP TABLE IF EXISTS \`${login}\``);
       } catch (tableError) {
-        console.warn(
-          `⚠️ Таблица пользователя ${login} не найдена:`,
-          tableError.message
-        );
+        logger.warn("Таблица пользователя не найдена", {
+          table_name: login,
+          error_message: tableError.message,
+        });
       }
 
-      // 3. Удаляем сессии
       await connection.execute("DELETE FROM sessionsdata WHERE login = ?", [
         login,
       ]);
 
-      // 4. Удаляем логи входа
       await connection.execute("DELETE FROM login_attempts WHERE login = ?", [
         login,
       ]);
 
-      // 5. Удаляем пользователя
       await connection.execute("DELETE FROM usersdata WHERE login = ?", [
         login,
       ]);
 
-      // 6. Удаляем запросы на смену email
       await connection.execute(
         "DELETE FROM email_change_requests WHERE user_login = ?",
         [login]
       );
 
-      // 7. Логируем действие
       await connection.execute(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+        `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
          VALUES (?, ?, ?, ?, ?)`,
         [
           adminId,
@@ -1026,7 +1044,6 @@ class AdminUsersController {
 
       await connection.commit();
 
-      // 8. Удаляем файлы пользователя (опционально)
       if (deleteFiles) {
         try {
           const fs = require("fs").promises;
@@ -1042,14 +1059,28 @@ class AdminUsersController {
 
           if (fs.existsSync(uploadDir)) {
             await fs.rm(uploadDir, { recursive: true, force: true });
+            logger.info("Файлы пользователя удалены", {
+              login,
+              upload_dir: uploadDir,
+            });
           }
         } catch (fsError) {
-          console.warn(
-            "⚠️ Ошибка удаления файлов пользователя:",
-            fsError.message
-          );
+          logger.warn("Ошибка удаления файлов пользователя", {
+            error_message: fsError.message,
+            login,
+          });
         }
       }
+
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Пользователь успешно удален", {
+        login,
+        admin_id: adminId,
+        backup_created: backupCreated,
+        files_deleted: deleteFiles,
+        response_time_ms: responseTime,
+      });
 
       res.json({
         success: true,
@@ -1065,18 +1096,38 @@ class AdminUsersController {
       });
     } catch (error) {
       await connection.rollback();
-      console.error("❌ Ошибка удаления пользователя:", error);
+
+      logger.error("Ошибка удаления пользователя", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        login: req.params.login,
+        admin_id: req.admin.id,
+        response_time_ms: Date.now() - startTime,
+      });
+
       res.status(500).json({
         success: false,
         message: "Ошибка удаления пользователя",
       });
     } finally {
       connection.release();
+      logger.debug("Соединение с БД освобождено", {
+        endpoint: req.path,
+      });
     }
   }
 
   // Получение запросов на смену email
   static async getEmailRequests(req, res) {
+    const startTime = Date.now();
+
+    logger.info("Запросы на смену email", {
+      admin_id: req.admin.id,
+      query: req.query,
+      endpoint: req.path,
+      method: req.method,
+    });
+
     try {
       const { status, page = 1, limit = 20 } = req.query;
 
@@ -1107,7 +1158,6 @@ class AdminUsersController {
         params
       );
 
-      // Статистика по статусам
       const [statsResult] = await query(
         `SELECT 
            status,
@@ -1115,6 +1165,14 @@ class AdminUsersController {
          FROM email_change_requests
          GROUP BY status`
       );
+
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Запросы на смену email получены", {
+        total: requests.length,
+        status_filter: status,
+        response_time_ms: responseTime,
+      });
 
       res.json({
         success: true,
@@ -1145,7 +1203,13 @@ class AdminUsersController {
         }, {}),
       });
     } catch (error) {
-      console.error("❌ Ошибка получения запросов на смену email:", error);
+      logger.error("Ошибка получения запросов на смену email", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        admin_id: req.admin.id,
+        response_time_ms: Date.now() - startTime,
+      });
+
       res.status(500).json({
         success: false,
         message: "Ошибка получения запросов",
@@ -1155,13 +1219,22 @@ class AdminUsersController {
 
   // Одобрение запроса на смену email
   static async approveEmailRequest(req, res) {
+    const startTime = Date.now();
+
+    logger.info("Одобрение запроса на смену email", {
+      admin_id: req.admin.id,
+      username: req.admin.username,
+      request_id: req.params.id,
+      endpoint: req.path,
+      method: req.method,
+    });
+
     const connection = await getConnection();
     try {
       const { id } = req.params;
       const { adminNotes } = req.body;
       const adminId = req.admin.id;
 
-      // Получаем запрос
       const [request] = await query(
         `SELECT ecr.*, u.email as current_email
          FROM email_change_requests ecr
@@ -1171,6 +1244,11 @@ class AdminUsersController {
       );
 
       if (!request) {
+        logger.warn("Запрос на смену email не найден", {
+          request_id: id,
+          admin_id: adminId,
+        });
+
         return res.status(404).json({
           success: false,
           message: "Запрос не найден или уже обработан",
@@ -1179,13 +1257,11 @@ class AdminUsersController {
 
       await connection.beginTransaction();
 
-      // Обновляем email пользователя
       await connection.execute(
         "UPDATE usersdata SET email = ? WHERE login = ?",
         [request.new_email, request.user_login]
       );
 
-      // Обновляем статус запроса
       await connection.execute(
         `UPDATE email_change_requests 
          SET status = 'approved', 
@@ -1196,9 +1272,8 @@ class AdminUsersController {
         [adminId, adminNotes || "Одобрено администратором", id]
       );
 
-      // Логируем действие
       await connection.execute(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+        `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
          VALUES (?, ?, ?, ?, ?)`,
         [
           adminId,
@@ -1216,7 +1291,6 @@ class AdminUsersController {
 
       await connection.commit();
 
-      // Отправляем уведомления
       try {
         await emailService.sendEmailChangeApproved({
           login: request.user_login,
@@ -1224,12 +1298,27 @@ class AdminUsersController {
           newEmail: request.new_email,
           adminNotes: adminNotes,
         });
+
+        logger.info("Уведомление об одобрении смены email отправлено", {
+          user_login: request.user_login,
+          old_email: request.old_email,
+          new_email: request.new_email,
+        });
       } catch (emailError) {
-        console.warn(
-          "⚠️ Не удалось отправить email уведомление:",
-          emailError.message
-        );
+        logger.warn("Не удалось отправить email уведомление", {
+          error_message: emailError.message,
+          user_login: request.user_login,
+        });
       }
+
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Запрос на смену email одобрен", {
+        request_id: id,
+        admin_id: adminId,
+        user_login: request.user_login,
+        response_time_ms: responseTime,
+      });
 
       res.json({
         success: true,
@@ -1244,25 +1333,45 @@ class AdminUsersController {
       });
     } catch (error) {
       await connection.rollback();
-      console.error("❌ Ошибка одобрения запроса на смену email:", error);
+
+      logger.error("Ошибка одобрения запроса на смену email", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        request_id: req.params.id,
+        admin_id: req.admin.id,
+        response_time_ms: Date.now() - startTime,
+      });
+
       res.status(500).json({
         success: false,
         message: "Ошибка обработки запроса",
       });
     } finally {
       connection.release();
+      logger.debug("Соединение с БД освобождено", {
+        endpoint: req.path,
+      });
     }
   }
 
   // Отклонение запроса на смену email
   static async rejectEmailRequest(req, res) {
+    const startTime = Date.now();
+
+    logger.info("Отклонение запроса на смену email", {
+      admin_id: req.admin.id,
+      username: req.admin.username,
+      request_id: req.params.id,
+      endpoint: req.path,
+      method: req.method,
+    });
+
     const connection = await getConnection();
     try {
       const { id } = req.params;
       const { adminNotes, rejectionReason } = req.body;
       const adminId = req.admin.id;
 
-      // Получаем запрос
       const [request] = await query(
         `SELECT * FROM email_change_requests 
          WHERE id = ? AND status = 'pending'`,
@@ -1270,6 +1379,11 @@ class AdminUsersController {
       );
 
       if (!request) {
+        logger.warn("Запрос на смену email не найден для отклонения", {
+          request_id: id,
+          admin_id: adminId,
+        });
+
         return res.status(404).json({
           success: false,
           message: "Запрос не найден или уже обработан",
@@ -1278,7 +1392,6 @@ class AdminUsersController {
 
       await connection.beginTransaction();
 
-      // Обновляем статус запроса
       await connection.execute(
         `UPDATE email_change_requests 
          SET status = 'rejected', 
@@ -1289,9 +1402,8 @@ class AdminUsersController {
         [adminId, adminNotes || "Отклонено администратором", id]
       );
 
-      // Логируем действие
       await connection.execute(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+        `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
          VALUES (?, ?, ?, ?, ?)`,
         [
           adminId,
@@ -1308,7 +1420,6 @@ class AdminUsersController {
 
       await connection.commit();
 
-      // Отправляем уведомление
       try {
         await emailService.sendEmailChangeRejected({
           login: request.user_login,
@@ -1317,12 +1428,26 @@ class AdminUsersController {
           rejectionReason: rejectionReason || adminNotes,
           adminNotes: adminNotes,
         });
+
+        logger.info("Уведомление об отклонении смены email отправлено", {
+          user_login: request.user_login,
+          email: request.old_email,
+        });
       } catch (emailError) {
-        console.warn(
-          "⚠️ Не удалось отправить email уведомление:",
-          emailError.message
-        );
+        logger.warn("Не удалось отправить email уведомление", {
+          error_message: emailError.message,
+          user_login: request.user_login,
+        });
       }
+
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Запрос на смену email отклонен", {
+        request_id: id,
+        admin_id: adminId,
+        user_login: request.user_login,
+        response_time_ms: responseTime,
+      });
 
       res.json({
         success: true,
@@ -1335,23 +1460,39 @@ class AdminUsersController {
       });
     } catch (error) {
       await connection.rollback();
-      console.error("❌ Ошибка отклонения запроса на смену email:", error);
+
+      logger.error("Ошибка отклонения запроса на смену email", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        request_id: req.params.id,
+        admin_id: req.admin.id,
+        response_time_ms: Date.now() - startTime,
+      });
+
       res.status(500).json({
         success: false,
         message: "Ошибка обработки запроса",
       });
     } finally {
       connection.release();
+      logger.debug("Соединение с БД освобождено", {
+        endpoint: req.path,
+      });
     }
   }
 
   // Блокировка пользователя
   static async blockUser(req, res) {
-    console.log("🔒 [AdminUsersController.blockUser] Запрос на блокировку:", {
-      adminId: req.admin.id,
+    const startTime = Date.now();
+
+    logger.info("Блокировка пользователя", {
+      admin_id: req.admin.id,
       username: req.admin.username,
-      params: req.params,
-      body: req.body,
+      login: req.params.login,
+      duration: req.body.duration,
+      delete_sessions: req.body.deleteSessions,
+      endpoint: req.path,
+      method: req.method,
     });
 
     const connection = await getConnection();
@@ -1360,20 +1501,12 @@ class AdminUsersController {
       const { duration, reason, deleteSessions = false } = req.body;
       const adminId = req.admin.id;
 
-      console.log("🔍 [AdminUsersController.blockUser] Параметры:", {
-        login,
-        duration,
-        reason,
-        deleteSessions,
-        adminId,
-      });
-
-      // 1. Валидация параметров
       if (!duration || !["7d", "30d", "forever"].includes(duration)) {
-        console.warn(
-          "⚠️ [AdminUsersController.blockUser] Некорректный duration:",
-          duration
-        );
+        logger.warn("Некорректная длительность блокировки", {
+          login,
+          duration,
+          admin_id: adminId,
+        });
 
         return res.status(400).json({
           success: false,
@@ -1382,23 +1515,16 @@ class AdminUsersController {
         });
       }
 
-      // 2. Поиск пользователя
       const [user] = await connection.execute(
         'SELECT login, email, blocked, blocked_until FROM usersdata WHERE login = ? AND logic = "true"',
         [login]
       );
 
-      console.log("🔍 [AdminUsersController.blockUser] Пользователь найден:", {
-        exists: user.length > 0,
-        currentBlocked: user[0]?.blocked,
-        currentBlockedUntil: user[0]?.blocked_until,
-      });
-
       if (user.length === 0) {
-        console.warn(
-          "⚠️ [AdminUsersController.blockUser] Пользователь не найден или не активирован:",
-          login
-        );
+        logger.warn("Пользователь не найден для блокировки", {
+          login,
+          admin_id: adminId,
+        });
 
         return res.status(404).json({
           success: false,
@@ -1408,15 +1534,12 @@ class AdminUsersController {
 
       const userData = user[0];
 
-      // 3. Проверка, не заблокирован ли уже пользователь
       if (userData.blocked === 1) {
-        console.warn(
-          "⚠️ [AdminUsersController.blockUser] Пользователь уже заблокирован:",
-          {
-            login,
-            blocked_until: userData.blocked_until,
-          }
-        );
+        logger.warn("Пользователь уже заблокирован", {
+          login,
+          blocked_until: userData.blocked_until,
+          admin_id: adminId,
+        });
 
         return res.status(400).json({
           success: false,
@@ -1429,19 +1552,9 @@ class AdminUsersController {
       }
 
       await connection.beginTransaction();
-      console.log("🔁 [AdminUsersController.blockUser] Начало транзакции");
 
-      // 4. Рассчитываем дату разблокировки
       let blockedUntil = null;
       const now = new Date();
-
-      console.log(
-        "📅 [AdminUsersController.blockUser] Рассчет даты блокировки:",
-        {
-          duration,
-          now: now.toISOString(),
-        }
-      );
 
       switch (duration) {
         case "7d":
@@ -1457,12 +1570,6 @@ class AdminUsersController {
           break;
       }
 
-      console.log("📅 [AdminUsersController.blockUser] Результат:", {
-        blockedUntil: blockedUntil.toISOString(),
-        isForever: duration === "forever",
-      });
-
-      // 5. Обновляем пользователя в БД
       const [updateResult] = await connection.execute(
         `UPDATE usersdata 
          SET blocked = 1, blocked_until = ?
@@ -1470,17 +1577,6 @@ class AdminUsersController {
         [blockedUntil, login]
       );
 
-      console.log(
-        "✅ [AdminUsersController.blockUser] Пользователь обновлен:",
-        {
-          affectedRows: updateResult.affectedRows,
-          login,
-          blocked: 1,
-          blocked_until: blockedUntil,
-        }
-      );
-
-      // 6. Удаляем сессии пользователя если нужно
       let sessionsDeleted = 0;
       if (deleteSessions) {
         try {
@@ -1490,19 +1586,18 @@ class AdminUsersController {
           );
 
           sessionsDeleted = deleteResult.affectedRows;
-          console.log("🗑️ [AdminUsersController.blockUser] Сессии удалены:", {
-            count: sessionsDeleted,
+          logger.debug("Сессии пользователя удалены", {
             login,
+            count: sessionsDeleted,
           });
         } catch (deleteError) {
-          console.warn(
-            "⚠️ [AdminUsersController.blockUser] Ошибка удаления сессий:",
-            deleteError.message
-          );
+          logger.warn("Ошибка удаления сессий", {
+            error_message: deleteError.message,
+            login,
+          });
         }
       }
 
-      // 7. Логируем действие в admin_logs
       const logDetails = {
         action: "block_user",
         duration: duration,
@@ -1514,25 +1609,13 @@ class AdminUsersController {
       };
 
       await connection.execute(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+        `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
          VALUES (?, ?, ?, ?, ?)`,
         [adminId, "block", "user", login, JSON.stringify(logDetails)]
       );
 
-      console.log(
-        "📝 [AdminUsersController.blockUser] Действие залогировано:",
-        {
-          adminId,
-          action: "block",
-          target: login,
-          details: logDetails,
-        }
-      );
-
       await connection.commit();
-      console.log("✅ [AdminUsersController.blockUser] Транзакция завершена");
 
-      // 8. Форматируем дату для ответа
       let formattedDate = "бессрочно";
       if (duration !== "forever") {
         const day = blockedUntil.getDate();
@@ -1541,14 +1624,17 @@ class AdminUsersController {
         formattedDate = `${day} ${month} ${year} года`;
       }
 
-      console.log("✅ [AdminUsersController.blockUser] Блокировка успешна:", {
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Пользователь заблокирован", {
         login,
         duration,
-        formattedDate,
-        sessionsDeleted,
+        formatted_date: formattedDate,
+        sessions_deleted: sessionsDeleted,
+        admin_id: adminId,
+        response_time_ms: responseTime,
       });
 
-      // 9. Возвращаем успешный ответ
       res.json({
         success: true,
         message: `Пользователь ${login} заблокирован ${
@@ -1571,11 +1657,13 @@ class AdminUsersController {
       });
     } catch (error) {
       await connection.rollback();
-      console.error("❌ [AdminUsersController.blockUser] Ошибка блокировки:", {
-        error: error.message,
-        stack: error.stack,
+
+      logger.error("Ошибка блокировки пользователя", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
-        adminId: req.admin?.id,
+        admin_id: req.admin?.id,
+        response_time_ms: Date.now() - startTime,
       });
 
       res.status(500).json({
@@ -1586,53 +1674,39 @@ class AdminUsersController {
       });
     } finally {
       connection.release();
-      console.log(
-        "🔌 [AdminUsersController.blockUser] Соединение с БД освобождено"
-      );
+      logger.debug("Соединение с БД освобождено", {
+        endpoint: req.path,
+      });
     }
   }
 
   // Разблокировка пользователя
   static async unblockUser(req, res) {
-    console.log(
-      "🔓 [AdminUsersController.unblockUser] Запрос на разблокировку:",
-      {
-        adminId: req.admin.id,
-        username: req.admin.username,
-        params: req.params,
-      }
-    );
+    const startTime = Date.now();
+
+    logger.info("Разблокировка пользователя", {
+      admin_id: req.admin.id,
+      username: req.admin.username,
+      login: req.params.login,
+      endpoint: req.path,
+      method: req.method,
+    });
 
     const connection = await getConnection();
     try {
       const { login } = req.params;
       const adminId = req.admin.id;
 
-      console.log("🔍 [AdminUsersController.unblockUser] Параметры:", {
-        login,
-        adminId,
-      });
-
-      // 1. Поиск пользователя
       const [user] = await connection.execute(
         'SELECT login, email, blocked, blocked_until FROM usersdata WHERE login = ? AND logic = "true"',
         [login]
       );
 
-      console.log(
-        "🔍 [AdminUsersController.unblockUser] Пользователь найден:",
-        {
-          exists: user.length > 0,
-          currentBlocked: user[0]?.blocked,
-          currentBlockedUntil: user[0]?.blocked_until,
-        }
-      );
-
       if (user.length === 0) {
-        console.warn(
-          "⚠️ [AdminUsersController.unblockUser] Пользователь не найден или не активирован:",
-          login
-        );
+        logger.warn("Пользователь не найден для разблокировки", {
+          login,
+          admin_id: adminId,
+        });
 
         return res.status(404).json({
           success: false,
@@ -1642,15 +1716,12 @@ class AdminUsersController {
 
       const userData = user[0];
 
-      // 2. Проверка, заблокирован ли пользователь
       if (userData.blocked !== 1) {
-        console.warn(
-          "⚠️ [AdminUsersController.unblockUser] Пользователь не заблокирован:",
-          {
-            login,
-            blocked: userData.blocked,
-          }
-        );
+        logger.warn("Пользователь не заблокирован", {
+          login,
+          blocked: userData.blocked,
+          admin_id: adminId,
+        });
 
         return res.status(400).json({
           success: false,
@@ -1663,9 +1734,7 @@ class AdminUsersController {
       }
 
       await connection.beginTransaction();
-      console.log("🔁 [AdminUsersController.unblockUser] Начало транзакции");
 
-      // 3. Обновляем пользователя в БД (разблокируем)
       const [updateResult] = await connection.execute(
         `UPDATE usersdata 
          SET blocked = 0, blocked_until = NULL
@@ -1673,17 +1742,6 @@ class AdminUsersController {
         [login]
       );
 
-      console.log(
-        "✅ [AdminUsersController.unblockUser] Пользователь обновлен:",
-        {
-          affectedRows: updateResult.affectedRows,
-          login,
-          blocked: 0,
-          blocked_until: null,
-        }
-      );
-
-      // 4. Обновляем запись в blocked_login_attempts
       let blockedRecordUpdated = false;
       try {
         const [blockedRecords] = await connection.execute(
@@ -1707,28 +1765,19 @@ class AdminUsersController {
           );
 
           blockedRecordUpdated = updateBlockedResult.affectedRows > 0;
-
-          console.log(
-            "📝 [AdminUsersController.unblockUser] Запись в blocked_login_attempts обновлена:",
-            {
-              recordId: blockedRecordId,
-              updated: blockedRecordUpdated,
-            }
-          );
-        } else {
-          console.log(
-            "ℹ️ [AdminUsersController.unblockUser] Запись в blocked_login_attempts не найдена для:",
-            login
-          );
+          logger.debug("Запись в blocked_login_attempts обновлена", {
+            login,
+            record_id: blockedRecordId,
+            updated: blockedRecordUpdated,
+          });
         }
       } catch (blockedLogError) {
-        console.warn(
-          "⚠️ [AdminUsersController.unblockUser] Ошибка обновления blocked_login_attempts:",
-          blockedLogError.message
-        );
+        logger.warn("Ошибка обновления blocked_login_attempts", {
+          error_message: blockedLogError.message,
+          login,
+        });
       }
 
-      // 5. Логируем действие в admin_logs
       const logDetails = {
         action: "unblock_user",
         previous_blocked_until: userData.blocked_until,
@@ -1737,33 +1786,23 @@ class AdminUsersController {
       };
 
       await connection.execute(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, target_id, details) 
+        `INSERT INTO admin_logs (admin_id, action, target_type, target_id, details) 
          VALUES (?, ?, ?, ?, ?)`,
         [adminId, "unblock", "user", login, JSON.stringify(logDetails)]
       );
 
-      console.log(
-        "📝 [AdminUsersController.unblockUser] Действие залогировано:",
-        {
-          adminId,
-          action: "unblock",
-          target: login,
-          details: logDetails,
-        }
-      );
-
       await connection.commit();
-      console.log("✅ [AdminUsersController.unblockUser] Транзакция завершена");
 
-      console.log(
-        "✅ [AdminUsersController.unblockUser] Разблокировка успешна:",
-        {
-          login,
-          previously_blocked_until: userData.blocked_until,
-        }
-      );
+      const responseTime = Date.now() - startTime;
 
-      // 6. Возвращаем успешный ответ
+      logger.info("Пользователь разблокирован", {
+        login,
+        previously_blocked_until: userData.blocked_until,
+        blocked_record_updated: blockedRecordUpdated,
+        admin_id: adminId,
+        response_time_ms: responseTime,
+      });
+
       res.json({
         success: true,
         message: `Пользователь ${login} разблокирован`,
@@ -1781,15 +1820,14 @@ class AdminUsersController {
       });
     } catch (error) {
       await connection.rollback();
-      console.error(
-        "❌ [AdminUsersController.unblockUser] Ошибка разблокировки:",
-        {
-          error: error.message,
-          stack: error.stack,
-          login: req.params.login,
-          adminId: req.admin?.id,
-        }
-      );
+
+      logger.error("Ошибка разблокировки пользователя", {
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        login: req.params.login,
+        admin_id: req.admin?.id,
+        response_time_ms: Date.now() - startTime,
+      });
 
       res.status(500).json({
         success: false,
@@ -1799,9 +1837,9 @@ class AdminUsersController {
       });
     } finally {
       connection.release();
-      console.log(
-        "🔌 [AdminUsersController.unblockUser] Соединение с БД освобождено"
-      );
+      logger.debug("Соединение с БД освобождено", {
+        endpoint: req.path,
+      });
     }
   }
 }

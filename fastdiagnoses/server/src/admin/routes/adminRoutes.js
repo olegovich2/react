@@ -13,33 +13,10 @@ const AdminBackupsController = require("../controllers/AdminBackupsController");
 const AdminSystemController = require("../controllers/AdminSystemController");
 const SupportController = require("../../support/controllers/SupportController");
 
-// Логирование всех запросов к админ API в admin_logs
-router.use(async (req, res, next) => {
-  try {
-    if (req.admin) {
-      await query(
-        `INSERT INTO admin_logs (admin_id, action_type, target_type, ip_address, user_agent) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          req.admin.id,
-          "api_request",
-          req.method + " " + req.path,
-          req.ip || req.connection.remoteAddress,
-          req.headers["user-agent"] || "Неизвестно",
-        ]
-      );
-    }
-  } catch (error) {
-    // Логируем ошибку логирования в system_errors
-    await query(
-      `INSERT INTO system_errors 
-       (error_type, error_message, endpoint, method, severity) 
-       VALUES (?, ?, ?, ?, ?)`,
-      ["api_logging", error.message, req.path, req.method, "low"]
-    );
-  }
-  next();
-});
+// УБРАЛИ middleware логирования из начала файла
+// Логирование теперь происходит через:
+// 1. requestLogger middleware (для API логов)
+// 2. isAdmin middleware (для admin_logs через logger)
 
 // ==================== АУТЕНТИФИКАЦИЯ ====================
 router.post("/auth/login", AdminAuthController.login);
@@ -176,21 +153,18 @@ router.post(
 router.post("/system/clear-cache", isAdmin, AdminSystemController.clearCache);
 
 // ==================== НАСТРОЙКИ ====================
-router.get("/settings", isAdmin, AdminDashboardController.getSettings);
-router.put("/settings", isAdmin, AdminDashboardController.updateSettings);
+// router.get("/settings", isAdmin, AdminDashboardController.getSettings);
+// router.put("/settings", isAdmin, AdminDashboardController.updateSettings);
 
-// Логирование ошибок 404 для админ API в system_errors
+// Логирование ошибок 404 для админ API через логгер
+const logger = require("../../services/LoggerService");
 router.use(async (req, res) => {
-  try {
-    await query(
-      `INSERT INTO system_errors 
-       (error_type, error_message, endpoint, method, severity) 
-       VALUES (?, ?, ?, ?, ?)`,
-      ["api_404", "Админ API маршрут не найден", req.path, req.method, "low"]
-    );
-  } catch (error) {
-    // Если не удалось записать в system_errors - игнорируем
-  }
+  logger.warn("Админ API маршрут не найден", {
+    endpoint: req.path,
+    method: req.method,
+    ip: req.ip,
+    user_agent: req.headers["user-agent"],
+  });
 
   res.status(404).json({
     success: false,
@@ -198,27 +172,16 @@ router.use(async (req, res) => {
   });
 });
 
-// Глобальный обработчик ошибок для админ API
+// Глобальный обработчик ошибок для админ API через логгер
 router.use(async (err, req, res, next) => {
-  try {
-    await query(
-      `INSERT INTO system_errors 
-       (error_type, error_message, stack_trace, endpoint, method, user_login, severity) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        "api_error",
-        err.message,
-        err.stack,
-        req.path,
-        req.method,
-        req.admin?.username || "unknown",
-        "high",
-      ]
-    );
-  } catch (logError) {
-    // Если даже system_errors не работает - критическая ситуация
-    // В этом случае ничего не делаем, чтобы не зациклиться
-  }
+  logger.error("Ошибка в админ API", {
+    error_message: err.message,
+    error_stack: err.stack?.substring(0, 500),
+    endpoint: req.path,
+    method: req.method,
+    admin_username: req.admin?.username || "unknown",
+    ip: req.ip,
+  });
 
   res.status(500).json({
     success: false,

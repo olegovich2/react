@@ -201,22 +201,25 @@ class DatabaseInitializer {
       `,
 
       admin_logs: `
-        CREATE TABLE IF NOT EXISTS \`admin_logs\` (
-          \`id\` int NOT NULL AUTO_INCREMENT,
-          \`admin_id\` int NOT NULL,
-          \`action_type\` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'create, update, delete, login, logout',
-          \`target_type\` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'user, setting, backup, support, etc',
-          \`target_id\` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-          \`details\` json DEFAULT NULL,
-          \`ip_address\` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-          \`user_agent\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-          \`created_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-          PRIMARY KEY (\`id\`),
-          KEY \`idx_admin_id\` (\`admin_id\`),
-          KEY \`idx_created_at\` (\`created_at\`),
-          KEY \`idx_action_type\` (\`action_type\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-      `,
+  CREATE TABLE IF NOT EXISTS \`admin_logs\` (
+    \`id\` BIGINT NOT NULL AUTO_INCREMENT,
+    \`level\` VARCHAR(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'info',
+    \`type\` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`message\` TEXT COLLATE utf8mb4_unicode_ci,
+    \`admin_id\` INT NOT NULL,
+    \`action\` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+    \`target_type\` VARCHAR(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`target_id\` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`details\` JSON DEFAULT NULL,
+    \`ip_address\` VARCHAR(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`user_agent\` TEXT COLLATE utf8mb4_unicode_ci,
+    \`created_at\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (\`id\`),
+    KEY \`idx_admin_id\` (\`admin_id\`),
+    KEY \`idx_action\` (\`action\`),
+    KEY \`idx_created_at\` (\`created_at\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`,
 
       support_requests: `
         CREATE TABLE IF NOT EXISTS \`support_requests\` (
@@ -322,27 +325,28 @@ class DatabaseInitializer {
       `,
 
       system_errors: `
-        CREATE TABLE IF NOT EXISTS \`system_errors\` (
-          \`id\` int NOT NULL AUTO_INCREMENT,
-          \`error_type\` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'api, database, worker, auth',
-          \`error_message\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-          \`stack_trace\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-          \`endpoint\` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-          \`method\` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-          \`request_body\` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
-          \`user_login\` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-          \`severity\` enum('low','medium','high','critical') COLLATE utf8mb4_unicode_ci DEFAULT 'medium',
-          \`is_resolved\` tinyint(1) DEFAULT '0',
-          \`resolved_at\` timestamp NULL DEFAULT NULL,
-          \`resolved_by\` int DEFAULT NULL,
-          \`created_at\` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-          PRIMARY KEY (\`id\`),
-          KEY \`idx_severity\` (\`severity\`),
-          KEY \`idx_is_resolved\` (\`is_resolved\`),
-          KEY \`idx_created_at\` (\`created_at\`),
-          KEY \`idx_error_type\` (\`error_type\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-      `,
+  CREATE TABLE IF NOT EXISTS \`system_errors\` (
+    \`id\` BIGINT NOT NULL AUTO_INCREMENT,
+    \`level\` VARCHAR(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'error',
+    \`type\` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`message\` TEXT COLLATE utf8mb4_unicode_ci,
+    \`error_message\` TEXT COLLATE utf8mb4_unicode_ci,
+    \`stack_trace\` TEXT COLLATE utf8mb4_unicode_ci,
+    \`endpoint\` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`method\` VARCHAR(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`admin_id\` INT DEFAULT NULL,
+    \`user_login\` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`severity\` ENUM('low', 'medium', 'high', 'critical') COLLATE utf8mb4_unicode_ci DEFAULT 'medium',
+    \`is_resolved\` BOOLEAN DEFAULT FALSE,
+    \`resolved_at\` DATETIME DEFAULT NULL,
+    \`resolved_by\` INT DEFAULT NULL,
+    \`created_at\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (\`id\`),
+    KEY \`idx_severity\` (\`severity\`),
+    KEY \`idx_is_resolved\` (\`is_resolved\`),
+    KEY \`idx_created_at\` (\`created_at\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`,
 
       file_deletion_queue: `
   CREATE TABLE IF NOT EXISTS \`file_deletion_queue\` (
@@ -366,6 +370,31 @@ class DatabaseInitializer {
     KEY \`idx_processed_at\` (\`processed_at\`),
     KEY \`idx_retry_count\` (\`retry_count\`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Очередь отложенного удаления файлов'
+`,
+      // Добавляем в таблицы:
+      api_logs: `
+  CREATE TABLE IF NOT EXISTS \`api_logs\` (
+    \`id\` BIGINT NOT NULL AUTO_INCREMENT,
+    \`level\` VARCHAR(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'info',
+    \`type\` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`message\` TEXT COLLATE utf8mb4_unicode_ci,
+    \`endpoint\` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`method\` VARCHAR(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`status_code\` INT DEFAULT NULL,
+    \`response_time_ms\` INT DEFAULT NULL,
+    \`admin_id\` INT DEFAULT NULL,
+    \`user_login\` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`ip_address\` VARCHAR(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    \`user_agent\` TEXT COLLATE utf8mb4_unicode_ci,
+    \`details\` JSON DEFAULT NULL,
+    \`created_at\` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (\`id\`),
+    KEY \`idx_level\` (\`level\`),
+    KEY \`idx_created_at\` (\`created_at\`),
+    KEY \`idx_endpoint\` (\`endpoint\`(100)),
+    KEY \`idx_admin_id\` (\`admin_id\`),
+    KEY \`idx_user_login\` (\`user_login\`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `,
     };
   }
