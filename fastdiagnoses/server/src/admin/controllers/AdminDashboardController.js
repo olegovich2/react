@@ -8,17 +8,12 @@ class AdminDashboardController {
 
     logger.info("Запрос общей статистики", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       endpoint: req.path,
       method: req.method,
     });
 
     const connection = await getConnection();
     try {
-      logger.debug("Начало сбора статистики", {
-        admin_id: req.admin.id,
-      });
-
       // 1. Общее количество активных пользователей
       const [usersResult] = await connection.execute(
         'SELECT COUNT(*) as count FROM usersdata WHERE logic = "true"'
@@ -38,10 +33,6 @@ class AdminDashboardController {
           "SELECT login FROM usersdata WHERE logic = 'true'"
         );
 
-        logger.debug("Подсчет изображений для пользователей", {
-          users_count: users.length,
-        });
-
         for (const user of users) {
           const tableName = user.login;
           try {
@@ -58,14 +49,12 @@ class AdminDashboardController {
           } catch (tableError) {
             logger.warn("Ошибка подсчета изображений для пользователя", {
               table_name: tableName,
-              error_message: tableError.message,
             });
           }
         }
       } catch (imageError) {
         logger.error("Ошибка подсчета изображений", {
           error_message: imageError.message,
-          stack_trace: imageError.stack?.substring(0, 300),
         });
       }
 
@@ -75,10 +64,6 @@ class AdminDashboardController {
         const [users] = await connection.execute(
           "SELECT login FROM usersdata WHERE logic = 'true'"
         );
-
-        logger.debug("Подсчет опросов для пользователей", {
-          users_count: users.length,
-        });
 
         for (const user of users) {
           const tableName = user.login;
@@ -96,14 +81,12 @@ class AdminDashboardController {
           } catch (tableError) {
             logger.warn("Ошибка подсчета опросов для пользователя", {
               table_name: tableName,
-              error_message: tableError.message,
             });
           }
         }
       } catch (surveyError) {
         logger.error("Ошибка подсчета опросов", {
           error_message: surveyError.message,
-          stack_trace: surveyError.stack?.substring(0, 300),
         });
       }
 
@@ -178,13 +161,6 @@ class AdminDashboardController {
         ]
           .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
           .slice(0, 10);
-
-        logger.debug("Активность собрана", {
-          admin_logs: adminLogs.length,
-          user_logs: userLogs.length,
-          registrations: registrations.length,
-          recent_activity: recentActivity.length,
-        });
       } catch (activityError) {
         logger.error("Ошибка сбора активности", {
           error_message: activityError.message,
@@ -223,7 +199,6 @@ class AdminDashboardController {
     } catch (error) {
       logger.error("Ошибка получения статистики", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         admin_id: req.admin.id,
         response_time_ms: Date.now() - startTime,
       });
@@ -234,10 +209,6 @@ class AdminDashboardController {
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        admin_id: req.admin.id,
-        endpoint: req.path,
-      });
     }
   }
 
@@ -255,15 +226,9 @@ class AdminDashboardController {
       const dbCheck = await query("SELECT 1 as status");
       const dbStatus = dbCheck.length > 0 ? "online" : "offline";
 
-      logger.debug("Проверка БД выполнена", {
-        status: dbStatus,
-        connected: dbCheck.length > 0,
-      });
-
       let workerStats = { activeWorkers: 0, pendingTasks: 0 };
       try {
         workerStats = require("../../services/workerService").getStats();
-        logger.debug("Статистика worker сервиса получена", workerStats);
       } catch (workerError) {
         logger.warn("Worker сервис недоступен", {
           error_message: workerError.message,
@@ -331,7 +296,6 @@ class AdminDashboardController {
     } catch (error) {
       logger.error("Ошибка получения статуса сервисов", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         response_time_ms: Date.now() - startTime,
       });
 
@@ -348,7 +312,6 @@ class AdminDashboardController {
 
     logger.info("Запрос последней активности", {
       admin_id: req.admin.id,
-      query: req.query,
       endpoint: req.path,
       method: req.method,
     });
@@ -419,7 +382,6 @@ class AdminDashboardController {
     } catch (error) {
       logger.error("Ошибка получения последней активности", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         response_time_ms: Date.now() - startTime,
       });
 
@@ -429,9 +391,6 @@ class AdminDashboardController {
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 
@@ -441,19 +400,12 @@ class AdminDashboardController {
 
     logger.info("Запрос системных ошибок", {
       admin_id: req.admin.id,
-      query: req.query,
       endpoint: req.path,
       method: req.method,
     });
 
     try {
       const { limit = 50, severity, resolved } = req.query;
-
-      logger.debug("Параметры запроса системных ошибок", {
-        limit,
-        severity,
-        resolved,
-      });
 
       let sqlQuery = "SELECT * FROM system_errors WHERE 1=1";
       const params = [];
@@ -487,7 +439,6 @@ class AdminDashboardController {
 
       logger.info("Системные ошибки получены", {
         total: errors.length,
-        stats: errorStats,
         response_time_ms: responseTime,
       });
 
@@ -524,7 +475,6 @@ class AdminDashboardController {
     } catch (error) {
       logger.error("Ошибка получения системных ошибок", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         response_time_ms: Date.now() - startTime,
       });
 
@@ -541,7 +491,6 @@ class AdminDashboardController {
 
     logger.info("Пометка ошибки как исправленной", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       error_id: req.params.id,
       endpoint: req.path,
       method: req.method,
@@ -550,11 +499,6 @@ class AdminDashboardController {
     try {
       const { id } = req.params;
       const adminId = req.admin.id;
-
-      logger.debug("Обновление ошибки", {
-        error_id: id,
-        admin_id: adminId,
-      });
 
       const result = await query(
         `UPDATE system_errors 
@@ -606,21 +550,12 @@ class AdminDashboardController {
 
     logger.info("Запрос логов администраторов", {
       admin_id: req.admin.id,
-      query: req.query,
       endpoint: req.path,
       method: req.method,
     });
 
     try {
       const { adminId, action, startDate, endDate, limit = 100 } = req.query;
-
-      logger.debug("Параметры запроса логов", {
-        admin_id_filter: adminId,
-        action_filter: action,
-        start_date: startDate,
-        end_date: endDate,
-        limit,
-      });
 
       let queryStr = `
         SELECT al.*, au.username as admin_name, au.email as admin_email
@@ -660,11 +595,6 @@ class AdminDashboardController {
       logger.info("Логи администраторов получены", {
         total: logs.length,
         response_time_ms: responseTime,
-        filters_applied: {
-          admin_id: !!adminId,
-          action: !!action,
-          date_range: !!(startDate || endDate),
-        },
       });
 
       res.json({
@@ -695,7 +625,6 @@ class AdminDashboardController {
     } catch (error) {
       logger.error("Ошибка получения логов администраторов", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         response_time_ms: Date.now() - startTime,
       });
 
@@ -740,7 +669,6 @@ class AdminDashboardController {
     } catch (error) {
       logger.error("Ошибка получения статуса воркеров", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         response_time_ms: Date.now() - startTime,
       });
 
@@ -823,7 +751,6 @@ class AdminDashboardController {
     } catch (error) {
       logger.error("Ошибка получения настроек системы", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         response_time_ms: Date.now() - startTime,
       });
 
@@ -840,8 +767,6 @@ class AdminDashboardController {
 
     logger.info("Обновление настроек системы", {
       admin_id: req.admin.id,
-      username: req.admin.username,
-      body_size: JSON.stringify(req.body).length,
       endpoint: req.path,
       method: req.method,
     });
@@ -863,9 +788,6 @@ class AdminDashboardController {
       }
 
       await connection.beginTransaction();
-      logger.debug("Начало транзакции обновления настроек", {
-        settings_count: settings.length,
-      });
 
       const updatedSettings = [];
 
@@ -914,22 +836,10 @@ class AdminDashboardController {
 
         if (result.affectedRows > 0) {
           updatedSettings.push(setting.key);
-          logger.debug("Настройка обновлена", {
-            setting_key: setting.key,
-            data_type: dataType,
-          });
-        } else {
-          logger.warn("Настройка не обновлена", {
-            setting_key: setting.key,
-            affected_rows: result.affectedRows,
-          });
         }
       }
 
       await connection.commit();
-      logger.debug("Транзакция обновления настроек завершена", {
-        updated_count: updatedSettings.length,
-      });
 
       const responseTime = Date.now() - startTime;
 
@@ -949,7 +859,6 @@ class AdminDashboardController {
 
       logger.error("Ошибка обновления настроек системы", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         admin_id: req.admin?.id,
         response_time_ms: Date.now() - startTime,
       });
@@ -960,9 +869,6 @@ class AdminDashboardController {
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 }

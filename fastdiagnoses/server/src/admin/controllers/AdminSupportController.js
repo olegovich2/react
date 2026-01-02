@@ -7,10 +7,11 @@ const logger = require("../../services/LoggerService");
 class AdminSupportController {
   // 1. ПОЛУЧИТЬ ВСЕ АКТИВНЫЕ ЗАПРОСЫ ПОЛЬЗОВАТЕЛЯ
   static async getUserRequests(req, res) {
+    const startTime = Date.now();
+
     logger.info("Запрос всех активных запросов пользователя", {
       adminId: req.admin.id,
       login: req.params.login,
-      query: req.query,
       endpoint: req.path,
       method: req.method,
     });
@@ -22,7 +23,6 @@ class AdminSupportController {
       if (!login || login.trim() === "") {
         logger.warn("Не указан логин пользователя", {
           adminId: req.admin.id,
-          endpoint: req.path,
         });
 
         return res.status(400).json({
@@ -81,8 +81,6 @@ class AdminSupportController {
       logger.debug("SQL запрос для получения запросов пользователя", {
         login,
         sql_preview: sql.substring(0, 200),
-        whereConditions,
-        limit,
       });
 
       const requests = await query(sql);
@@ -90,8 +88,6 @@ class AdminSupportController {
       logger.info("Найдено запросов пользователя", {
         login,
         count: requests.length,
-        hasOverdue: requests.some((r) => r.is_overdue === 1),
-        request_types: [...new Set(requests.map((r) => r.type))],
       });
 
       const formattedRequests = requests.map((request) => ({
@@ -132,11 +128,12 @@ class AdminSupportController {
           (stats.byStatus[row.status] || 0) + row.count;
       });
 
-      logger.debug("Статистика запросов пользователя", {
+      const responseTime = Date.now() - startTime;
+
+      logger.info("Запросы пользователя получены", {
         login,
         total: stats.total,
-        byType: stats.byType,
-        byStatus: stats.byStatus,
+        response_time_ms: responseTime,
       });
 
       res.json({
@@ -151,10 +148,8 @@ class AdminSupportController {
     } catch (error) {
       logger.error("Ошибка получения запросов пользователя", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
         adminId: req.admin.id,
-        endpoint: req.path,
       });
 
       let errorMessage = "Ошибка получения запросов пользователя";
@@ -162,12 +157,6 @@ class AdminSupportController {
       res.status(500).json({
         success: false,
         message: errorMessage,
-        ...(process.env.NODE_ENV === "development" && {
-          debug: {
-            error: error.message,
-            sql: error.sql || "Неизвестно",
-          },
-        }),
       });
     }
   }
@@ -178,7 +167,6 @@ class AdminSupportController {
 
     logger.info("Начало автоматической проверки запроса", {
       adminId: req.admin.id,
-      adminName: req.admin.username,
       requestId: req.params.id,
       endpoint: req.path,
       method: req.method,
@@ -205,14 +193,6 @@ class AdminSupportController {
         });
       }
 
-      logger.debug("Запрос найден для валидации", {
-        requestId: request.id,
-        type: request.type,
-        login: request.login,
-        status: request.status,
-        email: request.email,
-      });
-
       const [user] = await query(
         `SELECT login, email, secret_word, password FROM usersdata WHERE login = ?`,
         [request.login]
@@ -230,11 +210,6 @@ class AdminSupportController {
       };
 
       if (request.type === "other") {
-        logger.info("Обработка запроса типа 'other'", {
-          requestId: request.id,
-          login: request.login,
-        });
-
         const checkedFields = {
           login: false,
           email: false,
@@ -278,8 +253,6 @@ class AdminSupportController {
           requestId: request.id,
           isValid,
           errors_count: errors.length,
-          checkedFields,
-          userExists: validationDetails.userExists,
         });
 
         return res.json({
@@ -336,13 +309,6 @@ class AdminSupportController {
         });
       }
 
-      logger.debug("Пользователь найден для проверки", {
-        login: user.login,
-        hasEmail: !!user.email,
-        hasSecretWord: !!user.secret_word,
-        hasPassword: !!user.password,
-      });
-
       checkedFields.login = true;
       validationDetails.userExists = true;
 
@@ -377,7 +343,6 @@ class AdminSupportController {
         }
       } catch (decryptError) {
         logger.error("Ошибка расшифровки секретного слова", {
-          error_message: decryptError.message,
           requestId: request.id,
         });
         errors.push("Ошибка расшифровки секретного слова");
@@ -404,7 +369,6 @@ class AdminSupportController {
           }
         } catch (decryptError) {
           logger.error("Ошибка расшифровки пароля", {
-            error_message: decryptError.message,
             requestId: request.id,
           });
           errors.push("Ошибка расшифровки пароля");
@@ -425,9 +389,6 @@ class AdminSupportController {
           if (secretWordMatch) {
             checkedFields.secretWord = true;
             validationDetails.secretWordMatches = true;
-            logger.debug("Секретное слово совпадает", {
-              requestId: request.id,
-            });
           } else {
             errors.push("Секретное слово не совпадает");
             validationDetails.secretWordMatches = false;
@@ -438,7 +399,6 @@ class AdminSupportController {
           }
         } catch (bcryptError) {
           logger.error("Ошибка проверки секретного слова", {
-            error_message: bcryptError.message,
             requestId: request.id,
           });
           errors.push("Ошибка проверки секретного слова");
@@ -460,7 +420,6 @@ class AdminSupportController {
           if (passwordMatch) {
             checkedFields.password = true;
             validationDetails.passwordMatches = true;
-            logger.debug("Пароль совпадает", { requestId: request.id });
           } else {
             errors.push("Пароль не совпадает");
             validationDetails.passwordMatches = false;
@@ -471,7 +430,6 @@ class AdminSupportController {
           }
         } catch (bcryptError) {
           logger.error("Ошибка проверки пароля", {
-            error_message: bcryptError.message,
             requestId: request.id,
           });
           errors.push("Ошибка проверки пароля");
@@ -497,12 +455,8 @@ class AdminSupportController {
             `UPDATE support_requests SET status = 'in_progress' WHERE id = ?`,
             [request.id]
           );
-          logger.debug("Статус запроса обновлен на 'in_progress'", {
-            requestId: request.id,
-          });
         } catch (updateError) {
           logger.warn("Не удалось обновить статус запроса", {
-            error_message: updateError.message,
             requestId: request.id,
           });
         }
@@ -531,7 +485,6 @@ class AdminSupportController {
     } catch (error) {
       logger.error("Критическая ошибка при валидации запроса", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         requestId: req.params.id,
         adminId: req.admin?.id,
         response_time_ms: Date.now() - startTime,
@@ -547,6 +500,8 @@ class AdminSupportController {
 
   // 3. ПОЛУЧИТЬ ИНФОРМАЦИЮ О ЗАПРОСЕ (БЕЗ РАСШИФРОВКИ)
   static async getRequestInfo(req, res) {
+    const startTime = Date.now();
+
     logger.info("Запрос информации о заявке поддержки", {
       requestId: req.params.id,
       adminId: req.admin.id,
@@ -593,14 +548,6 @@ class AdminSupportController {
         });
       }
 
-      logger.debug("Заявка поддержки найдена", {
-        requestId: request.id,
-        type: request.type,
-        status: request.status,
-        login: request.login,
-        isOverdue: request.is_overdue === 1,
-      });
-
       const logs = await query(
         `SELECT 
           action,
@@ -615,11 +562,6 @@ class AdminSupportController {
          LIMIT 10`,
         [request.id]
       );
-
-      logger.debug("Логи заявки загружены", {
-        requestId: request.id,
-        logs_count: logs.length,
-      });
 
       const responseData = {
         request: {
@@ -649,10 +591,6 @@ class AdminSupportController {
       };
 
       if (request.type === "other") {
-        logger.debug("Добавление дополнительной информации для типа 'other'", {
-          requestId: request.id,
-        });
-
         responseData.additionalInfo = {
           hasMessage: !!request.message,
           messageLength: request.message?.length || 0,
@@ -666,6 +604,7 @@ class AdminSupportController {
         requestId: request.id,
         type: request.type,
         logs_count: logs.length,
+        response_time_ms: Date.now() - startTime,
       });
 
       res.json({
@@ -675,10 +614,9 @@ class AdminSupportController {
     } catch (error) {
       logger.error("Ошибка получения информации о заявке", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         requestId: req.params.id,
         adminId: req.admin?.id,
-        endpoint: req.path,
+        response_time_ms: Date.now() - startTime,
       });
 
       res.status(500).json({
@@ -694,14 +632,14 @@ class AdminSupportController {
 
     logger.info("Начало обработки запроса поддержки", {
       adminId: req.admin.id,
-      adminName: req.admin.username,
       requestId: req.params.id,
       action: req.body.action,
       endpoint: req.path,
       method: req.method,
     });
 
-    const connection = await getConnection();
+    const connection =
+      await require("../../services/databaseService").getConnection();
     try {
       const { id } = req.params;
       const { action, reason, emailResponse } = req.body;
@@ -709,7 +647,6 @@ class AdminSupportController {
       if (!action || !["approve", "reject"].includes(action)) {
         logger.warn("Неверное действие при обработке запроса", {
           action,
-          allowed: ["approve", "reject"],
           requestId: id,
         });
 
@@ -737,15 +674,6 @@ class AdminSupportController {
       }
 
       const supportRequest = request[0];
-
-      logger.debug("Запрос поддержки найден для обработки", {
-        requestId: supportRequest.id,
-        type: supportRequest.type,
-        login: supportRequest.login,
-        email: supportRequest.email,
-        status: supportRequest.status,
-        action: action,
-      });
 
       await connection.beginTransaction();
 
@@ -789,7 +717,6 @@ class AdminSupportController {
         ]
       );
 
-      // ИСПРАВЛЕНО: action_type → action
       const logDetails = {
         requestType: supportRequest.type,
         action: action,
@@ -809,12 +736,6 @@ class AdminSupportController {
           JSON.stringify(logDetails),
         ]
       );
-
-      logger.debug("Действие залогировано в admin_logs", {
-        adminId: req.admin.id,
-        action: action,
-        requestId: supportRequest.id,
-      });
 
       let actionResult = {};
       let emailResults = [];
@@ -846,7 +767,6 @@ class AdminSupportController {
             logger.info("Пароль пользователя сброшен", {
               login: supportRequest.login,
               requestId: supportRequest.id,
-              passwordGenerated: !!newPassword,
             });
 
             try {
@@ -873,7 +793,6 @@ class AdminSupportController {
               });
             } catch (emailError) {
               logger.error("Ошибка отправки письма с паролем", {
-                error_message: emailError.message,
                 email: supportRequest.email,
                 login: supportRequest.login,
               });
@@ -906,7 +825,6 @@ class AdminSupportController {
               });
             } catch (emailError) {
               logger.error("Ошибка отправки письма об отказе", {
-                error_message: emailError.message,
                 email: supportRequest.email,
                 login: supportRequest.login,
               });
@@ -979,9 +897,7 @@ class AdminSupportController {
               });
             } catch (emailError) {
               logger.error("Ошибка отправки уведомлений об изменении email", {
-                error_message: emailError.message,
                 login: supportRequest.login,
-                emails: [supportRequest.email, supportRequest.new_email],
               });
               emailResults.push({
                 type: "email_change",
@@ -1012,7 +928,6 @@ class AdminSupportController {
               });
             } catch (emailError) {
               logger.error("Ошибка отправки письма об отказе", {
-                error_message: emailError.message,
                 email: supportRequest.email,
                 login: supportRequest.login,
               });
@@ -1067,7 +982,6 @@ class AdminSupportController {
               });
             } catch (emailError) {
               logger.error("Ошибка отправки письма о разблокировке", {
-                error_message: emailError.message,
                 email: supportRequest.email,
                 login: supportRequest.login,
               });
@@ -1100,7 +1014,6 @@ class AdminSupportController {
               });
             } catch (emailError) {
               logger.error("Ошибка отправки письма об отказе", {
-                error_message: emailError.message,
                 email: supportRequest.email,
                 login: supportRequest.login,
               });
@@ -1137,11 +1050,9 @@ class AdminSupportController {
               logger.info("Предупреждение об удалении аккаунта отправлено", {
                 email: supportRequest.email,
                 login: supportRequest.login,
-                deletionDate: deletionDate.toISOString(),
               });
             } catch (emailError) {
               logger.error("Ошибка отправки предупреждения об удалении", {
-                error_message: emailError.message,
                 email: supportRequest.email,
                 login: supportRequest.login,
               });
@@ -1184,11 +1095,9 @@ class AdminSupportController {
               logger.info("Аккаунт помечен на удаление", {
                 login: supportRequest.login,
                 files_count: deletionResult.count,
-                deletion_date: deletionDate.toISOString(),
               });
             } catch (deletionError) {
               logger.error("Ошибка планирования удаления файлов", {
-                error_message: deletionError.message,
                 login: supportRequest.login,
               });
 
@@ -1217,7 +1126,6 @@ class AdminSupportController {
 
               logger.warn("Аккаунт удален в режиме fallback", {
                 login: supportRequest.login,
-                error: deletionError.message,
               });
             }
           } else if (action === "reject") {
@@ -1243,7 +1151,6 @@ class AdminSupportController {
               });
             } catch (emailError) {
               logger.error("Ошибка отправки письма об отказе", {
-                error_message: emailError.message,
                 email: supportRequest.email,
                 login: supportRequest.login,
               });
@@ -1267,20 +1174,9 @@ class AdminSupportController {
 
               if (userData && userData.length > 0 && userData[0].email) {
                 realEmail = userData[0].email;
-                logger.debug("Найден реальный email пользователя", {
-                  login: supportRequest.login,
-                  realEmail: realEmail,
-                  requestEmail: supportRequest.email,
-                });
-              } else {
-                logger.warn("Пользователь не найден или нет email", {
-                  login: supportRequest.login,
-                  foundInDB: userData ? userData.length : 0,
-                });
               }
             } catch (dbError) {
               logger.error("Ошибка получения данных пользователя", {
-                error_message: dbError.message,
                 login: supportRequest.login,
               });
             }
@@ -1321,7 +1217,6 @@ class AdminSupportController {
                   });
                 } catch (emailError) {
                   logger.error("Ошибка отправки ответа", {
-                    error_message: emailError.message,
                     login: supportRequest.login,
                     email: realEmail,
                   });
@@ -1355,7 +1250,6 @@ class AdminSupportController {
 
                 logger.warn("Не удалось отправить ответ для типа 'other'", {
                   login: supportRequest.login,
-                  reason: "Пользователь не найден или нет email",
                 });
               }
             } else {
@@ -1378,7 +1272,6 @@ class AdminSupportController {
               }
             } catch (dbError) {
               logger.error("Ошибка получения email при отклонении", {
-                error_message: dbError.message,
                 login: supportRequest.login,
               });
             }
@@ -1408,7 +1301,6 @@ class AdminSupportController {
                 });
               } catch (emailError) {
                 logger.error("Ошибка отправки письма об отказе", {
-                  error_message: emailError.message,
                   login: supportRequest.login,
                   email: realEmail,
                 });
@@ -1430,7 +1322,6 @@ class AdminSupportController {
 
               logger.warn("Не удалось отправить письмо об отказе", {
                 login: supportRequest.login,
-                reason: "Пользователь не найден или нет email",
               });
             }
           }
@@ -1455,13 +1346,8 @@ class AdminSupportController {
               }),
             ]
           );
-          logger.debug("Логи email отправлены", {
-            requestId: supportRequest.id,
-            emailResultsCount: emailResults.length,
-          });
         } catch (logError) {
           logger.warn("Не удалось залогировать email", {
-            error_message: logError.message,
             requestId: supportRequest.id,
           });
         }
@@ -1507,43 +1393,19 @@ class AdminSupportController {
 
       logger.error("Критическая ошибка обработки запроса поддержки", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         requestId: req.params.id,
         adminId: req.admin?.id,
         response_time_ms: Date.now() - startTime,
-        endpoint: req.path,
       });
 
       res.status(500).json({
         success: false,
         message: "Ошибка обработки запроса",
-        error:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        requestId: req.params.id,
-        adminId: req.admin.id,
-      });
     }
   }
 }
-
-// Экспортируем getConnection
-const getConnection = async () => {
-  try {
-    const {
-      getConnection: getDbConnection,
-    } = require("../../services/databaseService");
-    return await getDbConnection();
-  } catch (error) {
-    logger.error("Ошибка получения соединения с БД", {
-      error_message: error.message,
-      stack_trace: error.stack?.substring(0, 500),
-    });
-    throw error;
-  }
-};
 
 module.exports = AdminSupportController;

@@ -9,9 +9,8 @@ class AdminUsersController {
   static async getUsers(req, res) {
     const startTime = Date.now();
 
-    logger.info("Запрос списка пользователей с фильтрами", {
+    logger.info("Запрос списка пользователей", {
       admin_id: req.admin.id,
-      query: req.query,
       endpoint: req.path,
       method: req.method,
     });
@@ -35,20 +34,6 @@ class AdminUsersController {
     const offsetNum = (pageNum - 1) * limitNum;
 
     try {
-      logger.debug("Параметры запроса пользователей", {
-        search,
-        page: pageNum,
-        limit: limitNum,
-        isActive,
-        isBlocked,
-        hasRequests,
-        requestType,
-        isOverdue,
-        requestStatus,
-        sortBy,
-        sortOrder,
-      });
-
       const whereConditions = [];
 
       if (search.trim() !== "") {
@@ -199,9 +184,6 @@ class AdminUsersController {
 
       logger.debug("SQL запрос для получения пользователей", {
         sql_preview: sql.substring(0, 300) + "...",
-        where_conditions_count: whereConditions.length,
-        limit: limitNum,
-        offset: offsetNum,
       });
 
       const users = await query(sql);
@@ -274,7 +256,6 @@ class AdminUsersController {
           } catch (statsError) {
             logger.warn("Не удалось получить статистику для пользователя", {
               login: user.login,
-              error_message: statsError.message,
             });
           }
 
@@ -340,12 +321,6 @@ class AdminUsersController {
       logger.info("Список пользователей получен", {
         total_users: totalUsers,
         on_page: usersWithStats.length,
-        with_active_requests: usersWithStats.filter(
-          (u) => u.supportRequests.total > 0
-        ).length,
-        with_overdue_requests: usersWithStats.filter(
-          (u) => u.supportRequests.overdue
-        ).length,
         response_time_ms: responseTime,
       });
 
@@ -385,17 +360,13 @@ class AdminUsersController {
     } catch (error) {
       logger.error("Ошибка получения списка пользователей", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         admin_id: req.admin.id,
-        query: req.query,
         response_time_ms: Date.now() - startTime,
       });
 
       res.status(500).json({
         success: false,
         message: "Ошибка получения списка пользователей",
-        error:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
         timestamp: new Date().toISOString(),
       });
     }
@@ -406,7 +377,6 @@ class AdminUsersController {
     const startTime = Date.now();
 
     logger.info("Запрос детальной информации о пользователе", {
-      params: req.params,
       admin_id: req.admin.id,
       endpoint: req.path,
       method: req.method,
@@ -444,13 +414,6 @@ class AdminUsersController {
       }
 
       const userData = user[0];
-
-      logger.debug("Пользователь найден", {
-        login: userData.login,
-        is_blocked: userData.blocked === 1,
-        blocked_until: userData.blocked_until,
-        is_active: userData.is_active === "true",
-      });
 
       const isBlocked = userData.blocked === 1;
       let isPermanentlyBlocked = false;
@@ -568,9 +531,6 @@ class AdminUsersController {
       logger.info("Детальная информация о пользователе получена", {
         login,
         block_status: blockStatus,
-        sessions_count: sessions.length,
-        admin_actions_count: adminActions.length,
-        block_history_count: blockHistory.length,
         response_time_ms: responseTime,
       });
 
@@ -633,7 +593,6 @@ class AdminUsersController {
     } catch (error) {
       logger.error("Ошибка получения деталей пользователя", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
         admin_id: req.admin?.id,
         response_time_ms: Date.now() - startTime,
@@ -652,10 +611,7 @@ class AdminUsersController {
 
     logger.info("Сброс пароля пользователя", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       login: req.params.login,
-      notify_user: req.body.notifyUser,
-      has_new_password: !!req.body.newPassword,
       endpoint: req.path,
       method: req.method,
     });
@@ -733,7 +689,6 @@ class AdminUsersController {
           });
         } catch (emailError) {
           logger.warn("Не удалось отправить email уведомление", {
-            error_message: emailError.message,
             login,
             email: user.email,
           });
@@ -746,7 +701,6 @@ class AdminUsersController {
         login,
         admin_id: adminId,
         user_notified: notifyUser,
-        sessions_cleared: true,
         response_time_ms: responseTime,
       });
 
@@ -768,7 +722,6 @@ class AdminUsersController {
 
       logger.error("Ошибка сброса пароля пользователя", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
         admin_id: req.admin.id,
         response_time_ms: Date.now() - startTime,
@@ -780,9 +733,6 @@ class AdminUsersController {
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 
@@ -792,9 +742,7 @@ class AdminUsersController {
 
     logger.info("Смена email пользователя", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       login: req.params.login,
-      new_email: req.body.newEmail,
       endpoint: req.path,
       method: req.method,
     });
@@ -906,7 +854,6 @@ class AdminUsersController {
         });
       } catch (emailError) {
         logger.warn("Не удалось отправить email уведомления", {
-          error_message: emailError.message,
           login,
           emails: [oldEmail, newEmail],
         });
@@ -937,7 +884,6 @@ class AdminUsersController {
 
       logger.error("Ошибка смены email пользователя", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
         admin_id: req.admin.id,
         response_time_ms: Date.now() - startTime,
@@ -949,9 +895,6 @@ class AdminUsersController {
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 
@@ -961,10 +904,7 @@ class AdminUsersController {
 
     logger.info("Удаление пользователя", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       login: req.params.login,
-      delete_files: req.body.deleteFiles,
-      backup_user_data: req.body.backupUserData,
       endpoint: req.path,
       method: req.method,
     });
@@ -1004,7 +944,6 @@ class AdminUsersController {
       } catch (tableError) {
         logger.warn("Таблица пользователя не найдена", {
           table_name: login,
-          error_message: tableError.message,
         });
       }
 
@@ -1061,12 +1000,10 @@ class AdminUsersController {
             await fs.rm(uploadDir, { recursive: true, force: true });
             logger.info("Файлы пользователя удалены", {
               login,
-              upload_dir: uploadDir,
             });
           }
         } catch (fsError) {
           logger.warn("Ошибка удаления файлов пользователя", {
-            error_message: fsError.message,
             login,
           });
         }
@@ -1099,7 +1036,6 @@ class AdminUsersController {
 
       logger.error("Ошибка удаления пользователя", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
         admin_id: req.admin.id,
         response_time_ms: Date.now() - startTime,
@@ -1111,9 +1047,6 @@ class AdminUsersController {
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 
@@ -1123,7 +1056,6 @@ class AdminUsersController {
 
     logger.info("Запросы на смену email", {
       admin_id: req.admin.id,
-      query: req.query,
       endpoint: req.path,
       method: req.method,
     });
@@ -1205,7 +1137,6 @@ class AdminUsersController {
     } catch (error) {
       logger.error("Ошибка получения запросов на смену email", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         admin_id: req.admin.id,
         response_time_ms: Date.now() - startTime,
       });
@@ -1223,7 +1154,6 @@ class AdminUsersController {
 
     logger.info("Одобрение запроса на смену email", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       request_id: req.params.id,
       endpoint: req.path,
       method: req.method,
@@ -1306,7 +1236,6 @@ class AdminUsersController {
         });
       } catch (emailError) {
         logger.warn("Не удалось отправить email уведомление", {
-          error_message: emailError.message,
           user_login: request.user_login,
         });
       }
@@ -1336,7 +1265,6 @@ class AdminUsersController {
 
       logger.error("Ошибка одобрения запроса на смену email", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         request_id: req.params.id,
         admin_id: req.admin.id,
         response_time_ms: Date.now() - startTime,
@@ -1348,9 +1276,6 @@ class AdminUsersController {
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 
@@ -1360,7 +1285,6 @@ class AdminUsersController {
 
     logger.info("Отклонение запроса на смену email", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       request_id: req.params.id,
       endpoint: req.path,
       method: req.method,
@@ -1435,7 +1359,6 @@ class AdminUsersController {
         });
       } catch (emailError) {
         logger.warn("Не удалось отправить email уведомление", {
-          error_message: emailError.message,
           user_login: request.user_login,
         });
       }
@@ -1463,7 +1386,6 @@ class AdminUsersController {
 
       logger.error("Ошибка отклонения запроса на смену email", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         request_id: req.params.id,
         admin_id: req.admin.id,
         response_time_ms: Date.now() - startTime,
@@ -1475,9 +1397,6 @@ class AdminUsersController {
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 
@@ -1487,10 +1406,7 @@ class AdminUsersController {
 
     logger.info("Блокировка пользователя", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       login: req.params.login,
-      duration: req.body.duration,
-      delete_sessions: req.body.deleteSessions,
       endpoint: req.path,
       method: req.method,
     });
@@ -1586,13 +1502,8 @@ class AdminUsersController {
           );
 
           sessionsDeleted = deleteResult.affectedRows;
-          logger.debug("Сессии пользователя удалены", {
-            login,
-            count: sessionsDeleted,
-          });
         } catch (deleteError) {
           logger.warn("Ошибка удаления сессий", {
-            error_message: deleteError.message,
             login,
           });
         }
@@ -1660,7 +1571,6 @@ class AdminUsersController {
 
       logger.error("Ошибка блокировки пользователя", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
         admin_id: req.admin?.id,
         response_time_ms: Date.now() - startTime,
@@ -1669,14 +1579,9 @@ class AdminUsersController {
       res.status(500).json({
         success: false,
         message: "Ошибка блокировки пользователя",
-        error:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 
@@ -1686,7 +1591,6 @@ class AdminUsersController {
 
     logger.info("Разблокировка пользователя", {
       admin_id: req.admin.id,
-      username: req.admin.username,
       login: req.params.login,
       endpoint: req.path,
       method: req.method,
@@ -1765,15 +1669,9 @@ class AdminUsersController {
           );
 
           blockedRecordUpdated = updateBlockedResult.affectedRows > 0;
-          logger.debug("Запись в blocked_login_attempts обновлена", {
-            login,
-            record_id: blockedRecordId,
-            updated: blockedRecordUpdated,
-          });
         }
       } catch (blockedLogError) {
         logger.warn("Ошибка обновления blocked_login_attempts", {
-          error_message: blockedLogError.message,
           login,
         });
       }
@@ -1823,7 +1721,6 @@ class AdminUsersController {
 
       logger.error("Ошибка разблокировки пользователя", {
         error_message: error.message,
-        stack_trace: error.stack?.substring(0, 500),
         login: req.params.login,
         admin_id: req.admin?.id,
         response_time_ms: Date.now() - startTime,
@@ -1832,14 +1729,9 @@ class AdminUsersController {
       res.status(500).json({
         success: false,
         message: "Ошибка разблокировки пользователя",
-        error:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     } finally {
       connection.release();
-      logger.debug("Соединение с БД освобождено", {
-        endpoint: req.path,
-      });
     }
   }
 }
