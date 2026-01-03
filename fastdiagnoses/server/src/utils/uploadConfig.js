@@ -1,6 +1,7 @@
 const multer = require("multer");
 const { ValidationError } = require("./validators");
 const config = require("../config");
+const logger = require("../services/LoggerService"); // ← ДОБАВЛЕН ИМПОРТ
 
 /**
  * Конфигурация Multer для загрузки изображений
@@ -21,6 +22,17 @@ const uploadConfig = {
     if (config.ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       cb(null, true);
     } else {
+      logger.warn("Попытка загрузки файла недопустимого типа", {
+        mime_type: file.mimetype,
+        original_name: file.originalname,
+        size: file.size,
+        endpoint: req.path,
+        method: req.method,
+        ip: req.ip,
+        user_agent: req.headers["user-agent"]?.substring(0, 100),
+        timestamp: new Date().toISOString(),
+      });
+
       cb(
         new ValidationError(
           `Недопустимый тип файла: ${
@@ -34,7 +46,16 @@ const uploadConfig = {
 
   // Дополнительные настройки (опционально)
   onError: (error, next) => {
-    console.error("❌ Ошибка Multer:", error.message);
+    logger.error("Критическая ошибка Multer при обработке загрузки файла", {
+      error_message: error.message,
+      error_name: error.name,
+      error_stack: error.stack?.substring(0, 500),
+      endpoint: error.req?.path,
+      method: error.req?.method,
+      ip: error.req?.ip,
+      timestamp: new Date().toISOString(),
+    });
+
     next(error);
   },
 };

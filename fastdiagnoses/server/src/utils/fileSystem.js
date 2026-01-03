@@ -1,13 +1,22 @@
 const fs = require("fs").promises;
 const path = require("path");
 const config = require("../config");
+const logger = require("../services/LoggerService"); // ← ДОБАВЛЕН ИМПОРТ
 
 // Обеспечиваем существование директорий
 async function ensureUploadDirs() {
   try {
     await fs.access(config.UPLOAD_DIR);
-  } catch {
+  } catch (error) {
+    logger.warn("Директория uploads не существует, создаю...", {
+      upload_dir: config.UPLOAD_DIR,
+      error_message: error.message,
+    });
+
     await fs.mkdir(config.UPLOAD_DIR, { recursive: true });
+    logger.warn("Директория uploads создана", {
+      upload_dir: config.UPLOAD_DIR,
+    });
   }
 }
 
@@ -22,12 +31,22 @@ async function getUserUploadDirs(login) {
 
 // Создаем директории пользователя
 async function ensureUserUploadDirs(login) {
-  const { originalsDir, thumbnailsDir } = await getUserUploadDirs(login);
+  try {
+    const { originalsDir, thumbnailsDir } = await getUserUploadDirs(login);
 
-  await fs.mkdir(originalsDir, { recursive: true });
-  await fs.mkdir(thumbnailsDir, { recursive: true });
+    await fs.mkdir(originalsDir, { recursive: true });
+    await fs.mkdir(thumbnailsDir, { recursive: true });
 
-  return { originalsDir, thumbnailsDir };
+    return { originalsDir, thumbnailsDir };
+  } catch (error) {
+    logger.error("Критическая ошибка создания директорий пользователя", {
+      login: login,
+      error_message: error.message,
+      error_code: error.code,
+      timestamp: new Date().toISOString(),
+    });
+    throw error;
+  }
 }
 
 // Удаление изображения с диска
@@ -40,21 +59,50 @@ async function deleteImageFromDisk(fileUuid, login) {
     const fileToDelete = files.find((f) => f.includes(fileUuid));
 
     if (fileToDelete) {
-      await fs.unlink(path.join(originalsDir, fileToDelete));
+      const originalPath = path.join(originalsDir, fileToDelete);
+      const thumbnailPath = path.join(thumbnailsDir, fileToDelete);
+
+      await fs.unlink(originalPath);
 
       // Пытаемся удалить превью
       try {
-        await fs.unlink(path.join(thumbnailsDir, fileToDelete));
-      } catch (error) {
-        // Если превью нет - не критично
-        console.warn("Не удалось удалить превью:", error.message);
+        await fs.unlink(thumbnailPath);
+      } catch (thumbnailError) {
+        logger.warn("Не удалось удалить превью изображения", {
+          file_uuid: fileUuid,
+          login: login,
+          thumbnail_path: thumbnailPath,
+          error_message: thumbnailError.message,
+        });
       }
 
+      logger.warn("Изображение успешно удалено с диска", {
+        file_uuid: fileUuid,
+        login: login,
+        original_path: originalPath,
+        thumbnail_path: thumbnailPath,
+        timestamp: new Date().toISOString(),
+      });
+
       return true;
+    } else {
+      logger.warn("Файл для удаления не найден", {
+        file_uuid: fileUuid,
+        login: login,
+        originals_dir: originalsDir,
+        files_count: files.length,
+      });
+      return false;
     }
-    return false;
   } catch (error) {
-    console.error("Ошибка удаления файла:", error);
+    logger.error("Критическая ошибка удаления файла с диска", {
+      file_uuid: fileUuid,
+      login: login,
+      error_message: error.message,
+      error_stack: error.stack?.substring(0, 500),
+      timestamp: new Date().toISOString(),
+    });
+
     return false;
   }
 }
