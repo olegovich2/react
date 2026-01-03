@@ -1,8 +1,8 @@
-// /services/FileDeletionService.js
 const { query } = require("./databaseService");
 const fs = require("fs").promises;
 const path = require("path");
 const config = require("../config");
+const logger = require("./LoggerService");
 
 class FileDeletionService {
   /**
@@ -12,10 +12,17 @@ class FileDeletionService {
    * @returns {Promise<{success: boolean, count: number, scheduledAt: Date}>}
    */
   static async scheduleUserFilesDeletion(userLogin, delayHours = 24) {
+    const startTime = Date.now();
+
     try {
-      console.log(
-        `🗑️ [FileDeletionService] Планирование удаления файлов для: ${userLogin}`
-      );
+      logger.warn("Планирование удаления файлов пользователя", {
+        type: "file_deletion",
+        action: "schedule",
+        user_login: userLogin,
+        delay_hours: delayHours,
+        status: "started",
+        timestamp: new Date().toISOString(),
+      });
 
       // 1. Получаем все файлы пользователя из его таблицы
       const userFiles = await query(
@@ -25,9 +32,14 @@ class FileDeletionService {
       );
 
       if (!userFiles || userFiles.length === 0) {
-        console.log(
-          `ℹ️ [FileDeletionService] У пользователя ${userLogin} нет файлов для удаления`
-        );
+        logger.warn("Нет файлов для удаления у пользователя", {
+          type: "file_deletion",
+          action: "schedule",
+          user_login: userLogin,
+          status: "no_files",
+          execution_time_ms: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+        });
         return { success: true, count: 0, scheduledAt: null };
       }
 
@@ -74,17 +86,32 @@ class FileDeletionService {
             addedCount++;
           }
         } catch (fileError) {
-          console.error(
-            `⚠️ [FileDeletionService] Ошибка добавления файла в очередь:`,
-            fileError.message
-          );
-          // Продолжаем с другими файлами
+          logger.error("Ошибка добавления файла в очередь", {
+            type: "file_deletion",
+            action: "schedule_file",
+            user_login: userLogin,
+            file_uuid: file.file_uuid,
+            file_path: file.file_path,
+            error_message: fileError.message,
+            timestamp: new Date().toISOString(),
+          });
         }
       }
 
-      console.log(
-        `✅ [FileDeletionService] Добавлено ${addedCount} файлов в очередь удаления`
-      );
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Файлы добавлены в очередь удаления", {
+        type: "file_deletion",
+        action: "schedule",
+        user_login: userLogin,
+        status: "completed",
+        files_added: addedCount,
+        delay_hours: delayHours,
+        scheduled_at: scheduledAt.toISOString(),
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return {
         success: true,
         count: addedCount,
@@ -93,10 +120,16 @@ class FileDeletionService {
         delayHours,
       };
     } catch (error) {
-      console.error(
-        `❌ [FileDeletionService] Ошибка планирования удаления:`,
-        error
-      );
+      logger.error("Ошибка планирования удаления файлов", {
+        type: "file_deletion",
+        action: "schedule",
+        user_login: userLogin,
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        stack_trace: error.stack,
+        timestamp: new Date().toISOString(),
+      });
       throw error;
     }
   }
@@ -106,7 +139,14 @@ class FileDeletionService {
    * @returns {Promise<{processed: number, failed: number}>}
    */
   static async processDeletionQueue() {
-    console.log(`🔍 [FileDeletionService] Проверка очереди удаления...`);
+    const startTime = Date.now();
+
+    logger.warn("Проверка очереди удаления файлов", {
+      type: "file_deletion",
+      action: "process_queue",
+      status: "started",
+      timestamp: new Date().toISOString(),
+    });
 
     const connection = await require("./databaseService").getConnection();
     try {
@@ -125,14 +165,23 @@ class FileDeletionService {
       `);
 
       if (filesToDelete.length === 0) {
-        console.log(`ℹ️ [FileDeletionService] Нет файлов для удаления`);
+        logger.info("Нет файлов для удаления в очереди", {
+          type: "file_deletion",
+          action: "process_queue",
+          status: "empty",
+          execution_time_ms: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+        });
         await connection.rollback();
         return { processed: 0, failed: 0 };
       }
 
-      console.log(
-        `📋 [FileDeletionService] Найдено ${filesToDelete.length} файлов для удаления`
-      );
+      logger.info("Найдены файлы для удаления", {
+        type: "file_deletion",
+        action: "process_queue",
+        files_count: filesToDelete.length,
+        timestamp: new Date().toISOString(),
+      });
 
       let processed = 0;
       let failed = 0;
@@ -162,16 +211,28 @@ class FileDeletionService {
           );
 
           processed++;
-          console.log(
-            `✅ [FileDeletionService] Удален файл: ${path.basename(
-              file.file_path
-            )}`
-          );
+
+          logger.info("Файл успешно удален", {
+            type: "file_deletion",
+            action: "delete_file",
+            file_id: file.id,
+            user_login: file.user_login,
+            file_path: file.file_path,
+            file_name: path.basename(file.file_path),
+            status: "success",
+            timestamp: new Date().toISOString(),
+          });
         } catch (error) {
-          console.error(
-            `❌ [FileDeletionService] Ошибка удаления файла ${file.file_path}:`,
-            error.message
-          );
+          logger.error("Ошибка удаления файла", {
+            type: "file_deletion",
+            action: "delete_file",
+            file_id: file.id,
+            user_login: file.user_login,
+            file_path: file.file_path,
+            retry_count: file.retry_count,
+            error_message: error.message,
+            timestamp: new Date().toISOString(),
+          });
 
           // Увеличиваем счетчик попыток
           await connection.execute(
@@ -192,17 +253,31 @@ class FileDeletionService {
       await this.cleanupUserTables(filesToDelete);
 
       await connection.commit();
-      console.log(
-        `📊 [FileDeletionService] Итог: обработано ${processed}, ошибок ${failed}`
-      );
+
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Обработка очереди удаления завершена", {
+        type: "file_deletion",
+        action: "process_queue",
+        status: "completed",
+        files_processed: processed,
+        files_failed: failed,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
 
       return { processed, failed };
     } catch (error) {
+      logger.error("Критическая ошибка обработки очереди удаления", {
+        type: "file_deletion",
+        action: "process_queue",
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        stack_trace: error.stack,
+        timestamp: new Date().toISOString(),
+      });
       await connection.rollback();
-      console.error(
-        `❌ [FileDeletionService] Критическая ошибка обработки очереди:`,
-        error
-      );
       throw error;
     } finally {
       connection.release();
@@ -213,6 +288,8 @@ class FileDeletionService {
    * Физическое удаление файла с диска
    */
   static async deleteFile(filePath) {
+    const startTime = Date.now();
+
     try {
       // Проверяем существование файла
       await fs.access(filePath);
@@ -223,12 +300,41 @@ class FileDeletionService {
       // Пробуем удалить пустые директории
       await this.cleanupEmptyDirectories(path.dirname(filePath));
 
+      logger.info("Файл физически удален с диска", {
+        type: "file_deletion",
+        action: "delete_physical",
+        file_path: filePath,
+        file_name: path.basename(filePath),
+        execution_time_ms: Date.now() - startTime,
+        status: "success",
+        timestamp: new Date().toISOString(),
+      });
+
       return true;
     } catch (error) {
       if (error.code === "ENOENT") {
-        console.log(`ℹ️ [FileDeletionService] Файл уже удален: ${filePath}`);
-        return true; // Файл уже не существует - считаем удаленным
+        logger.warn("Файл уже удален с диска", {
+          type: "file_deletion",
+          action: "delete_physical",
+          file_path: filePath,
+          file_name: path.basename(filePath),
+          execution_time_ms: Date.now() - startTime,
+          status: "already_deleted",
+          timestamp: new Date().toISOString(),
+        });
+        return true;
       }
+
+      logger.error("Ошибка физического удаления файла", {
+        type: "file_deletion",
+        action: "delete_physical",
+        file_path: filePath,
+        file_name: path.basename(filePath),
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        error_code: error.code,
+        timestamp: new Date().toISOString(),
+      });
       throw error;
     }
   }
@@ -243,9 +349,13 @@ class FileDeletionService {
       if (files.length === 0) {
         // Директория пуста - удаляем
         await fs.rmdir(dirPath);
-        console.log(
-          `🗂️ [FileDeletionService] Удалена пустая директория: ${dirPath}`
-        );
+
+        logger.info("Удалена пустая директория", {
+          type: "file_deletion",
+          action: "cleanup_directory",
+          directory_path: dirPath,
+          timestamp: new Date().toISOString(),
+        });
 
         // Проверяем родительскую директорию
         const parentDir = path.dirname(dirPath);
@@ -254,11 +364,13 @@ class FileDeletionService {
         }
       }
     } catch (error) {
-      // Игнорируем ошибки очистки директорий
-      console.log(
-        `ℹ️ [FileDeletionService] Не удалось очистить директорию ${dirPath}:`,
-        error.message
-      );
+      logger.warn("Не удалось очистить директорию", {
+        type: "file_deletion",
+        action: "cleanup_directory",
+        directory_path: dirPath,
+        error_message: error.message,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 
@@ -266,6 +378,8 @@ class FileDeletionService {
    * Удаляет записи о файлах из таблиц пользователей
    */
   static async cleanupUserTables(files) {
+    const startTime = Date.now();
+
     try {
       // Группируем по пользователям
       const usersMap = new Map();
@@ -287,17 +401,26 @@ class FileDeletionService {
              WHERE file_uuid IN (${uuids.map(() => "?").join(",")})`,
             uuids
           );
-          console.log(
-            `🗑️ [FileDeletionService] Удалено ${uuids.length} записей из таблицы ${userLogin}`
-          );
+
+          logger.info("Удалены записи из таблицы пользователя", {
+            type: "file_deletion",
+            action: "cleanup_user_table",
+            user_login: userLogin,
+            records_deleted: uuids.length,
+            execution_time_ms: Date.now() - startTime,
+            timestamp: new Date().toISOString(),
+          });
         }
       }
     } catch (error) {
-      console.error(
-        `⚠️ [FileDeletionService] Ошибка очистки таблиц пользователей:`,
-        error.message
-      );
-      // Не прерываем выполнение, это вторичная операция
+      logger.error("Ошибка очистки таблиц пользователей", {
+        type: "file_deletion",
+        action: "cleanup_user_table",
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 
@@ -305,6 +428,8 @@ class FileDeletionService {
    * Получает статистику очереди
    */
   static async getQueueStats() {
+    const startTime = Date.now();
+
     try {
       const [stats] = await query(`
         SELECT 
@@ -318,7 +443,7 @@ class FileDeletionService {
         FROM file_deletion_queue
       `);
 
-      return {
+      const result = {
         success: true,
         stats: stats[0] || {
           total: 0,
@@ -328,11 +453,25 @@ class FileDeletionService {
           failed: 0,
         },
       };
+
+      logger.info("Получена статистика очереди удаления", {
+        type: "file_deletion",
+        action: "get_stats",
+        execution_time_ms: Date.now() - startTime,
+        stats: result.stats,
+        timestamp: new Date().toISOString(),
+      });
+
+      return result;
     } catch (error) {
-      console.error(
-        `❌ [FileDeletionService] Ошибка получения статистики:`,
-        error
-      );
+      logger.error("Ошибка получения статистики очереди удаления", {
+        type: "file_deletion",
+        action: "get_stats",
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        timestamp: new Date().toISOString(),
+      });
       return { success: false, error: error.message };
     }
   }

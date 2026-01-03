@@ -1,5 +1,6 @@
 const mysql = require("mysql2/promise");
 const config = require("../config");
+const logger = require("./LoggerService");
 
 // Создаем pool
 const pool = mysql.createPool(config.database);
@@ -26,10 +27,21 @@ async function testConnection() {
     const connection = await getConnection();
     await connection.ping();
     connection.release();
-    console.log("✅ Соединение с базой данных установлено");
+    logger.warn("Соединение с базой данных установлено", {
+      type: "database",
+      action: "connection_test",
+      status: "success",
+      timestamp: new Date().toISOString(),
+    });
     return true;
   } catch (error) {
-    console.error("❌ Ошибка подключения к базе данных:", error.message);
+    logger.error("Ошибка подключения к базе данных", {
+      type: "database",
+      action: "connection_test",
+      status: "failed",
+      error_message: error.message,
+      timestamp: new Date().toISOString(),
+    });
     return false;
   }
 }

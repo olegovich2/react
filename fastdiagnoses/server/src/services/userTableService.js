@@ -1,5 +1,6 @@
 const { query } = require("./databaseService");
 const { ensureUserUploadDirs } = require("../utils/fileSystem");
+const logger = require("./LoggerService");
 
 class UserTableService {
   /**
@@ -8,6 +9,8 @@ class UserTableService {
    * @returns {Promise<boolean>} Успешно ли создана таблица
    */
   async createUserTable(login) {
+    const startTime = Date.now();
+
     try {
       // SQL для создания таблицы пользователя
       const createTableSQL = `
@@ -39,10 +42,29 @@ class UserTableService {
       // Создаем директории для файлов пользователя
       await ensureUserUploadDirs(login);
 
-      console.log(`✅ Таблица пользователя создана: ${login}`);
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Таблица пользователя создана", {
+        type: "user_table",
+        action: "create",
+        user_login: login,
+        status: "success",
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return true;
     } catch (error) {
-      console.error(`❌ Ошибка создания таблицы для ${login}:`, error.message);
+      logger.error("Ошибка создания таблицы пользователя", {
+        type: "user_table",
+        action: "create",
+        user_login: login,
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        stack_trace: error.stack,
+        timestamp: new Date().toISOString(),
+      });
       throw error;
     }
   }
@@ -53,14 +75,38 @@ class UserTableService {
    * @returns {Promise<boolean>} Существует ли таблица
    */
   async tableExists(login) {
+    const startTime = Date.now();
+
     try {
       const result = await query(
         "SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
         [process.env.DB_DATABASE || "diagnoses", login]
       );
-      return result[0].count > 0;
+
+      const exists = result[0].count > 0;
+      const executionTime = Date.now() - startTime;
+
+      logger.info("Проверка существования таблицы пользователя", {
+        type: "user_table",
+        action: "check_exists",
+        user_login: login,
+        table_exists: exists,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
+      return exists;
     } catch (error) {
-      console.error(`❌ Ошибка проверки таблицы ${login}:`, error.message);
+      logger.error("Ошибка проверки таблицы пользователя", {
+        type: "user_table",
+        action: "check_exists",
+        user_login: login,
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        stack_trace: error.stack,
+        timestamp: new Date().toISOString(),
+      });
       return false;
     }
   }
@@ -71,12 +117,34 @@ class UserTableService {
    * @returns {Promise<boolean>} Успешно ли удалена таблица
    */
   async dropUserTable(login) {
+    const startTime = Date.now();
+
     try {
       await query(`DROP TABLE IF EXISTS \`${login}\``);
-      console.log(`✅ Таблица пользователя удалена: ${login}`);
+
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Таблица пользователя удалена", {
+        type: "user_table",
+        action: "drop",
+        user_login: login,
+        status: "success",
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return true;
     } catch (error) {
-      console.error(`❌ Ошибка удаления таблицы ${login}:`, error.message);
+      logger.error("Ошибка удаления таблицы пользователя", {
+        type: "user_table",
+        action: "drop",
+        user_login: login,
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        stack_trace: error.stack,
+        timestamp: new Date().toISOString(),
+      });
       return false;
     }
   }
@@ -87,6 +155,8 @@ class UserTableService {
    * @returns {Promise<Object|null>} Информация о таблице
    */
   async getTableInfo(login) {
+    const startTime = Date.now();
+
     try {
       const [tables] = await query(
         `SELECT 
@@ -100,11 +170,21 @@ class UserTableService {
         [process.env.DB_DATABASE || "diagnoses", login]
       );
 
+      const executionTime = Date.now() - startTime;
+
       if (tables.length === 0) {
+        logger.info("Таблица пользователя не найдена", {
+          type: "user_table",
+          action: "get_info",
+          user_login: login,
+          table_exists: false,
+          execution_time_ms: executionTime,
+          timestamp: new Date().toISOString(),
+        });
         return null;
       }
 
-      return {
+      const tableInfo = {
         tableName: tables[0].table_name,
         rowCount: tables[0].rows_count,
         dataSize: tables[0].data_size,
@@ -112,11 +192,29 @@ class UserTableService {
         createdAt: tables[0].created_at,
         totalSize: (tables[0].data_size + tables[0].index_size) / 1024 / 1024, // MB
       };
+
+      logger.info("Получена информация о таблице пользователя", {
+        type: "user_table",
+        action: "get_info",
+        user_login: login,
+        table_exists: true,
+        table_info: tableInfo,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
+      return tableInfo;
     } catch (error) {
-      console.error(
-        `❌ Ошибка получения информации о таблице ${login}:`,
-        error.message
-      );
+      logger.error("Ошибка получения информации о таблице пользователя", {
+        type: "user_table",
+        action: "get_info",
+        user_login: login,
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        stack_trace: error.stack,
+        timestamp: new Date().toISOString(),
+      });
       return null;
     }
   }
@@ -127,14 +225,49 @@ class UserTableService {
    * @returns {Promise<boolean>} Существовала ли таблица до создания
    */
   async createTableIfNotExists(login) {
-    const exists = await this.tableExists(login);
+    const startTime = Date.now();
 
-    if (!exists) {
-      await this.createUserTable(login);
-      return false; // Таблицы не было, создали
+    try {
+      const exists = await this.tableExists(login);
+
+      if (!exists) {
+        await this.createUserTable(login);
+
+        logger.warn("Таблица пользователя создана (не существовала)", {
+          type: "user_table",
+          action: "create_if_not_exists",
+          user_login: login,
+          table_existed_before: false,
+          execution_time_ms: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+        });
+
+        return false; // Таблицы не было, создали
+      }
+
+      logger.info("Таблица пользователя уже существует", {
+        type: "user_table",
+        action: "create_if_not_exists",
+        user_login: login,
+        table_existed_before: true,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
+      return true; // Таблица уже существовала
+    } catch (error) {
+      logger.error("Ошибка создания таблицы если не существует", {
+        type: "user_table",
+        action: "create_if_not_exists",
+        user_login: login,
+        status: "failed",
+        execution_time_ms: Date.now() - startTime,
+        error_message: error.message,
+        stack_trace: error.stack,
+        timestamp: new Date().toISOString(),
+      });
+      throw error;
     }
-
-    return true; // Таблица уже существовала
   }
 }
 

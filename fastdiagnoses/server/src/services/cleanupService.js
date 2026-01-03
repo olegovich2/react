@@ -1,11 +1,21 @@
-const { query } = require("./databaseService"); // Предполагаем, что создадим этот сервис
+const { query } = require("./databaseService");
 const jwt = require("jsonwebtoken");
 const config = require("../config");
+const logger = require("./LoggerService");
 
 // Очистка истекших сессий
 async function cleanupExpiredSessions() {
+  const startTime = Date.now();
+  const jobName = "cleanup_sessions";
+
+  logger.warn("Запуск очистки истекших сессий", {
+    type: "cron_job",
+    job_name: jobName,
+    status: "started",
+    timestamp: new Date().toISOString(),
+  });
+
   try {
-    const startTime = Date.now();
     let deletedCount = 0;
 
     // Проверяем сессии по JWT
@@ -30,22 +40,45 @@ async function cleanupExpiredSessions() {
 
     deletedCount += result.affectedRows || 0;
 
-    console.log(
-      `✅ Очистка сессий завершена за ${
-        Date.now() - startTime
-      }ms. Удалено: ${deletedCount}`
-    );
+    const executionTime = Date.now() - startTime;
+
+    logger.warn("Очистка истекших сессий завершена", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "success",
+      execution_time_ms: executionTime,
+      records_deleted: deletedCount,
+      timestamp: new Date().toISOString(),
+    });
+
     return deletedCount;
   } catch (error) {
-    console.error("❌ Ошибка при очистке сессий:", error);
+    logger.error("Ошибка при очистке сессий", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "failed",
+      execution_time_ms: Date.now() - startTime,
+      error_message: error.message,
+      stack_trace: error.stack,
+      timestamp: new Date().toISOString(),
+    });
     return 0;
   }
 }
 
 // Очистка неактивированных аккаунтов
 async function cleanupExpiredRegistrations() {
+  const startTime = Date.now();
+  const jobName = "cleanup_registrations";
+
+  logger.warn("Запуск очистки неактивированных аккаунтов", {
+    type: "cron_job",
+    job_name: jobName,
+    status: "started",
+    timestamp: new Date().toISOString(),
+  });
+
   try {
-    const startTime = Date.now();
     const users = await query(
       "SELECT login, email, jwt FROM usersdata WHERE logic = 'false'"
     );
@@ -64,25 +97,45 @@ async function cleanupExpiredRegistrations() {
       }
     }
 
-    console.log(
-      `✅ Очистка аккаунтов завершена за ${
-        Date.now() - startTime
-      }ms. Удалено: ${deletedCount}`
-    );
+    const executionTime = Date.now() - startTime;
+
+    logger.warn("Очистка неактивированных аккаунтов завершена", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "success",
+      execution_time_ms: executionTime,
+      records_deleted: deletedCount,
+      timestamp: new Date().toISOString(),
+    });
+
     return deletedCount;
   } catch (error) {
-    console.error("❌ Ошибка при очистке неактивированных аккаунтов:", error);
+    logger.error("Ошибка при очистке неактивированных аккаунтов", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "failed",
+      execution_time_ms: Date.now() - startTime,
+      error_message: error.message,
+      stack_trace: error.stack,
+      timestamp: new Date().toISOString(),
+    });
     return 0;
   }
 }
 
 // Очистка устаревших токенов восстановления
 async function cleanupExpiredResetTokens() {
-  const operationId = Date.now(); // Уникальный ID операции для логов
-  console.log(`🧹 Начало очистки токенов восстановления [ID: ${operationId}]`);
+  const startTime = Date.now();
+  const jobName = "cleanup_tokens";
+
+  logger.warn("Запуск очистки токенов восстановления", {
+    type: "cron_job",
+    job_name: jobName,
+    status: "started",
+    timestamp: new Date().toISOString(),
+  });
 
   try {
-    const startTime = Date.now();
     const result = await query(
       "DELETE FROM password_resets WHERE expires_at < NOW() OR used = TRUE"
     );
@@ -90,31 +143,43 @@ async function cleanupExpiredResetTokens() {
     const deletedCount = result.affectedRows || 0;
     const executionTime = Date.now() - startTime;
 
-    console.log(
-      `✅ Очистка токенов завершена [ID: ${operationId}]\n` +
-        `   📊 Удалено записей: ${deletedCount}\n` +
-        `   ⏱️  Время выполнения: ${executionTime}ms\n` +
-        `   🕒 Время сервера: ${new Date().toLocaleTimeString()}`
-    );
+    logger.warn("Очистка токенов восстановления завершена", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "success",
+      execution_time_ms: executionTime,
+      records_deleted: deletedCount,
+      timestamp: new Date().toISOString(),
+    });
 
     return deletedCount;
   } catch (error) {
-    console.error(
-      `❌ Ошибка очистки токенов [ID: ${operationId}]:`,
-      error.message
-    );
+    logger.error("Ошибка очистки токенов восстановления", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "failed",
+      execution_time_ms: Date.now() - startTime,
+      error_message: error.message,
+      stack_trace: error.stack,
+      timestamp: new Date().toISOString(),
+    });
     return 0;
   }
 }
 
 // Очистка старых записей login_attempts (старше 90 дней)
 async function cleanupOldLoginAttempts() {
-  const operationId = Date.now();
-  console.log(`🧹 Начало очистки login_attempts [ID: ${operationId}]`);
+  const startTime = Date.now();
+  const jobName = "cleanup_login_attempts";
+
+  logger.warn("Запуск очистки старых login_attempts", {
+    type: "cron_job",
+    job_name: jobName,
+    status: "started",
+    timestamp: new Date().toISOString(),
+  });
 
   try {
-    const startTime = Date.now();
-
     // Удаляем записи старше 90 дней
     const result = await query(
       "DELETE FROM login_attempts WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)"
@@ -123,89 +188,92 @@ async function cleanupOldLoginAttempts() {
     const deletedCount = result.affectedRows || 0;
     const executionTime = Date.now() - startTime;
 
-    console.log(
-      `✅ Очистка login_attempts завершена [ID: ${operationId}]\n` +
-        `   📊 Удалено записей: ${deletedCount}\n` +
-        `   ⏱️  Время выполнения: ${executionTime}ms\n` +
-        `   🕒 Время сервера: ${new Date().toLocaleTimeString()}\n` +
-        `   📅 Удалены записи старше: 90 дней`
-    );
+    logger.warn("Очистка старых login_attempts завершена", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "success",
+      execution_time_ms: executionTime,
+      records_deleted: deletedCount,
+      timestamp: new Date().toISOString(),
+    });
 
     return deletedCount;
   } catch (error) {
-    console.error(
-      `❌ Ошибка очистки login_attempts [ID: ${operationId}]:`,
-      error.message
-    );
+    logger.error("Ошибка очистки старых login_attempts", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "failed",
+      execution_time_ms: Date.now() - startTime,
+      error_message: error.message,
+      stack_trace: error.stack,
+      timestamp: new Date().toISOString(),
+    });
     return 0;
   }
 }
 
-// В самом конце файла, перед module.exports, добавляем:
-
 // Обработка очереди отложенного удаления файлов
 async function processFileDeletionQueue() {
-  const operationId = Date.now();
-  console.log(
-    `🗑️ Начало обработки очереди удаления файлов [ID: ${operationId}]`
-  );
+  const startTime = Date.now();
+  const jobName = "process_file_deletion_queue";
+
+  logger.warn("Запуск обработки очереди удаления файлов", {
+    type: "cron_job",
+    job_name: jobName,
+    status: "started",
+    timestamp: new Date().toISOString(),
+  });
 
   try {
     // Импортируем динамически, чтобы избежать циклических зависимостей
     const FileDeletionService = require("./FileDeletionService");
-
-    const startTime = Date.now();
 
     // Обрабатываем очередь
     const result = await FileDeletionService.processDeletionQueue();
 
     const executionTime = Date.now() - startTime;
 
-    console.log(
-      `✅ Обработка очереди удаления завершена [ID: ${operationId}]\n` +
-        `   📊 Обработано файлов: ${result.processed || 0}\n` +
-        `   ❌ Ошибок: ${result.failed || 0}\n` +
-        `   ⏱️  Время выполнения: ${executionTime}ms\n` +
-        `   🕒 Время сервера: ${new Date().toLocaleTimeString()}`
-    );
+    logger.warn("Обработка очереди удаления завершена", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "success",
+      execution_time_ms: executionTime,
+      files_processed: result.processed || 0,
+      files_failed: result.failed || 0,
+      timestamp: new Date().toISOString(),
+    });
 
-    // Получаем статистику для логов
+    // Получаем статистику для дополнительных логов
     try {
       const stats = await FileDeletionService.getQueueStats();
       if (stats.success) {
-        console.log(
-          `   📈 Статистика очереди:\n` +
-            `      • Всего записей: ${stats.stats.total || 0}\n` +
-            `      • Ожидает обработки: ${stats.stats.pending || 0}\n` +
-            `      • В обработке: ${stats.stats.processing || 0}\n` +
-            `      • Завершено: ${stats.stats.completed || 0}\n` +
-            `      • Ошибок: ${stats.stats.failed || 0}\n` +
-            `      • Самое раннее удаление: ${
-              stats.stats.earliest_scheduled
-                ? new Date(stats.stats.earliest_scheduled).toLocaleString(
-                    "ru-RU"
-                  )
-                : "нет"
-            }\n` +
-            `      • Самое позднее удаление: ${
-              stats.stats.latest_scheduled
-                ? new Date(stats.stats.latest_scheduled).toLocaleString("ru-RU")
-                : "нет"
-            }`
-        );
+        logger.info("Статистика очереди удаления файлов", {
+          type: "cron_job",
+          job_name: jobName,
+          stats: stats.stats,
+          timestamp: new Date().toISOString(),
+        });
       }
     } catch (statsError) {
-      console.log(
-        `   ℹ️ Не удалось получить статистику: ${statsError.message}`
-      );
+      logger.error("Не удалось получить статистику очереди", {
+        type: "cron_job",
+        job_name: jobName,
+        error_message: statsError.message,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     return result;
   } catch (error) {
-    console.error(
-      `❌ Ошибка обработки очереди удаления [ID: ${operationId}]:`,
-      error.message
-    );
+    logger.error("Ошибка обработки очереди удаления", {
+      type: "cron_job",
+      job_name: jobName,
+      status: "failed",
+      execution_time_ms: Date.now() - startTime,
+      error_message: error.message,
+      stack_trace: error.stack,
+      timestamp: new Date().toISOString(),
+    });
     return { processed: 0, failed: 0, error: error.message };
   }
 }
