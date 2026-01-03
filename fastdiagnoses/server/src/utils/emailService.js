@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const logger = require("../services/LoggerService"); // ← ДОБАВЛЕН ИМПОРТ
 require("dotenv").config();
 
 class EmailService {
@@ -70,7 +71,6 @@ class EmailService {
   async initialize() {
     try {
       if (this.isInitialized) {
-        console.log("⚠️ EmailService уже инициализирован");
         return;
       }
 
@@ -92,9 +92,12 @@ class EmailService {
       // Проверка подключения
       await this.transporter.verify();
       this.isInitialized = true;
-      console.log("✅ EmailService инициализирован успешно");
     } catch (error) {
-      console.error("❌ Ошибка инициализации EmailService:", error.message);
+      logger.error("Критическая ошибка инициализации EmailService", {
+        error_message: error.message,
+        has_email_user: !!process.env.EMAIL_USER,
+        has_email_pass: !!process.env.EMAIL_PASS,
+      });
       throw error;
     }
   }
@@ -1062,12 +1065,13 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(
-        `📧 Ссылка для восстановления пароля отправлена на: ${email}`
-      );
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки email восстановления пароля:", error);
+      logger.error("Критическая ошибка отправки email восстановления пароля", {
+        error_message: error.message,
+        login: login,
+        has_reset_token: !!resetToken,
+      });
       throw new Error(
         `Не удалось отправить email восстановления: ${error.message}`
       );
@@ -1108,10 +1112,13 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(`📧 Уведомление об изменении пароля отправлено на ${email}`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки email смены пароля:", error);
+      logger.error("Ошибка отправки email уведомления об изменении пароля", {
+        error_message: error.message,
+        login: login,
+        user_ip: userIp,
+      });
       throw new Error(
         `Не удалось отправить email уведомления: ${error.message}`
       );
@@ -1141,10 +1148,13 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(`📧 Email подтверждения отправлен на: ${email}`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки email подтверждения:", error);
+      logger.error("Ошибка отправки email подтверждения регистрации", {
+        error_message: error.message,
+        login: login,
+        has_confirm_token: !!confirmToken,
+      });
       throw new Error(
         `Не удалось отправить email подтверждения: ${error.message}`
       );
@@ -1164,10 +1174,13 @@ class EmailService {
       };
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(`📧 Письмо отправлено на: ${to}`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки email:", error);
+      logger.error("Ошибка отправки пользовательского email", {
+        error_message: error.message,
+        to: to,
+        subject: subject,
+      });
       throw new Error(`Не удалось отправить email: ${error.message}`);
     }
   }
@@ -1237,9 +1250,12 @@ class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
-      console.log(`✅ Email о блокировке отправлен: ${email}`);
     } catch (error) {
-      console.error("❌ Ошибка отправки email о блокировке:", error);
+      logger.error("Ошибка отправки email о блокировке аккаунта", {
+        error_message: error.message,
+        login: login,
+        reason: reason,
+      });
       throw error;
     }
   }
@@ -1267,12 +1283,14 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(
-        `📧 Подтверждение заявки отправлено: ${email} (${requestId})`
-      );
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки подтверждения заявки:", error);
+      logger.error("Критическая ошибка отправки email подтверждения заявки", {
+        error_message: error.message,
+        request_id: requestId,
+        request_type: requestType,
+        smtp_error: error.response || null,
+      });
       throw new Error(
         `Не удалось отправить подтверждение заявки: ${error.message}`
       );
@@ -1291,12 +1309,13 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(
-        `📧 Уведомление о принятии заявки отправлено: ${email} (${requestId})`
-      );
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки уведомления о принятии:", error);
+      logger.error("Ошибка отправки email уведомления о принятии заявки", {
+        error_message: error.message,
+        request_id: requestId,
+        request_type: requestType,
+      });
       throw new Error(`Не удалось отправить уведомление: ${error.message}`);
     }
   }
@@ -1322,12 +1341,14 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(
-        `📧 Уведомление об изменении статуса отправлено: ${email} (${requestId}: ${oldStatus} → ${newStatus})`
-      );
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки уведомления о статусе:", error);
+      logger.error("Ошибка отправки email об изменении статуса заявки", {
+        error_message: error.message,
+        request_id: requestId,
+        old_status: oldStatus,
+        new_status: newStatus,
+      });
       throw new Error(
         `Не удалось отправить уведомление о статусе: ${error.message}`
       );
@@ -1361,12 +1382,14 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(
-        `📧 Результат обработки заявки отправлен: ${email} (${requestId}, ${action})`
-      );
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки результата заявки:", error);
+      logger.error("Ошибка отправки email результата обработки заявки", {
+        error_message: error.message,
+        request_id: requestId,
+        action: action,
+        request_type: requestType,
+      });
       throw new Error(
         `Не удалось отправить результат заявки: ${error.message}`
       );
@@ -1396,12 +1419,13 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(
-        `📧 Уведомление об изменении email отправлено: ${email} (${requestId}, новый: ${isNewEmail})`
-      );
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки уведомления об email:", error);
+      logger.error("Ошибка отправки email уведомления об изменении email", {
+        error_message: error.message,
+        request_id: requestId,
+        is_new_email: isNewEmail,
+      });
       throw new Error(
         `Не удалось отправить уведомление об email: ${error.message}`
       );
@@ -1479,10 +1503,16 @@ class EmailService {
       };
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(`📧 Предупреждение об удалении отправлено: ${email}`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки предупреждения об удалении:", error);
+      logger.error(
+        "Ошибка отправки email предупреждения об удалении аккаунта",
+        {
+          error_message: error.message,
+          request_id: requestId,
+          deletion_date: deletionDate,
+        }
+      );
       throw new Error(
         `Не удалось отправить предупреждение об удалении: ${error.message}`
       );
@@ -1510,10 +1540,13 @@ class EmailService {
       });
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log(`📧 Ответ администратора отправлен: ${email} (${requestId})`);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error("❌ Ошибка отправки ответа администратора:", error);
+      logger.error("Ошибка отправки email ответа администратора", {
+        error_message: error.message,
+        request_id: requestId,
+        admin_name: adminName,
+      });
       throw new Error(
         `Не удалось отправить ответ администратора: ${error.message}`
       );
@@ -1556,7 +1589,6 @@ class EmailService {
       this.transporter.close();
       this.transporter = null;
       this.isInitialized = false;
-      console.log("📧 EmailService завершен");
     }
   }
 }

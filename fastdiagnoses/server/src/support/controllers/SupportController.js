@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { query } = require("../../services/databaseService");
 const emailService = require("../../utils/emailService");
 const { validateEmail, validateLogin } = require("../../utils/validators");
+const logger = require("../../services/LoggerService"); // ← ДОБАВЛЕН ИМПОРТ
 
 class SupportController {
   // Ключ шифрования (32 символа для AES-256)
@@ -30,7 +31,10 @@ class SupportController {
       // Сохраняем IV:зашифрованный_текст
       return iv.toString("hex") + ":" + encrypted;
     } catch (error) {
-      console.error("❌ Ошибка шифрования:", error);
+      logger.error("Ошибка шифрования данных техподдержки", {
+        error_message: error.message,
+        operation: "encryptText",
+      });
       return null;
     }
   }
@@ -58,7 +62,10 @@ class SupportController {
 
       return decrypted;
     } catch (error) {
-      console.error("❌ Ошибка расшифровки:", error);
+      logger.error("Ошибка расшифровки данных техподдержки", {
+        error_message: error.message,
+        operation: "decryptText",
+      });
       return null;
     }
   }
@@ -68,7 +75,7 @@ class SupportController {
     return `SUP-${Date.now().toString(36).toUpperCase()}`;
   }
 
-  // Логирование действий
+  // Логирование действий (оставляем бизнес-логику)
   static async logAction(
     requestId,
     action,
@@ -84,20 +91,18 @@ class SupportController {
         [requestId, action, oldValue, newValue, "system", actor]
       );
     } catch (error) {
-      console.error("❌ Ошибка логирования:", error);
+      logger.error("Ошибка логирования действия техподдержки", {
+        request_id: requestId,
+        action: action,
+        actor: actor,
+        db_error: error.message,
+      });
     }
   }
 
   // 1. ОТПРАВКА ЗАЯВКИ
   static async submitRequest(req, res) {
     try {
-      console.log("📨 Получена новая заявка:", {
-        type: req.body.type,
-        login: req.body.login,
-        email: req.body.email?.substring(0, 3) + "...",
-        secretWord: req.body.secretWord ? "***" : "не указано",
-      });
-
       const { type, login, email, secretWord, message, newEmail, password } =
         req.body;
 
@@ -110,6 +115,11 @@ class SupportController {
         "other",
       ];
       if (!validTypes.includes(type)) {
+        logger.warn("Неверный тип заявки техподдержки", {
+          received_type: type,
+          ip: req.ip,
+          login: login,
+        });
         return res.status(400).json({
           success: false,
           message: "Неверный тип заявки",
@@ -222,6 +232,12 @@ class SupportController {
         }
 
         if (newEmail === email) {
+          logger.warn("Попытка смены email на тот же адрес", {
+            login: login,
+            email: email,
+            new_email: newEmail,
+            ip: req.ip,
+          });
           return res.status(400).json({
             success: false,
             message: "Новый email должен отличаться от текущего",
@@ -243,7 +259,7 @@ class SupportController {
       }
 
       // ========== СПЕЦИАЛЬНАЯ ОБРАБОТКА ДЛЯ ТИПА "other" ==========
-      let userEmailForSending = email; // email для отправки письма
+      let userEmailForSending = email;
       let shouldSendEmail = true;
       let autoResolve = false;
       let adminNotes = null;
@@ -257,36 +273,32 @@ class SupportController {
           );
 
           if (user) {
-            // ✅ Логин верный - используем email из формы
-            userEmailForSending = email; // ИЗМЕНЕНИЕ: email из формы
+            userEmailForSending = email;
             shouldSendEmail = true;
             autoResolve = false;
-            console.log(
-              "✅ [submitRequest] Логин найден, используем email из формы:",
-              {
-                login: login,
-                formEmail: email,
-              }
-            );
           } else {
-            // ❌ Логин НЕверный - не отправляем письмо, сразу резолвим
             shouldSendEmail = false;
             autoResolve = true;
-            adminNotes = "Автоматически разрешено: пользователь не найден"; // ИЗМЕНЕНИЕ: текст
+            adminNotes = "Автоматически разрешено: пользователь не найден";
 
-            console.log(
-              "⚠️ [submitRequest] Логин не найден, заявка будет автоматически разрешена:",
+            logger.warn(
+              "Автоматическое разрешение заявки - пользователь не найден",
               {
                 login: login,
-                formEmail: email,
+                email: email,
+                type: type,
+                ip: req.ip,
+                reason: "Пользователь не найден в БД",
               }
             );
           }
         } catch (dbError) {
-          console.error(
-            "❌ [submitRequest] Ошибка проверки пользователя:",
-            dbError.message
-          );
+          logger.error("Ошибка проверки пользователя при создании заявки", {
+            login: login,
+            email: email,
+            type: type,
+            db_error: dbError.message,
+          });
           // В случае ошибки БД продолжаем как обычно
           userEmailForSending = email;
           shouldSendEmail = true;
@@ -302,21 +314,30 @@ class SupportController {
           );
 
           if (userExists.length === 0) {
+            logger.warn(
+              "Попытка создания заявки для несуществующего пользователя",
+              {
+                login: login,
+                email: email,
+                type: type,
+                ip: req.ip,
+              }
+            );
             return res.status(400).json({
               success: false,
               message: "Пользователь с таким логином и email не найден",
             });
           }
         } catch (error) {
-          console.log(
-            "⚠️ Пропускаем проверку существования пользователя:",
-            error.message
-          );
+          logger.warn("Пропущена проверка существования пользователя", {
+            login: login,
+            error: error.message,
+            type: type,
+          });
         }
       }
 
       // ШИФРОВАНИЕ ДАННЫХ
-      // ИЗМЕНЕНИЕ: для "other" не шифруем кодовое слово, оставляем null
       const encryptedSecretWord =
         type !== "other" ? SupportController.encryptText(secretWord) : "";
 
@@ -331,7 +352,7 @@ class SupportController {
       const publicId = SupportController.generatePublicId();
 
       const initialStatus = autoResolve ? "resolved" : "pending";
-      const finalEmailForDb = email; // Сохраняем email из формы
+      const finalEmailForDb = email;
 
       let confirmToken = null;
       if (shouldSendEmail) {
@@ -356,7 +377,7 @@ class SupportController {
           publicId,
           type,
           login,
-          finalEmailForDb, // Сохраняем email из формы
+          finalEmailForDb,
           encryptedSecretWord,
           encryptedPassword,
           message,
@@ -381,36 +402,29 @@ class SupportController {
         try {
           await emailService.sendSupportRequestCreated({
             login,
-            email: userEmailForSending, // ← Отправляем на email из формы
+            email: userEmailForSending,
             requestId: publicId,
             confirmToken,
             requestType: type,
           });
-
-          console.log(
-            "📧 [submitRequest] Письмо подтверждения отправлено на email из формы:",
-            {
-              login: login,
-              email: userEmailForSending,
-            }
-          );
         } catch (emailError) {
-          console.error("❌ Ошибка отправки email:", emailError);
+          logger.error("Ошибка отправки email подтверждения техподдержки", {
+            request_id: publicId,
+            login: login,
+            email: userEmailForSending,
+            email_error: emailError.message,
+          });
         }
       }
 
       // ЛОГИРОВАНИЕ
       if (autoResolve) {
-        // Логируем автоматическое разрешение
         await SupportController.logAction(
           requestId,
           "auto_resolved",
           "pending",
           "resolved",
           `system:user_not_found`
-        );
-        console.log(
-          `⚠️ Заявка автоматически разрешена: ${publicId} - пользователь ${login} не найден`
         );
       } else {
         await SupportController.logAction(
@@ -420,7 +434,6 @@ class SupportController {
           publicId,
           `user:${login}`
         );
-        console.log(`✅ Заявка создана: ${publicId} (${type}) для ${login}`);
       }
 
       // УСПЕШНЫЙ ОТВЕТ
@@ -439,7 +452,15 @@ class SupportController {
         },
       });
     } catch (error) {
-      console.error("💥 Ошибка при создании заявки:", error);
+      logger.error("Критическая ошибка при создании заявки техподдержки", {
+        error_message: error.message,
+        error_stack: error.stack?.substring(0, 500),
+        type: req.body?.type,
+        login: req.body?.login,
+        ip: req.ip,
+        endpoint: "/api/support/submit",
+        timestamp: new Date().toISOString(),
+      });
 
       res.status(500).json({
         success: false,
@@ -453,9 +474,6 @@ class SupportController {
   static async confirmEmail(req, res) {
     try {
       const { token } = req.params;
-      console.log(
-        `🔑 Подтверждение email по токену: ${token?.substring(0, 20)}...`
-      );
 
       // ВАЛИДАЦИЯ ТОКЕНА
       if (!token) {
@@ -475,6 +493,14 @@ class SupportController {
       );
 
       if (tokenRecord.length === 0) {
+        logger.warn(
+          "Неверный или просроченный токен подтверждения техподдержки",
+          {
+            token_prefix: token?.substring(0, 20),
+            ip: req.ip,
+            user_agent: req.headers["user-agent"]?.substring(0, 100),
+          }
+        );
         return res.status(400).json({
           success: false,
           message: "Неверный или просроченный токен подтверждения",
@@ -504,7 +530,12 @@ class SupportController {
           requestType: type,
         });
       } catch (emailError) {
-        console.error("❌ Ошибка отправки email подтверждения:", emailError);
+        logger.error("Ошибка отправки email подтверждения техподдержки", {
+          request_id: public_id,
+          login: login,
+          email: email,
+          email_error: emailError.message,
+        });
       }
 
       // ЛОГИРОВАНИЕ
@@ -515,8 +546,6 @@ class SupportController {
         "confirmed",
         `user:${login}`
       );
-
-      console.log(`✅ Заявка подтверждена: ${public_id} (${login})`);
 
       // ПЕРЕНАПРАВЛЕНИЕ ИЛИ JSON ОТВЕТ
       if (req.accepts("html")) {
@@ -537,7 +566,14 @@ class SupportController {
         });
       }
     } catch (error) {
-      console.error("💥 Ошибка при подтверждении email:", error);
+      logger.error("Критическая ошибка при подтверждении email техподдержки", {
+        error_message: error.message,
+        error_stack: error.stack?.substring(0, 500),
+        token_prefix: req.params.token?.substring(0, 20),
+        ip: req.ip,
+        endpoint: "/api/support/confirm/:token",
+        timestamp: new Date().toISOString(),
+      });
 
       res.status(500).json({
         success: false,
@@ -551,7 +587,6 @@ class SupportController {
   static async getRequestStatus(req, res) {
     try {
       const { publicId } = req.params;
-      console.log(`🔍 Проверка статуса заявки: ${publicId}`);
 
       if (!publicId) {
         return res.status(400).json({
@@ -576,6 +611,10 @@ class SupportController {
       );
 
       if (request.length === 0) {
+        logger.warn("Попытка проверки статуса несуществующей заявки", {
+          public_id: publicId,
+          ip: req.ip,
+        });
         return res.status(404).json({
           success: false,
           message: "Заявка не найдена",
@@ -625,7 +664,13 @@ class SupportController {
         },
       });
     } catch (error) {
-      console.error("💥 Ошибка при проверке статуса:", error);
+      logger.error("Ошибка при проверке статуса заявки техподдержки", {
+        error_message: error.message,
+        public_id: req.params.publicId,
+        ip: req.ip,
+        endpoint: "/api/support/status/:publicId",
+        timestamp: new Date().toISOString(),
+      });
 
       res.status(500).json({
         success: false,
@@ -671,7 +716,13 @@ class SupportController {
         data: types,
       });
     } catch (error) {
-      console.error("💥 Ошибка при получении типов заявок:", error);
+      logger.error("Ошибка при получении типов заявок техподдержки", {
+        error_message: error.message,
+        ip: req.ip,
+        endpoint: "/api/support/types",
+        timestamp: new Date().toISOString(),
+      });
+
       res.status(500).json({
         success: false,
         message: "Ошибка сервера",
@@ -696,6 +747,11 @@ class SupportController {
       );
 
       if (request.length === 0) {
+        logger.warn("Админ запросил детали несуществующей заявки", {
+          request_id: requestId,
+          admin_id: req.admin?.id,
+          ip: req.ip,
+        });
         return res.status(404).json({
           success: false,
           message: "Заявка не найдена",
@@ -730,7 +786,15 @@ class SupportController {
         data: decryptedData,
       });
     } catch (error) {
-      console.error("💥 Ошибка при получении деталей заявки:", error);
+      logger.error("Ошибка при получении деталей заявки техподдержки", {
+        error_message: error.message,
+        request_id: req.params.requestId,
+        admin_id: req.admin?.id,
+        ip: req.ip,
+        endpoint: "/api/support/details/:requestId",
+        timestamp: new Date().toISOString(),
+      });
+
       res.status(500).json({
         success: false,
         message: "Ошибка сервера",
