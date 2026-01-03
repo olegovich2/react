@@ -2,6 +2,7 @@ const { Worker } = require("worker_threads");
 const path = require("path");
 const fs = require("fs").promises;
 const config = require("../config");
+const logger = require("./LoggerService");
 
 class WorkerService {
   constructor() {
@@ -15,20 +16,37 @@ class WorkerService {
 
   async initWorkers() {
     if (this.initialized) {
-      console.log("⚠️ WorkerService уже инициализирован");
+      logger.warn("WorkerService уже инициализирован", {
+        type: "worker_service",
+        action: "init",
+        status: "already_initialized",
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
-    console.log(`🔄 Инициализация сервиса из ${this.WORKER_COUNT} воркеров...`);
+    logger.warn(`Инициализация сервиса из ${this.WORKER_COUNT} воркеров`, {
+      type: "worker_service",
+      action: "init",
+      worker_count: this.WORKER_COUNT,
+      status: "started",
+      timestamp: new Date().toISOString(),
+    });
 
-    // ПУТЬ К ВАШЕМУ ФАЙЛУ image-worker.js
+    // ПУТЬ К ФАЙЛУ image-worker.js
     const workerPath = path.join(__dirname, "..", "workers", "image-worker.js");
 
     try {
       await fs.access(workerPath);
-      console.log(`✅ Worker файл найден: ${workerPath}`);
     } catch (error) {
-      console.error(`❌ Worker файл не найден: ${workerPath}`);
+      logger.error("Worker файл не найден", {
+        type: "worker_service",
+        action: "init",
+        status: "failed",
+        worker_path: workerPath,
+        error_message: error.message,
+        timestamp: new Date().toISOString(),
+      });
       throw new Error(`Worker файл не найден: ${workerPath}`);
     }
 
@@ -53,29 +71,28 @@ class WorkerService {
 
           // Событие "online" - воркер запущен системой
           worker.on("online", () => {
-            console.log(`✅ Worker ${i} запущен системой`);
-
-            // Таймаут на инициализацию (10 секунд)
-            initializationTimeout = setTimeout(() => {
-              if (!workerReady) {
-                console.warn(
-                  `⚠️ Worker ${i} не отправил ready за 10 секунд, продолжаем...`
-                );
-                workerReady = true;
-                resolve(worker);
-              }
-            }, 10000);
+            if (initializationTimeout) clearTimeout(initializationTimeout);
+            workerReady = true;
+            resolve(worker);
           });
 
           // Событие "message" - воркер сообщает о готовности или результатах
           worker.on("message", (message) => {
             // Сообщение о готовности воркера
             if (message && message.workerReady && !workerReady) {
-              clearTimeout(initializationTimeout);
+              if (initializationTimeout) clearTimeout(initializationTimeout);
               workerReady = true;
-              console.log(
-                `✅ Worker ${i} инициализирован (Thread: ${message.threadId}, PID: ${message.pid})`
-              );
+
+              logger.info("Worker инициализирован", {
+                type: "worker_service",
+                action: "worker_init",
+                worker_id: i,
+                thread_id: message.threadId,
+                pid: message.pid,
+                status: "ready",
+                timestamp: new Date().toISOString(),
+              });
+
               resolve(worker);
             }
 
@@ -86,8 +103,15 @@ class WorkerService {
           });
 
           worker.on("error", (error) => {
-            console.error(`❌ Worker ${i} ошибка:`, error.message);
-            clearTimeout(initializationTimeout);
+            logger.error("Worker ошибка", {
+              type: "worker_service",
+              action: "worker_error",
+              worker_id: i,
+              error_message: error.message,
+              timestamp: new Date().toISOString(),
+            });
+
+            if (initializationTimeout) clearTimeout(initializationTimeout);
             if (!workerReady) {
               workerReady = true;
               reject(error);
@@ -95,8 +119,13 @@ class WorkerService {
           });
 
           worker.on("exit", (code) => {
-            console.log(`ℹ️ Worker ${i} завершился с кодом ${code}`);
-            clearTimeout(initializationTimeout);
+            logger.warn("Worker завершился", {
+              type: "worker_service",
+              action: "worker_exit",
+              worker_id: i,
+              exit_code: code,
+              timestamp: new Date().toISOString(),
+            });
 
             // Удаляем воркер из списка
             const workerIndex = this.workers.findIndex((w) => w.id === i);
@@ -106,6 +135,7 @@ class WorkerService {
 
             // Если воркер завершился до инициализации
             if (!workerReady) {
+              if (initializationTimeout) clearTimeout(initializationTimeout);
               workerReady = true;
               reject(
                 new Error(
@@ -123,11 +153,30 @@ class WorkerService {
             currentTask: null,
             ready: false,
           });
+
+          // Таймаут на инициализацию
+          initializationTimeout = setTimeout(() => {
+            if (!workerReady) {
+              logger.warn("Worker не инициализировался в срок", {
+                type: "worker_service",
+                action: "worker_timeout",
+                worker_id: i,
+                timeout_ms: 10000,
+                timestamp: new Date().toISOString(),
+              });
+              workerReady = true;
+              resolve(worker);
+            }
+          }, 10000);
         } catch (workerError) {
-          console.error(
-            `❌ Не удалось создать worker ${i}:`,
-            workerError.message
-          );
+          logger.error("Не удалось создать worker", {
+            type: "worker_service",
+            action: "create_worker",
+            worker_id: i,
+            status: "failed",
+            error_message: workerError.message,
+            timestamp: new Date().toISOString(),
+          });
           reject(workerError);
         }
       });
@@ -140,11 +189,23 @@ class WorkerService {
       await Promise.all(workerReadyPromises);
       this.initialized = true;
       const initTime = Date.now() - this.startTime;
-      console.log(
-        `✅ Сервис из ${this.workers.length} воркеров готов к работе за ${initTime}ms`
-      );
+
+      logger.warn("WorkerService инициализирован", {
+        type: "worker_service",
+        action: "init",
+        status: "completed",
+        workers_count: this.workers.length,
+        initialization_time_ms: initTime,
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
-      console.error("❌ Ошибка инициализации воркеров:", error.message);
+      logger.error("Ошибка инициализации воркеров", {
+        type: "worker_service",
+        action: "init",
+        status: "failed",
+        error_message: error.message,
+        timestamp: new Date().toISOString(),
+      });
       throw error;
     }
   }
@@ -185,11 +246,25 @@ class WorkerService {
       };
 
       worker.worker.postMessage(taskWithTimestamp);
-      console.log(
-        `📤 Задача ${taskWithTimestamp.taskId} отправлена worker ${worker.id} (${taskWithTimestamp.fileUuid})`
-      );
+
+      logger.info("Задача отправлена worker", {
+        type: "worker_service",
+        action: "send_task",
+        worker_id: worker.id,
+        task_id: taskWithTimestamp.taskId,
+        file_uuid: taskWithTimestamp.fileUuid,
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
-      console.error(`❌ Ошибка отправки задачи worker ${worker.id}:`, error);
+      logger.error("Ошибка отправки задачи worker", {
+        type: "worker_service",
+        action: "send_task",
+        worker_id: worker.id,
+        status: "failed",
+        error_message: error.message,
+        timestamp: new Date().toISOString(),
+      });
+
       worker.busy = false;
       worker.currentCallback = null;
       worker.currentTask = null;
@@ -219,24 +294,42 @@ class WorkerService {
 
         try {
           worker.worker.postMessage(task.data);
-          console.log(
-            `📤 Задача ${taskId} отправлена напрямую worker ${worker.id} (${data.fileUuid})`
-          );
+
+          logger.info("Задача отправлена напрямую worker", {
+            type: "worker_service",
+            action: "send_direct",
+            worker_id: worker.id,
+            task_id: taskId,
+            file_uuid: data.fileUuid,
+            timestamp: new Date().toISOString(),
+          });
         } catch (error) {
-          console.error(`❌ Ошибка отправки worker ${worker.id}:`, error);
+          logger.error("Ошибка отправки задачи", {
+            type: "worker_service",
+            action: "send_direct",
+            worker_id: worker.id,
+            task_id: taskId,
+            status: "failed",
+            error_message: error.message,
+            timestamp: new Date().toISOString(),
+          });
+
           worker.busy = false;
           worker.currentCallback = null;
           worker.currentTask = null;
           this.queue.push(task);
-          console.log(
-            `📝 Задача ${taskId} добавлена в очередь. Размер очереди: ${this.queue.length}`
-          );
         }
       } else {
         this.queue.push(task);
-        console.log(
-          `📝 Задача ${taskId} добавлена в очередь. Размер очереди: ${this.queue.length}`
-        );
+
+        logger.info("Задача добавлена в очередь", {
+          type: "worker_service",
+          action: "queue_task",
+          task_id: taskId,
+          queue_size: this.queue.length,
+          file_uuid: data.fileUuid,
+          timestamp: new Date().toISOString(),
+        });
       }
     });
   }
@@ -260,12 +353,16 @@ class WorkerService {
   }
 
   async shutdown() {
-    console.log("🛑 Завершение работы WorkerService...");
+    logger.warn("Завершение работы WorkerService", {
+      type: "worker_service",
+      action: "shutdown",
+      status: "started",
+      timestamp: new Date().toISOString(),
+    });
 
     // Отправляем команду shutdown всем воркерам
     const shutdownPromises = this.workers.map(async (workerObj) => {
       try {
-        console.log(`🛑 Отправка shutdown worker ${workerObj.id}...`);
         // Отправляем сообщение для graceful shutdown
         if (workerObj.worker.postMessage) {
           workerObj.worker.postMessage("shutdown");
@@ -276,12 +373,23 @@ class WorkerService {
 
         // Принудительно завершаем если еще жив
         await workerObj.worker.terminate();
-        console.log(`✅ Worker ${workerObj.id} завершен`);
+
+        logger.info("Worker завершен", {
+          type: "worker_service",
+          action: "worker_shutdown",
+          worker_id: workerObj.id,
+          status: "terminated",
+          timestamp: new Date().toISOString(),
+        });
       } catch (error) {
-        console.error(
-          `❌ Ошибка завершения worker ${workerObj.id}:`,
-          error.message
-        );
+        logger.error("Ошибка завершения worker", {
+          type: "worker_service",
+          action: "worker_shutdown",
+          worker_id: workerObj.id,
+          status: "failed",
+          error_message: error.message,
+          timestamp: new Date().toISOString(),
+        });
       }
     });
 
@@ -291,7 +399,13 @@ class WorkerService {
     this.initialized = false;
     this.queue = [];
     this.taskCounter = 0;
-    console.log("✅ WorkerService завершен");
+
+    logger.warn("WorkerService завершен", {
+      type: "worker_service",
+      action: "shutdown",
+      status: "completed",
+      timestamp: new Date().toISOString(),
+    });
   }
 
   healthCheck() {
@@ -317,7 +431,6 @@ class WorkerService {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    console.log(`✅ Все задачи завершены за ${Date.now() - startTime}ms`);
     return true;
   }
 
@@ -325,11 +438,15 @@ class WorkerService {
     const clearedCount = this.queue.length;
     const taskIds = this.queue.map((t) => t.data.taskId);
     this.queue = [];
-    console.log(
-      `🧹 Очередь очищена: ${clearedCount} задач удалено (ID: ${taskIds.join(
-        ", "
-      )})`
-    );
+
+    logger.warn("Очередь очищена", {
+      type: "worker_service",
+      action: "clear_queue",
+      tasks_cleared: clearedCount,
+      task_ids: taskIds,
+      timestamp: new Date().toISOString(),
+    });
+
     return { clearedCount, taskIds };
   }
 
@@ -347,7 +464,6 @@ class WorkerService {
       fileUuid: "test-" + Date.now(),
     };
 
-    console.log(`🧪 Тестирование worker ${workerId}...`);
     const result = await this.addTask(testData);
 
     return {

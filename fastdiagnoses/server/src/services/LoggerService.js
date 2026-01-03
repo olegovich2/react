@@ -118,7 +118,6 @@ class LoggerService extends EventEmitter {
 
     // Удаляем дублирующие поля
     delete logEntry.level;
-    delete logEntry.type;
 
     // Записываем в буфер
     this.buffer[this.head] = logEntry;
@@ -186,23 +185,34 @@ class LoggerService extends EventEmitter {
   }
 
   // === СПЕЦИАЛЬНЫЕ МЕТОДЫ ===
-  apiRequest(req, res, responseTime, requestId) {
-    const adminId = req.admin?.id;
-    const userLogin = req.user?.login || req.body?.login || null;
+  apiRequest(data) {
+    // data должно содержать: req, res, responseTime, requestId
+    // ИЛИ напрямую все поля
+
+    const adminId = data.admin_id || data.req?.admin?.id;
+    const userLogin =
+      data.user_login || data.req?.user?.login || data.req?.body?.login || null;
+    const endpoint = data.endpoint || data.req?.path;
+    const method = data.method || data.req?.method;
+    const statusCode = data.status_code || data.res?.statusCode;
+    const responseTime = data.response_time_ms || data.responseTime;
+    const ipAddress = data.ip_address || data.req?.ip;
+    const userAgent =
+      data.user_agent || data.req?.headers?.["user-agent"]?.substring(0, 200);
 
     return this.log({
       level: "info",
       type: "api_request",
-      message: `API ${req.method} ${req.path} - ${res.statusCode}`,
-      endpoint: req.path,
-      method: req.method,
-      status_code: res.statusCode,
+      message: `API ${method} ${endpoint} - ${statusCode}`,
+      endpoint: endpoint,
+      method: method,
+      status_code: statusCode,
       response_time_ms: responseTime,
       admin_id: adminId,
       user_login: userLogin,
-      ip_address: req.ip,
-      user_agent: req.headers["user-agent"]?.substring(0, 200) || null,
-      request_id: requestId || null,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      request_id: data.request_id || data.requestId,
     });
   }
 

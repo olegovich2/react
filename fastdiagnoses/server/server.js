@@ -40,7 +40,7 @@ app.use(
 );
 
 // ==================== ЛОГГИРОВАНИЕ ВСЕХ ЗАПРОСОВ ====================
-app.use(requestLogger()); // Логируем все запросы
+app.use(requestLogger()); // Логирует все запросы - ЭТОГО ДОСТАТОЧНО!
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -65,12 +65,7 @@ app.get("/api/admin/workers-stats", async (req, res) => {
     return res.status(403).json({ success: false, message: "Доступ запрещен" });
   }
 
-  // Логируем запрос к мониторингу
-  logger.info("Запрос статистики worker'ов", {
-    ip: req.ip,
-    user_agent: req.headers["user-agent"],
-  });
-
+  // УБРАТЬ этот лог - requestLogger уже залогировал запрос
   res.json({
     success: true,
     workers: workerService.getStats(),
@@ -85,19 +80,10 @@ app.use("/api/admin", adminRoutes);
 // =====================ТЕХПОДДЕРЖКА API ====================
 app.use("/api/support", supportRoutes);
 
-// ==================== ОБРАБОТКА ОШИБОК С ЛОГГИРОВАНИЕМ ====================
+// ==================== ОБРАБОТКА ОШИБОК ====================
 app.use((err, req, res, next) => {
-  console.error("Global error handler:", err);
-
-  // Логируем ошибку
-  logger.error("Глобальный обработчик ошибок", {
-    error_message: err.message,
-    error_stack: err.stack,
-    endpoint: req.path,
-    method: req.method,
-    ip: req.ip,
-    user_agent: req.headers["user-agent"],
-  });
+  // requestLogger уже залогировал ошибку через res.json/res.send
+  // УБРАТЬ дополнительное логирование здесь
 
   if (err.name === "ValidationError") {
     return res.status(400).json({
@@ -122,68 +108,89 @@ app.use((err, req, res, next) => {
 
 // ==================== ВСЕ ОСТАЛЬНЫЕ ЗАПРОСЫ → REACT ====================
 app.get("/admin*", (req, res) => {
-  // Логируем запросы к админ панели
-  logger.debug("Запрос к админ панели", {
-    path: req.path,
-    ip: req.ip,
-  });
+  // УБРАТЬ этот лог - requestLogger уже залогировал
   res.sendFile(path.join(adminBuildPath, "index.html"));
 });
 
 app.get("*", (req, res) => {
-  // Логируем запросы к клиентской части
-  logger.debug("Запрос к клиентской части", {
-    path: req.path,
-    ip: req.ip,
-  });
+  // УБРАТЬ этот лог - requestLogger уже залогировал
   res.sendFile(path.join(buildPath, "index.html"));
 });
 
 // ==================== ИНИЦИАЛИЗАЦИЯ И ЗАПУСК СЕРВЕРА ====================
 async function initializeServer() {
   try {
-    logger.info("Инициализация сервера...", { port: PORT });
+    logger.info("Инициализация сервера...", {
+      type: "server",
+      action: "initialization",
+      port: PORT,
+      node_env: process.env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+    });
 
     await ensureUploadDirs();
     await emailService.initialize();
     await workerService.initWorkers();
 
     app.listen(PORT, () => {
-      logger.info(`Сервер запущен на порту ${PORT}`, {
+      logger.info("Сервер запущен", {
+        type: "server",
+        action: "start",
+        port: PORT,
         node_env: process.env.NODE_ENV,
         uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
       });
+
       console.log(`🚀 Сервер запущен на порту ${PORT}`);
       console.log(`⏰ Текущее время сервера: ${new Date().toLocaleString()}`);
 
-      // Логируем статистику логгера
+      // Статистика логгера (только в консоль для отладки)
       console.log("📊 Статистика логгера:", logger.getStats());
 
       startCleanupSchedule();
     });
   } catch (error) {
     logger.error("Ошибка инициализации сервера", {
+      type: "server",
+      action: "initialization",
+      status: "failed",
       error_message: error.message,
-      error_stack: error.stack,
+      stack_trace: error.stack,
+      timestamp: new Date().toISOString(),
     });
     console.error("Ошибка инициализации:", error);
     process.exit(1);
   }
 }
 
-// ==================== GRACEFUL SHUTDOWN HANDLERS С ЛОГГИРОВАНИЕМ ====================
+// ==================== GRACEFUL SHUTDOWN HANDLERS ====================
 process.on("SIGTERM", async () => {
-  logger.warn("Получен SIGTERM, завершаю работу...");
-  console.log("🛑 Получен SIGTERM, завершаю работу...");
+  logger.warn("Получен SIGTERM, завершаю работу...", {
+    type: "server",
+    action: "shutdown",
+    signal: "SIGTERM",
+    timestamp: new Date().toISOString(),
+  });
 
   try {
     await workerService.shutdown();
     await emailService.close();
-    await logger.shutdown(); // Выключаем логгер
-    logger.info("Сервер успешно завершил работу по SIGTERM");
+    await logger.shutdown();
+    logger.info("Сервер успешно завершил работу", {
+      type: "server",
+      action: "shutdown",
+      signal: "SIGTERM",
+      status: "completed",
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
-    logger.error("Ошибка при завершении работы по SIGTERM", {
+    logger.error("Ошибка при завершении работы", {
+      type: "server",
+      action: "shutdown_error",
+      signal: "SIGTERM",
       error_message: error.message,
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -191,17 +198,31 @@ process.on("SIGTERM", async () => {
 });
 
 process.on("SIGINT", async () => {
-  logger.warn("Получен SIGINT, завершаю работу...");
-  console.log("🛑 Получен SIGINT, завершаю работу...");
+  logger.warn("Получен SIGINT, завершаю работу...", {
+    type: "server",
+    action: "shutdown",
+    signal: "SIGINT",
+    timestamp: new Date().toISOString(),
+  });
 
   try {
     await workerService.shutdown();
     await emailService.close();
-    await logger.shutdown(); // Выключаем логгер
-    logger.info("Сервер успешно завершил работу по SIGINT");
+    await logger.shutdown();
+    logger.info("Сервер успешно завершил работу", {
+      type: "server",
+      action: "shutdown",
+      signal: "SIGINT",
+      status: "completed",
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
-    logger.error("Ошибка при завершении работы по SIGINT", {
+    logger.error("Ошибка при завершении работы", {
+      type: "server",
+      action: "shutdown_error",
+      signal: "SIGINT",
       error_message: error.message,
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -210,10 +231,12 @@ process.on("SIGINT", async () => {
 
 process.on("uncaughtException", async (error) => {
   logger.error("Необработанное исключение", {
+    type: "server",
+    action: "uncaught_exception",
     error_message: error.message,
-    error_stack: error.stack,
+    stack_trace: error.stack,
+    timestamp: new Date().toISOString(),
   });
-  console.error("💥 Необработанное исключение:", error);
 
   try {
     await workerService.shutdown();
@@ -228,10 +251,11 @@ process.on("uncaughtException", async (error) => {
 
 process.on("unhandledRejection", (reason, promise) => {
   logger.error("Необработанный промис", {
-    reason: reason.toString(),
-    promise: promise.toString(),
+    type: "server",
+    action: "unhandled_rejection",
+    reason: reason?.toString(),
+    timestamp: new Date().toISOString(),
   });
-  console.error("💥 Необработанный промис:", reason);
 });
 
 initializeServer();
