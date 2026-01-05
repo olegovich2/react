@@ -9,6 +9,7 @@ const { query, getConnection } = require("../../services/databaseService");
 const { validatePassword } = require("../../utils/validators");
 const emailService = require("../../utils/emailService");
 const config = require("../../config");
+const logger = require("../../services/LoggerService");
 
 // ИМПОРТ fs - ВАЖНО! Добавлены все необходимые импорты
 const fs = require("fs").promises;
@@ -16,8 +17,19 @@ const path = require("path");
 
 // Получение информации о пользователе
 router.get("/user-info", authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+  const login = req.user.login;
+
   try {
-    const login = req.user.login;
+    logger.info("Начало получения информации о пользователе", {
+      type: "user",
+      action: "get_user_info_start",
+      user_login: login,
+      endpoint: req.path,
+      method: req.method,
+      ip_address: req.ip,
+      timestamp: new Date().toISOString(),
+    });
 
     const userInfo = await query(
       "SELECT login, email FROM usersdata WHERE login = ? AND logic = 'true'",
@@ -25,11 +37,33 @@ router.get("/user-info", authenticateToken, async (req, res) => {
     );
 
     if (userInfo.length === 0) {
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Пользователь не найден при запросе информации", {
+        type: "user",
+        action: "get_user_info_failed",
+        status: "user_not_found",
+        user_login: login,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(404).json({
         success: false,
         message: "Пользователь не найден",
       });
     }
+
+    const executionTime = Date.now() - startTime;
+
+    logger.info("Информация о пользователе успешно получена", {
+      type: "user",
+      action: "get_user_info_success",
+      user_login: login,
+      user_email: userInfo[0].email,
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
 
     res.json({
       success: true,
@@ -39,7 +73,19 @@ router.get("/user-info", authenticateToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Ошибка получения информации пользователя:", error);
+    const executionTime = Date.now() - startTime;
+
+    logger.error("Ошибка получения информации о пользователе", {
+      type: "user",
+      action: "get_user_info_error",
+      user_login: login,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack?.substring(0, 500),
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
+
     res.status(500).json({
       success: false,
       message: "Ошибка получения информации",
@@ -49,20 +95,40 @@ router.get("/user-info", authenticateToken, async (req, res) => {
 
 // Смена пароля с кодовым словом
 router.post("/change-password", authenticateToken, async (req, res) => {
-  console.log("🔐 Запрос смены пароля с проверкой кодового слова");
+  const startTime = Date.now();
+  const login = req.user.login;
 
   try {
-    const { currentPassword, newPassword, secretWord } = req.body;
-    console.log(
-      "🔐 Secret word из запроса:",
-      secretWord ? "присутствует" : "отсутствует"
-    );
+    logger.info("Начало смены пароля с проверкой кодового слова", {
+      type: "user",
+      action: "change_password_start",
+      user_login: login,
+      endpoint: req.path,
+      method: req.method,
+      ip_address: req.ip,
+      timestamp: new Date().toISOString(),
+    });
 
-    const login = req.user.login;
-    console.log("👤 Пользователь:", login);
+    const { currentPassword, newPassword, secretWord } = req.body;
 
     // 1. Базовая валидация
     if (!currentPassword || !newPassword || !secretWord) {
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Отсутствуют обязательные поля при смене пароля", {
+        type: "user",
+        action: "change_password_failed",
+        status: "missing_fields",
+        user_login: login,
+        missing_field: !currentPassword
+          ? "currentPassword"
+          : !newPassword
+          ? "newPassword"
+          : "secretWord",
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: !currentPassword
@@ -79,6 +145,17 @@ router.post("/change-password", authenticateToken, async (req, res) => {
     }
 
     if (typeof secretWord !== "string") {
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Кодовое слово не является строкой", {
+        type: "user",
+        action: "change_password_failed",
+        status: "invalid_secret_word_type",
+        user_login: login,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Кодовое слово должно быть текстом",
@@ -88,6 +165,17 @@ router.post("/change-password", authenticateToken, async (req, res) => {
 
     const trimmedSecretWord = secretWord.trim();
     if (trimmedSecretWord === "") {
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Кодовое слово пустое", {
+        type: "user",
+        action: "change_password_failed",
+        status: "empty_secret_word",
+        user_login: login,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Введите кодовое слово",
@@ -99,6 +187,19 @@ router.post("/change-password", authenticateToken, async (req, res) => {
     try {
       validatePassword(newPassword);
     } catch (validationError) {
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Ошибка валидации нового пароля", {
+        type: "user",
+        action: "change_password_failed",
+        status: "password_validation_error",
+        user_login: login,
+        error_message: validationError.message,
+        field: validationError.field,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: validationError.message,
@@ -110,14 +211,23 @@ router.post("/change-password", authenticateToken, async (req, res) => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 4. Получаем данные пользователя
-    console.log(`🔍 Поиск пользователя: ${login}`);
     const user = await query(
       "SELECT login, email, password, secret_word, blocked FROM usersdata WHERE login = ? AND logic = 'true'",
       [login]
     );
 
     if (!user || user.length === 0) {
-      console.log(`❌ Пользователь не найден: ${login}`);
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Пользователь не найден при смене пароля", {
+        type: "user",
+        action: "change_password_failed",
+        status: "user_not_found",
+        user_login: login,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(404).json({
         success: false,
         message: "Пользователь не найден",
@@ -126,16 +236,21 @@ router.post("/change-password", authenticateToken, async (req, res) => {
 
     const userData = user[0];
     const userEmail = userData.email;
-    console.log("✅ Пользователь найден:", {
-      login: userData.login,
-      email: userEmail,
-      hasSecretWord: !!userData.secret_word,
-      blocked: userData.blocked,
-    });
 
     // 5. Проверяем, не заблокирован ли пользователь
     if (userData.blocked === 1) {
-      console.log(`⛔ Заблокированный пользователь: ${login}`);
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Попытка смены пароля заблокированным пользователем", {
+        type: "user",
+        action: "change_password_failed",
+        status: "account_blocked",
+        user_login: login,
+        user_email: userEmail,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(403).json({
         success: false,
         message: "Аккаунт заблокирован. Обратитесь в техническую поддержку.",
@@ -156,18 +271,30 @@ router.post("/change-password", authenticateToken, async (req, res) => {
         attemptCount = attemptsResult[0].attempts || 0;
         attemptsRecordId = attemptsResult[0].id;
       }
-
-      console.log(
-        `📊 Существующие попытки смены пароля для ${userEmail}: ${attemptCount}`
-      );
     } catch (attemptsError) {
-      console.error("❌ Ошибка получения попыток:", attemptsError.message);
+      logger.warn("Ошибка получения попыток смены пароля", {
+        type: "user",
+        action: "change_password_warning",
+        user_login: login,
+        error_message: attemptsError.message,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     // 7. Проверяем лимит (3 НЕУДАЧНЫЕ попытки)
     if (attemptCount >= 3) {
-      console.log(
-        `🔒 Блокировка пользователя ${login} (3 неудачные попытки смены пароля)`
+      logger.warn(
+        "Блокировка пользователя за 3 неудачные попытки смены пароля",
+        {
+          type: "user",
+          action: "account_blocked",
+          user_login: login,
+          user_email: userEmail,
+          attempt_count: attemptCount,
+          max_attempts: 3,
+          ip_address: req.ip,
+          timestamp: new Date().toISOString(),
+        }
       );
 
       try {
@@ -177,10 +304,6 @@ router.post("/change-password", authenticateToken, async (req, res) => {
            SET blocked = 1, blocked_until = '2099-12-31 23:59:59'
            WHERE login = ? AND logic = 'true'`,
           [login]
-        );
-
-        console.log(
-          `✅ Пользователь ${login} заблокирован за 3 неудачные попытки`
         );
 
         // ОТПРАВЛЯЕМ EMAIL О БЛОКИРОВКЕ
@@ -193,16 +316,40 @@ router.post("/change-password", authenticateToken, async (req, res) => {
             ipAddress: req.ip || "unknown",
             userAgent: req.headers["user-agent"] || "",
           });
-          console.log(`📧 Письмо о блокировке отправлено на: ${userEmail}`);
         } catch (emailError) {
-          console.error(
-            "❌ Ошибка отправки email о блокировке:",
-            emailError.message
-          );
+          logger.warn("Ошибка отправки email о блокировке", {
+            type: "user",
+            action: "block_email_error",
+            user_login: login,
+            user_email: userEmail,
+            error_message: emailError.message,
+            timestamp: new Date().toISOString(),
+          });
         }
       } catch (blockError) {
-        console.error("❌ Ошибка блокировки:", blockError.message);
+        logger.error("Ошибка блокировки пользователя", {
+          type: "user",
+          action: "block_error",
+          user_login: login,
+          error_message: blockError.message,
+          timestamp: new Date().toISOString(),
+        });
       }
+
+      const executionTime = Date.now() - startTime;
+
+      logger.info(
+        "Пользователь заблокирован за превышение попыток смены пароля",
+        {
+          type: "user",
+          action: "change_password_failed",
+          status: "max_attempts_exceeded",
+          user_login: login,
+          user_email: userEmail,
+          execution_time_ms: executionTime,
+          timestamp: new Date().toISOString(),
+        }
+      );
 
       return res.status(401).json({
         success: false,
@@ -213,8 +360,6 @@ router.post("/change-password", authenticateToken, async (req, res) => {
 
     // 8. Проверяем наличие кодового слова в БД
     if (!userData.secret_word || userData.secret_word.trim() === "") {
-      console.log(`❌ Кодовое слово не установлено для пользователя: ${login}`);
-
       // Фиксируем попытку по EMAIL
       try {
         if (attemptsRecordId) {
@@ -230,11 +375,26 @@ router.post("/change-password", authenticateToken, async (req, res) => {
           );
         }
       } catch (updateError) {
-        console.warn(
-          "⚠️ Не удалось зафиксировать попытку:",
-          updateError.message
-        );
+        logger.warn("Не удалось зафиксировать попытку", {
+          type: "user",
+          action: "attempt_record_error",
+          user_login: login,
+          error_message: updateError.message,
+          timestamp: new Date().toISOString(),
+        });
       }
+
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Кодовое слово не установлено для пользователя", {
+        type: "user",
+        action: "change_password_failed",
+        status: "secret_word_not_set",
+        user_login: login,
+        user_email: userEmail,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
 
       return res.status(400).json({
         success: false,
@@ -245,19 +405,12 @@ router.post("/change-password", authenticateToken, async (req, res) => {
     }
 
     // 9. Проверяем кодовое слово
-    console.log(`🔐 Проверка кодового слова для ${login}`);
     const isValidSecretWord = await bcrypt.compare(
       trimmedSecretWord,
       userData.secret_word
     );
 
-    console.log(
-      `✅ Результат сравнения: ${isValidSecretWord ? "ВЕРНО" : "НЕВЕРНО"}`
-    );
-
     if (!isValidSecretWord) {
-      console.log(`❌ Неверное кодовое слово для ${login}`);
-
       // ФИКСИРУЕМ НЕУДАЧНУЮ ПОПЫТКУ по EMAIL
       try {
         let newAttemptCount = attemptCount + 1;
@@ -276,13 +429,20 @@ router.post("/change-password", authenticateToken, async (req, res) => {
           newAttemptCount = 1;
         }
 
-        console.log(
-          `📈 Неудачная попытка зафиксирована: ${newAttemptCount}/3 (неверное кодовое слово)`
-        );
-
         // Проверяем, не достигли ли лимита
         if (newAttemptCount >= 3) {
-          console.log(`🔒 Достигнут лимит неудачных попыток - блокировка`);
+          logger.warn(
+            "Достигнут лимит неудачных попыток смены пароля - блокировка",
+            {
+              type: "user",
+              action: "account_blocked",
+              user_login: login,
+              user_email: userEmail,
+              attempt_count: newAttemptCount,
+              max_attempts: 3,
+              timestamp: new Date().toISOString(),
+            }
+          );
 
           try {
             // Блокируем пользователя
@@ -292,8 +452,6 @@ router.post("/change-password", authenticateToken, async (req, res) => {
                WHERE login = ? AND logic = 'true'`,
               [login]
             );
-
-            console.log(`✅ Аккаунт ${login} заблокирован`);
 
             // ОТПРАВЛЯЕМ EMAIL О БЛОКИРОВКЕ
             try {
@@ -305,16 +463,37 @@ router.post("/change-password", authenticateToken, async (req, res) => {
                 ipAddress: req.ip || "unknown",
                 userAgent: req.headers["user-agent"] || "",
               });
-              console.log(`📧 Письмо о блокировке отправлено на: ${userEmail}`);
             } catch (emailError) {
-              console.error(
-                "❌ Ошибка отправки email о блокировке:",
-                emailError.message
-              );
+              logger.warn("Ошибка отправки email о блокировке", {
+                type: "user",
+                action: "block_email_error",
+                user_login: login,
+                user_email: userEmail,
+                error_message: emailError.message,
+                timestamp: new Date().toISOString(),
+              });
             }
           } catch (blockError) {
-            console.error("❌ Ошибка при блокировке:", blockError.message);
+            logger.error("Ошибка при блокировке пользователя", {
+              type: "user",
+              action: "block_error",
+              user_login: login,
+              error_message: blockError.message,
+              timestamp: new Date().toISOString(),
+            });
           }
+
+          const executionTime = Date.now() - startTime;
+
+          logger.info("Пользователь заблокирован за неверное кодовое слово", {
+            type: "user",
+            action: "change_password_failed",
+            status: "max_attempts_exceeded_secret_word",
+            user_login: login,
+            user_email: userEmail,
+            execution_time_ms: executionTime,
+            timestamp: new Date().toISOString(),
+          });
 
           return res.status(401).json({
             success: false,
@@ -323,10 +502,13 @@ router.post("/change-password", authenticateToken, async (req, res) => {
           });
         }
       } catch (updateError) {
-        console.warn(
-          "⚠️ Не удалось зафиксировать неудачную попытку:",
-          updateError.message
-        );
+        logger.warn("Не удалось зафиксировать неудачную попытку", {
+          type: "user",
+          action: "attempt_record_error",
+          user_login: login,
+          error_message: updateError.message,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       const remainingAttempts = 3 - (attemptCount + 1);
@@ -334,6 +516,19 @@ router.post("/change-password", authenticateToken, async (req, res) => {
       if (remainingAttempts > 0) {
         message += `. Осталось попыток: ${remainingAttempts}`;
       }
+
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Неверное кодовое слово при смене пароля", {
+        type: "user",
+        action: "change_password_failed",
+        status: "invalid_secret_word",
+        user_login: login,
+        user_email: userEmail,
+        remaining_attempts: remainingAttempts,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
 
       return res.status(400).json({
         success: false,
@@ -343,18 +538,22 @@ router.post("/change-password", authenticateToken, async (req, res) => {
     }
 
     // 10. Если кодовое слово ВЕРНО - удаляем все попытки по EMAIL
-    console.log(`✅ Кодовое слово верно для ${login}`);
     try {
       await query("DELETE FROM password_reset_attempts WHERE email = ?", [
         userEmail,
       ]);
-      console.log(`🔄 Все неудачные попытки удалены для ${userEmail}`);
     } catch (deleteError) {
-      console.warn("⚠️ Не удалось удалить попытки:", deleteError.message);
+      logger.warn("Не удалось удалить попытки смены пароля", {
+        type: "user",
+        action: "delete_attempts_error",
+        user_login: login,
+        user_email: userEmail,
+        error_message: deleteError.message,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     // 11. Проверяем текущий пароль
-    console.log(`🔑 Проверка текущего пароля для ${login}`);
     const validPassword = await bcrypt.compare(
       currentPassword,
       userData.password
@@ -362,7 +561,18 @@ router.post("/change-password", authenticateToken, async (req, res) => {
 
     if (!validPassword) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log(`❌ Неверный текущий пароль для ${login}`);
+
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Неверный текущий пароль при смене пароля", {
+        type: "user",
+        action: "change_password_failed",
+        status: "invalid_current_password",
+        user_login: login,
+        user_email: userEmail,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
 
       return res.status(400).json({
         success: false,
@@ -374,7 +584,18 @@ router.post("/change-password", authenticateToken, async (req, res) => {
     // 12. Проверяем, что новый пароль отличается от текущего
     const samePassword = await bcrypt.compare(newPassword, userData.password);
     if (samePassword) {
-      console.log(`⚠️ Новый пароль совпадает с текущим для ${login}`);
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Новый пароль совпадает с текущим", {
+        type: "user",
+        action: "change_password_failed",
+        status: "same_password",
+        user_login: login,
+        user_email: userEmail,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Новый пароль должен отличаться от текущего",
@@ -391,11 +612,9 @@ router.post("/change-password", authenticateToken, async (req, res) => {
       "UPDATE usersdata SET password = ? WHERE login = ? AND logic = 'true'",
       [hashedPassword, login]
     );
-    console.log(`✅ Пароль обновлен для пользователя: ${login}`);
 
     // 15. Удаляем все сессии пользователя
     await query("DELETE FROM sessionsdata WHERE login = ?", [login]);
-    console.log(`🗑️ Удалены все сессии пользователя: ${login}`);
 
     // 16. Отправляем email уведомление
     try {
@@ -405,17 +624,30 @@ router.post("/change-password", authenticateToken, async (req, res) => {
         userIp: req.ip || req.connection.remoteAddress,
         userAgent: req.headers["user-agent"] || "Неизвестное устройство",
       });
-
-      console.log(`📧 Уведомление о смене пароля отправлено на ${userEmail}`);
     } catch (emailError) {
-      console.error(
-        "❌ Ошибка отправки email уведомления:",
-        emailError.message
-      );
+      logger.warn("Ошибка отправки email уведомления о смене пароля", {
+        type: "user",
+        action: "password_change_email_error",
+        user_login: login,
+        user_email: userEmail,
+        error_message: emailError.message,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     // 17. Возвращаем успех
-    console.log(`✅ Смена пароля успешно завершена для ${login}`);
+    const executionTime = Date.now() - startTime;
+
+    logger.info("Пароль успешно изменен", {
+      type: "user",
+      action: "change_password_success",
+      user_login: login,
+      user_email: userEmail,
+      email_sent: true,
+      sessions_deleted: true,
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
 
     res.json({
       success: true,
@@ -424,16 +656,37 @@ router.post("/change-password", authenticateToken, async (req, res) => {
       emailSent: true,
     });
   } catch (error) {
-    console.error("❌ Ошибка смены пароля:", error);
-    console.error("📋 Stack trace:", error.stack);
+    const executionTime = Date.now() - startTime;
 
     if (error.name === "ValidationError") {
+      logger.warn("Ошибка валидации при смене пароля", {
+        type: "user",
+        action: "change_password_failed",
+        status: "validation_error",
+        user_login: login,
+        error_message: error.message,
+        field: error.field,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: error.message,
         field: error.field,
       });
     }
+
+    logger.error("Ошибка смены пароля", {
+      type: "user",
+      action: "change_password_error",
+      user_login: login,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack?.substring(0, 500),
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
 
     res.status(500).json({
       success: false,
@@ -444,13 +697,22 @@ router.post("/change-password", authenticateToken, async (req, res) => {
 
 // Удаление аккаунта (оптимальная версия)
 router.delete("/delete-account", authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+  const login = req.user.login;
   let connection;
 
   try {
-    const login = req.user.login;
-    const userDir = path.join(config.UPLOAD_DIR, login);
+    logger.info("Начало удаления аккаунта", {
+      type: "user",
+      action: "delete_account_start",
+      user_login: login,
+      endpoint: req.path,
+      method: req.method,
+      ip_address: req.ip,
+      timestamp: new Date().toISOString(),
+    });
 
-    console.log(`🗑️ Удаление аккаунта: ${login}`);
+    const userDir = path.join(config.UPLOAD_DIR, login);
 
     connection = await getConnection();
     await connection.beginTransaction();
@@ -483,36 +745,83 @@ router.delete("/delete-account", authenticateToken, async (req, res) => {
     try {
       await fs.access(userDir);
       await fs.rm(userDir, { recursive: true, force: true });
-      console.log(`📁 Директория пользователя удалена: ${userDir}`);
-    } catch {
-      console.log(`📁 Директория пользователя не найдена`);
+
+      logger.info("Директория пользователя удалена", {
+        type: "user",
+        action: "delete_account_directory",
+        user_login: login,
+        directory_path: userDir,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (dirError) {
+      logger.warn("Директория пользователя не найдена", {
+        type: "user",
+        action: "delete_account_directory_missing",
+        user_login: login,
+        directory_path: userDir,
+        error_message: dirError.message,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     await connection.commit();
 
-    console.log(`✅ Аккаунт ${login} успешно удален`);
+    const executionTime = Date.now() - startTime;
+
+    logger.info("Аккаунт успешно удален", {
+      type: "user",
+      action: "delete_account_success",
+      user_login: login,
+      tables_dropped: true,
+      sessions_deleted: true,
+      user_data_deleted: true,
+      login_attempts_deleted: true,
+      password_resets_deleted: true,
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
 
     res.json({
       success: true,
       message: "Аккаунт успешно удален",
     });
   } catch (error) {
-    console.error(
-      `❌ Ошибка удаления аккаунта ${req.user.login}:`,
-      error.message
-    );
+    const executionTime = Date.now() - startTime;
 
     if (connection) {
       await connection.rollback();
     }
 
-    const statusCode = error.message.includes("не найден") ? 404 : 500;
+    if (error.message.includes("не найден")) {
+      logger.warn("Пользователь не найден при удалении аккаунта", {
+        type: "user",
+        action: "delete_account_failed",
+        status: "user_not_found",
+        user_login: login,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
 
-    res.status(statusCode).json({
+      return res.status(404).json({
+        success: false,
+        message: "Пользователь не найден",
+      });
+    }
+
+    logger.error("Ошибка удаления аккаунта", {
+      type: "user",
+      action: "delete_account_error",
+      user_login: login,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack?.substring(0, 500),
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.status(500).json({
       success: false,
-      message: error.message.includes("не найден")
-        ? "Пользователь не найден"
-        : "Ошибка удаления аккаунта",
+      message: "Ошибка удаления аккаунта",
     });
   } finally {
     if (connection) {

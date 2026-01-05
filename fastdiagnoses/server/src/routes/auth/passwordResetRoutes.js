@@ -1,4 +1,3 @@
-// src/routes/auth/passwordResetRoutes.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const validator = require("validator");
@@ -10,26 +9,41 @@ const emailService = require("../../utils/emailService");
 const { query } = require("../../services/databaseService");
 const { validatePassword } = require("../../utils/validators");
 const config = require("../../config");
+const logger = require("../../services/LoggerService");
 
 // Восстановление пароля - запрос с проверкой кодового слова
 router.post("/forgot-password", async (req, res) => {
-  console.log("📧 Запрос восстановления пароля");
-
-  // Универсальное сообщение для безопасности (только для финального успеха)
-  const SECURITY_SUCCESS_MESSAGE =
-    "Если email зарегистрирован в системе, на него отправлена инструкция";
+  const startTime = Date.now();
+  const email = req.body.email;
 
   try {
-    const { email, secretWord } = req.body;
-    console.log("📧 Email из запроса:", email);
-    console.log(
-      "🔐 Secret word из запроса:",
-      secretWord ? "присутствует" : "отсутствует"
-    );
+    logger.info("Начало процесса восстановления пароля", {
+      type: "password_reset",
+      action: "forgot_password_start",
+      user_email: email,
+      endpoint: req.path,
+      method: req.method,
+      ip_address: req.ip,
+      timestamp: new Date().toISOString(),
+    });
+
+    const { secretWord } = req.body;
+
+    // Универсальное сообщение для безопасности (только для финального успеха)
+    const SECURITY_SUCCESS_MESSAGE =
+      "Если email зарегистрирован в системе, на него отправлена инструкция";
 
     // 1. Базовая валидация email
     if (!email) {
-      console.log("❌ Отсутствует email");
+      logger.warn("Отсутствует email в запросе восстановления пароля", {
+        type: "password_reset",
+        action: "forgot_password_failed",
+        status: "missing_email",
+        field: "email",
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Введите email адрес",
@@ -38,7 +52,16 @@ router.post("/forgot-password", async (req, res) => {
     }
 
     if (!validator.isEmail(email)) {
-      console.log("❌ Невалидный email:", email);
+      logger.warn("Невалидный email в запросе восстановления пароля", {
+        type: "password_reset",
+        action: "forgot_password_failed",
+        status: "invalid_email",
+        user_email: email,
+        field: "email",
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Введите корректный email адрес",
@@ -50,7 +73,16 @@ router.post("/forgot-password", async (req, res) => {
 
     // 2. Проверяем наличие кодового слова
     if (!secretWord) {
-      console.log("❌ Отсутствует кодовое слово");
+      logger.warn("Отсутствует кодовое слово", {
+        type: "password_reset",
+        action: "forgot_password_failed",
+        status: "missing_secret_word",
+        user_email: normalizedEmail,
+        field: "secretWord",
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Введите кодовое слово",
@@ -59,7 +91,16 @@ router.post("/forgot-password", async (req, res) => {
     }
 
     if (typeof secretWord !== "string") {
-      console.log("❌ Неверный тип кодового слова");
+      logger.warn("Неверный тип кодового слова", {
+        type: "password_reset",
+        action: "forgot_password_failed",
+        status: "invalid_secret_word_type",
+        user_email: normalizedEmail,
+        field: "secretWord",
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Кодовое слово должно быть текстом",
@@ -70,7 +111,16 @@ router.post("/forgot-password", async (req, res) => {
     const trimmedSecretWord = secretWord.trim();
 
     if (trimmedSecretWord === "") {
-      console.log("❌ Пустое кодовое слово");
+      logger.warn("Пустое кодовое слово", {
+        type: "password_reset",
+        action: "forgot_password_failed",
+        status: "empty_secret_word",
+        user_email: normalizedEmail,
+        field: "secretWord",
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Введите кодовое слово",
@@ -81,9 +131,7 @@ router.post("/forgot-password", async (req, res) => {
     // 3. Задержка для предотвращения timing-атак
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // 4. Ищем пользователя ПЕРВЫМ ДЕЛОМ
-    console.log(`🔍 Поиск пользователя с email: ${normalizedEmail}`);
-
+    // 4. Ищем пользователя
     const userResult = await query(
       "SELECT login, email, secret_word, blocked FROM usersdata WHERE email = ? AND logic = 'true'",
       [normalizedEmail]
@@ -95,19 +143,14 @@ router.post("/forgot-password", async (req, res) => {
     if (userResult) {
       if (Array.isArray(userResult) && userResult.length > 0) {
         user = userResult[0];
-        console.log("✅ Пользователь найден (массив):", user.login);
       } else if (userResult.login !== undefined) {
         user = userResult;
-        console.log("✅ Пользователь найден (объект):", user.login);
       } else if (userResult[0] && userResult[0].login !== undefined) {
         user = userResult[0];
-        console.log("✅ Пользователь найден (вложенный массив):", user.login);
-      } else {
-        console.log("❌ Пользователь не найден или некорректный формат данных");
       }
     }
 
-    // 6. Получаем количество существующих попыток (если пользователь найден)
+    // 6. Получаем количество существующих попыток
     let attemptCount = 0;
     let attemptsRecordId = null;
 
@@ -133,18 +176,29 @@ router.post("/forgot-password", async (req, res) => {
             attemptsRecordId = attemptsResult[0].id;
           }
         }
-
-        console.log(
-          `📊 Существующие попытки для ${normalizedEmail}: ${attemptCount}`
-        );
       } catch (attemptsError) {
-        console.error("❌ Ошибка получения попыток:", attemptsError.message);
+        logger.error("Ошибка получения попыток восстановления пароля", {
+          type: "password_reset",
+          action: "attempts_query_error",
+          user_email: normalizedEmail,
+          error_message: attemptsError.message,
+          execution_time_ms: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+        });
       }
     }
 
     // 7. Если пользователя НЕТ - показываем ошибку
     if (!user) {
-      console.log(`📭 Пользователь не найден: ${normalizedEmail}`);
+      logger.warn("Пользователь не найден для восстановления пароля", {
+        type: "password_reset",
+        action: "forgot_password_failed",
+        status: "user_not_found",
+        user_email: normalizedEmail,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(404).json({
         success: false,
         message: "Пользователь с таким email не найден",
@@ -152,16 +206,21 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
-    console.log("👤 Данные пользователя:", {
-      login: user.login,
-      email: user.email,
-      hasSecretWord: !!user.secret_word,
-      blocked: user.blocked,
-    });
-
     // 8. Проверяем, не заблокирован ли уже пользователь
     if (user.blocked === 1) {
-      console.log(`⛔ Заблокированный пользователь: ${normalizedEmail}`);
+      logger.warn(
+        "Попытка восстановления пароля заблокированного пользователя",
+        {
+          type: "password_reset",
+          action: "forgot_password_failed",
+          status: "account_blocked",
+          user_login: user.login,
+          user_email: normalizedEmail,
+          execution_time_ms: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+        }
+      );
+
       return res.status(403).json({
         success: false,
         message: "Аккаунт заблокирован. Обратитесь в техническую поддержку.",
@@ -170,9 +229,16 @@ router.post("/forgot-password", async (req, res) => {
 
     // 9. Проверяем лимит (3 НЕУДАЧНЫЕ попытки)
     if (attemptCount >= 3) {
-      console.log(
-        `🔒 Блокировка пользователя ${normalizedEmail} (3 неудачные попытки)`
-      );
+      logger.warn("Превышен лимит попыток восстановления пароля", {
+        type: "password_reset",
+        action: "account_blocked",
+        user_login: user.login,
+        user_email: normalizedEmail,
+        attempt_count: attemptCount,
+        max_attempts: 3,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
 
       try {
         // Блокируем пользователя
@@ -181,10 +247,6 @@ router.post("/forgot-password", async (req, res) => {
            SET blocked = 1, blocked_until = '2099-12-31 23:59:59'
            WHERE email = ? AND logic = 'true'`,
           [normalizedEmail]
-        );
-
-        console.log(
-          `✅ Пользователь ${normalizedEmail} заблокирован за 3 неудачные попытки`
         );
 
         // ОТПРАВЛЯЕМ EMAIL О БЛОКИРОВКЕ
@@ -197,16 +259,31 @@ router.post("/forgot-password", async (req, res) => {
             ipAddress: req.ip || "unknown",
             userAgent: req.headers["user-agent"] || "",
           });
-          console.log(`📧 Письмо о блокировке отправлено на: ${user.email}`);
+
+          logger.info("Email о блокировке отправлен", {
+            type: "password_reset",
+            action: "block_email_sent",
+            user_login: user.login,
+            user_email: normalizedEmail,
+            timestamp: new Date().toISOString(),
+          });
         } catch (emailError) {
-          console.error(
-            "❌ Ошибка отправки email о блокировке:",
-            emailError.message
-          );
-          // Не прерываем выполнение, если email не отправился
+          logger.error("Ошибка отправки email о блокировке", {
+            type: "password_reset",
+            action: "block_email_error",
+            user_email: normalizedEmail,
+            error_message: emailError.message,
+            timestamp: new Date().toISOString(),
+          });
         }
       } catch (blockError) {
-        console.error("❌ Ошибка блокировки:", blockError.message);
+        logger.error("Ошибка блокировки пользователя", {
+          type: "password_reset",
+          action: "block_error",
+          user_email: normalizedEmail,
+          error_message: blockError.message,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       return res.status(403).json({
@@ -216,17 +293,17 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
-    // 10. Проверяем кодовое слово
-    console.log(`🔐 Проверка кодового слова для ${normalizedEmail}`);
-    console.log(
-      `📝 Хэш в БД: ${user.secret_word ? "присутствует" : "отсутствует"}`
-    );
-
-    // Проверяем наличие кодового слова в БД
+    // 10. Проверяем наличие кодового слова в БД
     if (!user.secret_word || user.secret_word.trim() === "") {
-      console.log(
-        `❌ Кодовое слово не установлено для пользователя: ${normalizedEmail}`
-      );
+      logger.warn("Кодовое слово не установлено для пользователя", {
+        type: "password_reset",
+        action: "forgot_password_failed",
+        status: "secret_word_not_set",
+        user_login: user.login,
+        user_email: normalizedEmail,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
 
       // Фиксируем попытку
       try {
@@ -247,10 +324,13 @@ router.post("/forgot-password", async (req, res) => {
           );
         }
       } catch (updateError) {
-        console.warn(
-          "⚠️ Не удалось зафиксировать попытку:",
-          updateError.message
-        );
+        logger.warn("Не удалось зафиксировать попытку восстановления", {
+          type: "password_reset",
+          action: "attempt_log_error",
+          user_email: normalizedEmail,
+          error_message: updateError.message,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       return res.status(400).json({
@@ -262,18 +342,22 @@ router.post("/forgot-password", async (req, res) => {
     }
 
     // 11. Сравниваем кодовое слово с хэшем
-    console.log(`🔍 Сравнение кодового слова с хэшем...`);
     const isValidSecretWord = await bcrypt.compare(
       trimmedSecretWord,
       user.secret_word
     );
 
-    console.log(
-      `✅ Результат сравнения: ${isValidSecretWord ? "ВЕРНО" : "НЕВЕРНО"}`
-    );
-
     if (!isValidSecretWord) {
-      console.log(`❌ Неверное кодовое слово для ${normalizedEmail}`);
+      logger.warn("Неверное кодовое слово при восстановлении пароля", {
+        type: "password_reset",
+        action: "forgot_password_failed",
+        status: "invalid_secret_word",
+        user_login: user.login,
+        user_email: normalizedEmail,
+        attempt_count: attemptCount + 1,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
 
       // ФИКСИРУЕМ НЕУДАЧНУЮ ПОПЫТКУ
       try {
@@ -297,14 +381,8 @@ router.post("/forgot-password", async (req, res) => {
           newAttemptCount = 1;
         }
 
-        console.log(
-          `📈 Неудачная попытка зафиксирована: ${newAttemptCount}/3 (неверное кодовое слово)`
-        );
-
         // Проверяем, не достигли ли лимита
         if (newAttemptCount >= 3) {
-          console.log(`🔒 Достигнут лимит неудачных попыток - блокировка`);
-
           try {
             // Блокируем пользователя
             await query(
@@ -314,7 +392,14 @@ router.post("/forgot-password", async (req, res) => {
               [normalizedEmail]
             );
 
-            console.log(`✅ Аккаунт ${normalizedEmail} заблокирован`);
+            logger.warn("Аккаунт заблокирован после 3 неудачных попыток", {
+              type: "password_reset",
+              action: "account_blocked",
+              user_login: user.login,
+              user_email: normalizedEmail,
+              attempt_count: newAttemptCount,
+              timestamp: new Date().toISOString(),
+            });
 
             // ОТПРАВЛЯЕМ EMAIL О БЛОКИРОВКЕ
             try {
@@ -326,17 +411,23 @@ router.post("/forgot-password", async (req, res) => {
                 ipAddress: req.ip || "unknown",
                 userAgent: req.headers["user-agent"] || "",
               });
-              console.log(
-                `📧 Письмо о блокировке отправлено на: ${user.email}`
-              );
             } catch (emailError) {
-              console.error(
-                "❌ Ошибка отправки email о блокировке:",
-                emailError.message
-              );
+              logger.error("Ошибка отправки email о блокировке", {
+                type: "password_reset",
+                action: "block_email_error",
+                user_email: normalizedEmail,
+                error_message: emailError.message,
+                timestamp: new Date().toISOString(),
+              });
             }
           } catch (blockError) {
-            console.error("❌ Ошибка при блокировке:", blockError.message);
+            logger.error("Ошибка при блокировке аккаунта", {
+              type: "password_reset",
+              action: "block_error",
+              user_email: normalizedEmail,
+              error_message: blockError.message,
+              timestamp: new Date().toISOString(),
+            });
           }
 
           return res.status(403).json({
@@ -346,10 +437,13 @@ router.post("/forgot-password", async (req, res) => {
           });
         }
       } catch (updateError) {
-        console.warn(
-          "⚠️ Не удалось зафиксировать неудачную попытку:",
-          updateError.message
-        );
+        logger.warn("Не удалось зафиксировать неудачную попытку", {
+          type: "password_reset",
+          action: "attempt_log_error",
+          user_email: normalizedEmail,
+          error_message: updateError.message,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       const remainingAttempts = 3 - (attemptCount + 1);
@@ -367,32 +461,38 @@ router.post("/forgot-password", async (req, res) => {
     }
 
     // 12. Если кодовое слово ВЕРНО - удаляем все попытки
-    console.log(`✅ Кодовое слово верно для ${normalizedEmail}`);
+    logger.info("Кодовое слово проверено успешно", {
+      type: "password_reset",
+      action: "secret_word_validated",
+      user_login: user.login,
+      user_email: normalizedEmail,
+      execution_time_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+    });
 
     try {
       if (attemptsRecordId) {
         await query("DELETE FROM password_reset_attempts WHERE id = ?", [
           attemptsRecordId,
         ]);
-        console.log(`🔄 Все неудачные попытки удалены для ${normalizedEmail}`);
       } else {
         await query("DELETE FROM password_reset_attempts WHERE email = ?", [
           normalizedEmail,
         ]);
-        console.log(
-          `🔄 Все неудачные попытки удалены по email: ${normalizedEmail}`
-        );
       }
     } catch (deleteError) {
-      console.warn("⚠️ Не удалось удалить попытки:", deleteError.message);
+      logger.warn("Не удалось удалить записи о попытках", {
+        type: "password_reset",
+        action: "attempts_cleanup_error",
+        user_email: normalizedEmail,
+        error_message: deleteError.message,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     // 13. Создаем токен восстановления и отправляем email
-    console.log(`🔑 Создание токена для ${normalizedEmail}`);
-
     try {
       const resetToken = await passwordResetService.createToken(user.email);
-      console.log(`✅ Токен создан: ${resetToken?.substring(0, 20)}...`);
 
       await emailService.sendPasswordReset({
         login: user.login,
@@ -400,21 +500,51 @@ router.post("/forgot-password", async (req, res) => {
         resetToken: resetToken,
       });
 
-      console.log(`📧 Письмо отправлено на: ${user.email}`);
+      logger.info("Email восстановления пароля отправлен", {
+        type: "password_reset",
+        action: "reset_email_sent",
+        user_login: user.login,
+        user_email: normalizedEmail,
+        timestamp: new Date().toISOString(),
+      });
     } catch (serviceError) {
-      console.error("❌ Ошибка сервиса восстановления:", serviceError.message);
+      logger.error("Ошибка сервиса восстановления пароля", {
+        type: "password_reset",
+        action: "reset_token_error",
+        user_email: normalizedEmail,
+        error_message: serviceError.message,
+        stack_trace: serviceError.stack,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     // 14. Возвращаем успех
-    console.log(`✅ Восстановление пароля успешно для ${normalizedEmail}`);
+    const executionTime = Date.now() - startTime;
+
+    logger.info("Восстановление пароля успешно инициировано", {
+      type: "password_reset",
+      action: "forgot_password_success",
+      user_login: user.login,
+      user_email: normalizedEmail,
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
 
     res.status(200).json({
       success: true,
       message: SECURITY_SUCCESS_MESSAGE,
     });
   } catch (error) {
-    console.error("❌ Ошибка обработки запроса восстановления пароля:", error);
-    console.error("📋 Stack trace:", error.stack);
+    logger.error("Критическая ошибка восстановления пароля", {
+      type: "password_reset",
+      action: "forgot_password_error",
+      user_email: email,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack,
+      execution_time_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+    });
 
     res.status(500).json({
       success: false,
@@ -425,10 +555,28 @@ router.post("/forgot-password", async (req, res) => {
 
 // Проверка токена восстановления
 router.get("/validate-reset-token/:token", async (req, res) => {
+  const startTime = Date.now();
+  const { token } = req.params;
+
   try {
-    const { token } = req.params;
+    logger.info("Начало проверки токена восстановления", {
+      type: "password_reset",
+      action: "validate_token_start",
+      token_length: token?.length,
+      endpoint: req.path,
+      timestamp: new Date().toISOString(),
+    });
 
     if (!token || token.length < 10) {
+      logger.warn("Некорректный токен восстановления", {
+        type: "password_reset",
+        action: "validate_token_failed",
+        status: "invalid_token",
+        token_length: token?.length,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         valid: false,
@@ -438,6 +586,28 @@ router.get("/validate-reset-token/:token", async (req, res) => {
 
     const validation = await passwordResetService.validateToken(token);
 
+    const executionTime = Date.now() - startTime;
+
+    if (validation.valid) {
+      logger.info("Токен восстановления проверен успешно", {
+        type: "password_reset",
+        action: "validate_token_success",
+        user_email: validation.email,
+        token_valid: true,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      logger.warn("Токен восстановления недействителен", {
+        type: "password_reset",
+        action: "validate_token_failed",
+        status: "token_invalid",
+        reason: validation.message,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     res.json({
       success: true,
       valid: validation.valid,
@@ -446,7 +616,17 @@ router.get("/validate-reset-token/:token", async (req, res) => {
       expiresAt: validation.valid ? validation.expiresAt : undefined,
     });
   } catch (error) {
-    console.error("❌ Ошибка проверки токена восстановления:", error);
+    logger.error("Ошибка проверки токена восстановления", {
+      type: "password_reset",
+      action: "validate_token_error",
+      token_length: token?.length,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack,
+      execution_time_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+    });
+
     res.status(500).json({
       success: false,
       valid: false,
@@ -457,10 +637,30 @@ router.get("/validate-reset-token/:token", async (req, res) => {
 
 // Установка нового пароля
 router.post("/reset-password", async (req, res) => {
+  const startTime = Date.now();
+  const { token, newPassword } = req.body;
+
   try {
-    const { token, newPassword } = req.body;
+    logger.info("Начало установки нового пароля", {
+      type: "password_reset",
+      action: "reset_password_start",
+      token_length: token?.length,
+      endpoint: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString(),
+    });
 
     if (!token || !newPassword) {
+      logger.warn("Отсутствуют обязательные поля для сброса пароля", {
+        type: "password_reset",
+        action: "reset_password_failed",
+        status: "missing_fields",
+        has_token: !!token,
+        has_password: !!newPassword,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Токен и новый пароль обязательны",
@@ -471,6 +671,16 @@ router.post("/reset-password", async (req, res) => {
     try {
       validatePassword(newPassword);
     } catch (validationError) {
+      logger.warn("Невалидный пароль при сбросе", {
+        type: "password_reset",
+        action: "reset_password_failed",
+        status: "invalid_password",
+        error_message: validationError.message,
+        field: validationError.field,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: validationError.message,
@@ -481,6 +691,15 @@ router.post("/reset-password", async (req, res) => {
     const validation = await passwordResetService.validateToken(token);
 
     if (!validation.valid) {
+      logger.warn("Недействительный токен при сбросе пароля", {
+        type: "password_reset",
+        action: "reset_password_failed",
+        status: "invalid_token",
+        reason: validation.message,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: validation.message || "Токен недействителен или устарел",
@@ -495,6 +714,15 @@ router.post("/reset-password", async (req, res) => {
     );
 
     if (users.length === 0) {
+      logger.warn("Пользователь не найден при сбросе пароля", {
+        type: "password_reset",
+        action: "reset_password_failed",
+        status: "user_not_found",
+        user_email: email,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(404).json({
         success: false,
         message: "Пользователь не найден",
@@ -503,7 +731,18 @@ router.post("/reset-password", async (req, res) => {
 
     const user = users[0];
     const samePassword = await bcrypt.compare(newPassword, user.password);
+
     if (samePassword) {
+      logger.warn("Новый пароль совпадает с текущим", {
+        type: "password_reset",
+        action: "reset_password_failed",
+        status: "password_same",
+        user_login: user.login,
+        user_email: email,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Новый пароль должен отличаться от текущего",
@@ -529,15 +768,34 @@ router.post("/reset-password", async (req, res) => {
         userIp: req.ip || req.connection.remoteAddress,
         userAgent: req.headers["user-agent"] || "Неизвестное устройство",
       });
-      console.log(`📧 Уведомление об изменении пароля отправлено на ${email}`);
+
+      logger.info("Уведомление об изменении пароля отправлено", {
+        type: "password_reset",
+        action: "password_change_email_sent",
+        user_login: user.login,
+        user_email: email,
+        timestamp: new Date().toISOString(),
+      });
     } catch (emailError) {
-      console.warn(
-        "⚠️ Не удалось отправить email уведомление:",
-        emailError.message
-      );
+      logger.warn("Не удалось отправить email уведомление", {
+        type: "password_reset",
+        action: "password_change_email_error",
+        user_email: email,
+        error_message: emailError.message,
+        timestamp: new Date().toISOString(),
+      });
     }
 
-    console.log(`✅ Пароль изменен для пользователя: ${user.login}`);
+    const executionTime = Date.now() - startTime;
+
+    logger.info("Пароль успешно изменен", {
+      type: "password_reset",
+      action: "reset_password_success",
+      user_login: user.login,
+      user_email: email,
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
 
     res.json({
       success: true,
@@ -547,7 +805,16 @@ router.post("/reset-password", async (req, res) => {
       emailSent: true,
     });
   } catch (error) {
-    console.error("❌ Ошибка установки нового пароля:", error);
+    logger.error("Ошибка установки нового пароля", {
+      type: "password_reset",
+      action: "reset_password_error",
+      token_length: token?.length,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack,
+      execution_time_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+    });
 
     if (error.name === "ValidationError") {
       return res.status(400).json({

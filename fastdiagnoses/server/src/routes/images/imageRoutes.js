@@ -12,8 +12,8 @@ const { uploadSingleImage } = require("../../utils/uploadConfig");
 const userTableService = require("../../services/userTableService");
 const workerService = require("../../services/workerService");
 const { query, getConnection } = require("../../services/databaseService");
-const { deleteImageFromDisk } = require("../../utils/fileSystem");
 const config = require("../../config");
+const logger = require("../../services/LoggerService");
 
 const UPLOAD_DIR = config.UPLOAD_DIR;
 
@@ -28,12 +28,28 @@ router.post(
     let fileUuid = "";
 
     try {
-      console.log(`📥 Загрузка изображения от ${login}`, {
+      logger.info("Начало загрузки изображения", {
+        type: "image",
+        action: "upload_start",
+        user_login: login,
         filename: req.file?.originalname,
-        size: (req.file?.size / 1024 / 1024).toFixed(2) + " MB",
+        file_size: req.file?.size,
+        endpoint: req.path,
+        method: req.method,
+        ip_address: req.ip,
+        timestamp: new Date().toISOString(),
       });
 
       if (!req.file) {
+        logger.warn("Файл не предоставлен при загрузке", {
+          type: "image",
+          action: "upload_failed",
+          status: "no_file",
+          user_login: login,
+          execution_time_ms: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+        });
+
         return res.status(400).json({
           success: false,
           message: "Файл не предоставлен или превышен размер (максимум 15MB)",
@@ -52,12 +68,16 @@ router.post(
       const tableExists = await userTableService.tableExists(login);
 
       if (!tableExists) {
+        logger.info("Создание таблицы пользователя при загрузке", {
+          type: "image",
+          action: "create_user_table",
+          user_login: login,
+          timestamp: new Date().toISOString(),
+        });
         await userTableService.createUserTable(login);
       }
 
       fileUuid = crypto.randomUUID();
-
-      console.log(`🔄 Отправка задачи в воркер: ${fileUuid}`);
 
       const workerResult = await workerService.addTask({
         buffer: file.buffer,
@@ -71,11 +91,6 @@ router.post(
       if (!workerResult.success) {
         throw new Error(`Worker ошибка: ${workerResult.error}`);
       }
-
-      console.log(
-        `✅ Worker обработал за ${workerTime}ms:`,
-        workerResult.filename
-      );
 
       await query(
         `INSERT INTO \`${login}\` (
@@ -100,8 +115,20 @@ router.post(
 
       const totalTime = Date.now() - startTime;
 
-      console.log(`✅ Изображение полностью обработано за ${totalTime}ms`);
-      console.log(`📊 Статистика воркеров:`, workerService.getStats());
+      logger.info("Изображение успешно загружено", {
+        type: "image",
+        action: "upload_success",
+        user_login: login,
+        file_uuid: fileUuid,
+        filename: workerResult.filename,
+        file_size: workerResult.fileSize,
+        dimensions: `${workerResult.width}x${workerResult.height}`,
+        worker_time_ms: workerTime,
+        total_time_ms: totalTime,
+        fallback_used: workerResult.fallback || false,
+        execution_time_ms: totalTime,
+        timestamp: new Date().toISOString(),
+      });
 
       res.json({
         success: true,
@@ -121,9 +148,42 @@ router.post(
         },
       });
     } catch (error) {
-      console.error("❌ Ошибка загрузки изображения:", error);
+      const executionTime = Date.now() - startTime;
 
-      if (req.file && login) {
+      if (error.name === "ValidationError") {
+        logger.warn("Ошибка валидации при загрузке изображения", {
+          type: "image",
+          action: "upload_failed",
+          status: "validation_error",
+          user_login: login,
+          error_name: error.name,
+          error_message: error.message,
+          field: error.field,
+          execution_time_ms: executionTime,
+          timestamp: new Date().toISOString(),
+        });
+
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+          field: error.field,
+        });
+      }
+
+      logger.error("Ошибка загрузки изображения", {
+        type: "image",
+        action: "upload_error",
+        user_login: login,
+        error_name: error.name,
+        error_message: error.message,
+        stack_trace: error.stack?.substring(0, 500),
+        file_uuid: fileUuid,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Очистка файлов при ошибке
+      if (req.file && login && fileUuid) {
         try {
           const userDir = path.join(UPLOAD_DIR, login);
           const filesToDelete = await fs.readdir(userDir).catch(() => []);
@@ -133,17 +193,26 @@ router.post(
               await fs.unlink(path.join(userDir, file)).catch(() => {});
             }
           }
-        } catch (cleanupError) {
-          console.warn("⚠️ Ошибка очистки:", cleanupError.message);
-        }
-      }
 
-      if (error.name === "ValidationError") {
-        return res.status(400).json({
-          success: false,
-          message: error.message,
-          field: error.field,
-        });
+          logger.info("Очистка файлов после ошибки загрузки", {
+            type: "image",
+            action: "cleanup_after_error",
+            user_login: login,
+            file_uuid: fileUuid,
+            files_cleaned: filesToDelete.filter((f) => f.includes(fileUuid))
+              .length,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (cleanupError) {
+          logger.warn("Ошибка при очистке файлов", {
+            type: "image",
+            action: "cleanup_error",
+            user_login: login,
+            file_uuid: fileUuid,
+            error_message: cleanupError.message,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
 
       res.status(500).json({
@@ -158,14 +227,37 @@ router.post(
 
 // Получение изображений с пагинацией
 router.post("/paginated", authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+  const login = req.user.login;
+
   try {
-    const login = req.user.login;
+    logger.info("Начало получения изображений с пагинацией", {
+      type: "image",
+      action: "get_paginated_start",
+      user_login: login,
+      endpoint: req.path,
+      method: req.method,
+      page: req.body.page,
+      limit: req.body.limit,
+      timestamp: new Date().toISOString(),
+    });
+
     const { page = 1, limit = 5 } = req.body;
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
 
     if (isNaN(pageNum) || pageNum < 1) {
+      logger.warn("Некорректный номер страницы при пагинации", {
+        type: "image",
+        action: "get_paginated_failed",
+        status: "invalid_page",
+        user_login: login,
+        provided_page: page,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Некорректный номер страницы",
@@ -173,6 +265,17 @@ router.post("/paginated", authenticateToken, async (req, res) => {
     }
 
     if (isNaN(limitNum) || limitNum < 1 || limitNum > 50) {
+      logger.warn("Некорректный лимит при пагинации", {
+        type: "image",
+        action: "get_paginated_failed",
+        status: "invalid_limit",
+        user_login: login,
+        provided_limit: limit,
+        max_allowed: 50,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Некорректный лимит (максимум 50 записей на страницу)",
@@ -184,6 +287,17 @@ router.post("/paginated", authenticateToken, async (req, res) => {
     const tableExists = await userTableService.tableExists(login);
 
     if (!tableExists) {
+      const executionTime = Date.now() - startTime;
+
+      logger.info("Таблица пользователя не найдена при пагинации", {
+        type: "image",
+        action: "get_paginated_empty",
+        user_login: login,
+        table_exists: false,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.json({
         success: true,
         images: [],
@@ -283,6 +397,21 @@ router.post("/paginated", authenticateToken, async (req, res) => {
         };
       });
 
+      const executionTime = Date.now() - startTime;
+
+      logger.info("Изображения успешно получены с пагинацией", {
+        type: "image",
+        action: "get_paginated_success",
+        user_login: login,
+        images_count: parsedImages.length,
+        total_items: totalItems,
+        total_pages: totalPages,
+        current_page: pageNum,
+        items_per_page: limitNum,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       res.json({
         success: true,
         images: parsedImages,
@@ -299,9 +428,19 @@ router.post("/paginated", authenticateToken, async (req, res) => {
       connection.release();
     }
   } catch (error) {
-    console.error("Ошибка получения изображений с пагинацией:", error);
+    const executionTime = Date.now() - startTime;
 
     if (error.code === "ER_NO_SUCH_TABLE") {
+      logger.warn("Таблица пользователя не найдена", {
+        type: "image",
+        action: "get_paginated_failed",
+        status: "table_not_found",
+        user_login: login,
+        error_code: error.code,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.json({
         success: true,
         images: [],
@@ -317,6 +456,17 @@ router.post("/paginated", authenticateToken, async (req, res) => {
       });
     }
 
+    logger.error("Ошибка получения изображений с пагинацией", {
+      type: "image",
+      action: "get_paginated_error",
+      user_login: login,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack?.substring(0, 500),
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
+
     res.status(500).json({
       success: false,
       message: "Ошибка получения изображений",
@@ -326,11 +476,33 @@ router.post("/paginated", authenticateToken, async (req, res) => {
 
 // Получение оригинального изображения
 router.get("/original/:uuid", authenticateToken, async (req, res) => {
+  const startTime = Date.now();
   const login = req.user.login;
+
   try {
     const { uuid } = req.params;
 
+    logger.info("Начало получения оригинального изображения", {
+      type: "image",
+      action: "get_original_start",
+      user_login: login,
+      file_uuid: uuid,
+      endpoint: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString(),
+    });
+
     if (!uuid) {
+      logger.warn("Некорректный UUID при получении изображения", {
+        type: "image",
+        action: "get_original_failed",
+        status: "invalid_uuid",
+        user_login: login,
+        provided_uuid: uuid,
+        execution_time_ms: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Некорректный UUID",
@@ -347,6 +519,18 @@ router.get("/original/:uuid", authenticateToken, async (req, res) => {
     const results = await query(sql, [uuid]);
 
     if (results.length === 0) {
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Изображение не найдено в БД", {
+        type: "image",
+        action: "get_original_failed",
+        status: "image_not_found",
+        user_login: login,
+        file_uuid: uuid,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(404).json({
         success: false,
         message: "Изображение не найдено",
@@ -366,6 +550,19 @@ router.get("/original/:uuid", authenticateToken, async (req, res) => {
     try {
       await fs.access(filePath);
 
+      const executionTime = Date.now() - startTime;
+
+      logger.info("Оригинальное изображение успешно получено", {
+        type: "image",
+        action: "get_original_success",
+        user_login: login,
+        file_uuid: row.file_uuid || uuid,
+        filename: row.fileNameOriginIMG,
+        file_exists: true,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.json({
         success: true,
         originalUrl: `/uploads/${login}/originals/${filename}`,
@@ -374,7 +571,15 @@ router.get("/original/:uuid", authenticateToken, async (req, res) => {
         id: row.id,
       });
     } catch (fsError) {
-      console.error(`❌ Файл не найден на диске: ${filePath}`, fsError);
+      logger.warn("Файл не найден на диске, поиск альтернативы", {
+        type: "image",
+        action: "get_original_warning",
+        user_login: login,
+        file_uuid: uuid,
+        expected_path: filePath,
+        error_message: fsError.message,
+        timestamp: new Date().toISOString(),
+      });
 
       try {
         const files = await fs.readdir(
@@ -384,6 +589,18 @@ router.get("/original/:uuid", authenticateToken, async (req, res) => {
         const matchingFile = files.find((file) => file.includes(uuid));
 
         if (matchingFile) {
+          const executionTime = Date.now() - startTime;
+
+          logger.info("Альтернативный файл найден", {
+            type: "image",
+            action: "get_original_alternative_found",
+            user_login: login,
+            file_uuid: uuid,
+            matched_file: matchingFile,
+            execution_time_ms: executionTime,
+            timestamp: new Date().toISOString(),
+          });
+
           return res.json({
             success: true,
             originalUrl: `/uploads/${login}/originals/${matchingFile}`,
@@ -392,8 +609,27 @@ router.get("/original/:uuid", authenticateToken, async (req, res) => {
           });
         }
       } catch (readError) {
-        console.error("Ошибка чтения директории:", readError);
+        logger.error("Ошибка чтения директории при поиске файла", {
+          type: "image",
+          action: "get_original_error",
+          user_login: login,
+          file_uuid: uuid,
+          error_message: readError.message,
+          timestamp: new Date().toISOString(),
+        });
       }
+
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Файл не найден на диске", {
+        type: "image",
+        action: "get_original_failed",
+        status: "file_not_found_on_disk",
+        user_login: login,
+        file_uuid: uuid,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
 
       res.status(404).json({
         success: false,
@@ -401,18 +637,36 @@ router.get("/original/:uuid", authenticateToken, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Ошибка получения оригинального изображения:", error);
+    const executionTime = Date.now() - startTime;
 
     if (error.code === "ER_NO_SUCH_TABLE") {
+      logger.warn("Таблица пользователя не найдена при получении изображения", {
+        type: "image",
+        action: "get_original_failed",
+        status: "table_not_found",
+        user_login: login,
+        error_code: error.code,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(404).json({
         success: false,
         message: `Таблица пользователя '${login}' не найдена`,
       });
     }
 
-    if (error.code === "ER_PARSE_ERROR") {
-      console.error("СИНТАКСИЧЕСКАЯ ОШИБКА SQL! Проверь SQL запрос");
-    }
+    logger.error("Ошибка получения оригинального изображения", {
+      type: "image",
+      action: "get_original_error",
+      user_login: login,
+      file_uuid: req.params.uuid,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack?.substring(0, 500),
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
 
     res.status(500).json({
       success: false,
@@ -425,11 +679,35 @@ router.get("/original/:uuid", authenticateToken, async (req, res) => {
 
 // Получение превью изображения
 router.get("/thumbnail/:uuid", authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+
   try {
     const login = req.user.login;
     const { uuid } = req.params;
 
+    logger.info("Начало получения превью изображения", {
+      type: "image",
+      action: "get_thumbnail_start",
+      user_login: login,
+      file_uuid: uuid,
+      endpoint: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString(),
+    });
+
     if (!uuid) {
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Некорректный UUID при получении превью", {
+        type: "image",
+        action: "get_thumbnail_failed",
+        status: "invalid_uuid",
+        user_login: login,
+        provided_uuid: uuid,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(400).json({
         success: false,
         message: "Некорректный UUID",
@@ -442,6 +720,18 @@ router.get("/thumbnail/:uuid", authenticateToken, async (req, res) => {
     );
 
     if (results.length === 0) {
+      const executionTime = Date.now() - startTime;
+
+      logger.warn("Превью не найдено в БД", {
+        type: "image",
+        action: "get_thumbnail_failed",
+        status: "thumbnail_not_found",
+        user_login: login,
+        file_uuid: uuid,
+        execution_time_ms: executionTime,
+        timestamp: new Date().toISOString(),
+      });
+
       return res.status(404).json({
         success: false,
         message: "Превью не найдено",
@@ -451,12 +741,37 @@ router.get("/thumbnail/:uuid", authenticateToken, async (req, res) => {
     const row = results[0];
     const filename = path.basename(row.thumbnail_path);
 
+    const executionTime = Date.now() - startTime;
+
+    logger.info("Превью успешно получено", {
+      type: "image",
+      action: "get_thumbnail_success",
+      user_login: login,
+      file_uuid: uuid,
+      filename: filename,
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
+
     return res.json({
       success: true,
       thumbnailUrl: `/uploads/${login}/thumbnails/${filename}`,
     });
   } catch (error) {
-    console.error("Ошибка получения превью:", error);
+    const executionTime = Date.now() - startTime;
+
+    logger.error("Ошибка получения превью изображения", {
+      type: "image",
+      action: "get_thumbnail_error",
+      user_login: req.user?.login,
+      file_uuid: req.params.uuid,
+      error_name: error.name,
+      error_message: error.message,
+      stack_trace: error.stack?.substring(0, 500),
+      execution_time_ms: executionTime,
+      timestamp: new Date().toISOString(),
+    });
+
     res.status(500).json({
       success: false,
       message: "Ошибка получения превью",
