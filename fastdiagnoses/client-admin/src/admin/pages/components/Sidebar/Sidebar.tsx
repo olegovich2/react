@@ -24,7 +24,7 @@ console.log('render Sidebar');
     <aside className="admin-sidebar">
       <div className="admin-sidebar-logo">
         <div className="admin-sidebar-logo-icon">⚕️</div>
-        <h2 className="admin-sidebar-logo-text">FastDiagnoses</h2>
+        <h2 className="admin-sidebar-logo-text">QuickDiagnosis</h2>
         <p className="admin-sidebar-logo-subtext">Админ-панель</p>
       </div>
       

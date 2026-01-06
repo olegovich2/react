@@ -53,7 +53,7 @@ const AdminLogin: React.FC = () => {
     <div className="admin-login-container">
       <div className="admin-login-card">
         <div className="admin-login-header">
-          <h1 className="admin-login-title">FastDiagnoses</h1>
+          <h1 className="admin-login-title">QuickDiagnosis</h1>
           <p className="admin-login-subtitle">Административная панель</p>
         </div>
         
