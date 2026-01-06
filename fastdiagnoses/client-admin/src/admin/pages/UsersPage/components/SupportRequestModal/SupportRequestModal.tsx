@@ -90,13 +90,10 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
 
   // Загружаем запросы пользователя
   useEffect(() => {
+    console.log('SupportRequestModal рендер');
+    
     const loadRequests = async () => {
       try {
-        console.log("📥 [SupportRequestModal] Загрузка запросов:", {
-          user: user.login,
-          type: requestType,
-        });
-
         const response = await supportService.getUserSupportRequests(
           user.login,
           requestType,
@@ -115,10 +112,6 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
             const firstRequest = activeRequests[0];
             setSelectedRequest(firstRequest);
 
-            console.log(
-              "🔍 [SupportRequestModal] Автоматическая проверка запроса:",
-              firstRequest.id
-            );
             await handleValidate(firstRequest.id);
           } else {
             setError("Нет активных запросов этого типа");
@@ -129,7 +122,6 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
           setState("encrypted");
         }
       } catch (err: any) {
-        console.error("❌ [SupportRequestModal] Ошибка загрузки:", err);
         setError(err.message || "Ошибка загрузки запросов");
         setState("encrypted");
       }
@@ -144,27 +136,17 @@ const SupportRequestModal: React.FC<SupportRequestModalProps> = ({
     setError("");
 
     try {
-      console.log("🔍 [SupportRequestModal] Проверка запроса:", requestId);
-
       const response: ValidationResponse =
         await supportService.validateSupportRequest(requestId);
 
       if (response.success) {
         setValidationResult(response);
         setState("encrypted");
-
-        console.log("✅ [SupportRequestModal] Результат проверки:", {
-          isValid: response.isValid,
-          errorsCount: response.errors?.length || 0,
-          checkedFields: response.checkedFields,
-          validationDetails: response.validationDetails,
-        });
       } else {
         setError(response.message || "Ошибка проверки");
         setState("encrypted");
       }
     } catch (err: any) {
-      console.error("❌ [SupportRequestModal] Ошибка проверки:", err);
       setError(err.message || "Ошибка проверки запроса");
       setState("encrypted");
     }

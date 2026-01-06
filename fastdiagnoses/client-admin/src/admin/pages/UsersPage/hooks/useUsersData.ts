@@ -75,9 +75,7 @@ const useUsersData = () => {
   // Загрузка общей статистики
   const fetchStats = useCallback(async () => {
     try {
-      console.log("📊 [useUsersData] Загрузка статистики дашборда...");
       const response = await dashboardService.getStats();
-      console.log("📊 [useUsersData] Статистика дашборда:", response);
 
       if (response.success && response.data) {
         setStats((prev) => ({
@@ -87,7 +85,6 @@ const useUsersData = () => {
         }));
       }
     } catch (error) {
-      console.error("❌ [useUsersData] Ошибка загрузки статистики:", error);
     }
   }, []);
 
@@ -99,14 +96,7 @@ const useUsersData = () => {
 
       try {
         const currentFilters = { ...filters, ...(filtersOverride || {}) };
-
-        console.log("🔍 [useUsersData] Запрос пользователей с фильтрами:", {
-          page,
-          search: searchTerm,
-          filters: currentFilters,
-          itemsPerPage: pagination.itemsPerPage,
-        });
-
+        
         // Подготавливаем параметры для API
         const apiParams: Record<string, any> = {
           page,
@@ -154,13 +144,6 @@ const useUsersData = () => {
         
         const response = await usersService.getAll(apiParams);
 
-        console.log("📥 [useUsersData] Ответ от сервера:", {
-          success: response.success,
-          usersCount: response.users?.length,
-          pagination: response.pagination,
-          stats: response.stats,
-        });
-
         if (response.success && response.users) {
           // Пользователи
           const usersData = response.users;
@@ -194,29 +177,12 @@ const useUsersData = () => {
                 response.stats?.usersWithOverdueRequests ||
                 prev.usersWithOverdueRequests,
             }));
-          }
-
-          // Безопасный подсчет статистики с проверкой на undefined
-          const blockedCount = usersData.filter((u) => u.isBlocked).length;
-          const withRequestsCount = usersData.filter(
-            (u) => (u.supportRequests?.total || 0) > 0
-          ).length;
-          const withOverdueCount = usersData.filter(
-            (u) => u.supportRequests?.overdue
-          ).length;
-
-          console.log("✅ [useUsersData] Пользователи загружены:", {
-            count: usersData.length,
-            blocked: blockedCount,
-            withRequests: withRequestsCount,
-            withOverdue: withOverdueCount,
-          });
+          }          
         } else {
           const errorMsg = response.message || "Ошибка загрузки пользователей";
           setError(errorMsg);
         }
-      } catch (error: any) {
-        console.error("❌ [useUsersData] Ошибка fetchUsers:", error);
+      } catch (error: any) {        
         const errorMsg = error.message || "Ошибка соединения с сервером";
         setError(errorMsg);
       } finally {

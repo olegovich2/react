@@ -14,6 +14,8 @@ interface UsersStatsProps {
 }
 
 const UsersStats: React.FC<UsersStatsProps> = ({ stats }) => {
+  console.log('UsersStats render');
+  
   return (
     <div className="users-stats-grid">
       <div className="users-stat-card users-stat-total">

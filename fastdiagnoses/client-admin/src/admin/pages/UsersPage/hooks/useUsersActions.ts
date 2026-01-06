@@ -33,7 +33,6 @@ const useUsersActions = (fetchUsers: (page: number) => Promise<void>, currentPag
     }
     
     if (!message) {
-      console.error('❌ [useUsersActions] Не указано сообщение для уведомления');
       return;
     }
     
@@ -56,15 +55,12 @@ const useUsersActions = (fetchUsers: (page: number) => Promise<void>, currentPag
         showNotification('error', response.message || 'Ошибка сброса пароля');
       }
     } catch (error: any) {
-      console.error('❌ Ошибка сброса пароля:', error);
       showNotification('error', error.message || 'Ошибка сброса пароля');
     }
   };
 
   // Обработчик клика по кнопке запроса (ВСЕ ТИПЫ возвращают пользователя)
-  const handleRequestAction = async (user: User, requestType: string): Promise<User | null> => {
-    console.log(`📩 Обработка запроса ${requestType} для пользователя ${user.login}`);
-    
+  const handleRequestAction = async (user: User, requestType: string): Promise<User | null> => {    
     // ВСЕГДА возвращаем пользователя для открытия модалки техподдержки
     // UsersPage откроет модалку с проверкой активных запросов
     return user;

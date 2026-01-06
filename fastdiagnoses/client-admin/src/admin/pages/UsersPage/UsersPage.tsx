@@ -168,7 +168,6 @@ const handleRequestAction = async (user: User, requestType: string): Promise<Use
         showNotification('error', response.message || 'Ошибка обработки запроса');
       }
     } catch (error: any) {
-      console.error('❌ Ошибка обработки запроса:', error);
       showNotification('error', error.message || 'Ошибка сервера');
     }
   };
