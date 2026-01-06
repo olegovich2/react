@@ -1,7 +1,0 @@
-/node_modules
-/UploadIMG
-.env
-.env.local
-.env.*.local
-*.env
-/logs
